@@ -1961,6 +1961,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let isSpeaking = false;
 
+    let stopCommandRecognition = null;
+    let stopCommandRequested = false;
+
 
     /* =========================================================
        VOICE SETTINGS
@@ -2461,7 +2464,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
         chatInput.addEventListener(
             "input",
-            resize
+            () => {
+
+                interruptNarration();
+
+                resize();
+
+            }
         );
 
 
@@ -2475,6 +2484,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 ) {
 
                     event.preventDefault();
+
+                    interruptNarration();
 
                     sendMessage();
 
@@ -2709,6 +2720,8 @@ document.addEventListener("DOMContentLoaded", () => {
     ========================================================= */
 
     async function sendMessage() {
+
+        interruptNarration();
 
         if (isSending) return;
 
@@ -3465,6 +3478,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         isSpeaking = true;
 
+        startStopCommandListener();
+
 
         speakNext(
             generation,
@@ -3501,6 +3516,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
         if (!speechQueue.length) {
+
+            stopStopCommandListener();
 
             stopSpeakingUI();
 
@@ -3659,6 +3676,175 @@ document.addEventListener("DOMContentLoaded", () => {
         voiceWave?.classList.remove(
             "show"
         );
+
+    }
+
+
+    function startStopCommandListener() {
+
+        const Recognition =
+            window.SpeechRecognition ||
+            window.webkitSpeechRecognition;
+
+
+        if (
+            !Recognition ||
+            stopCommandRecognition
+        ) {
+
+            return;
+
+        }
+
+
+        stopCommandRequested = false;
+
+        const recognition = new Recognition();
+
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = "en-IN";
+
+        recognition.onresult = event => {
+
+            for (
+                let index = event.resultIndex;
+                index < event.results.length;
+                index++
+            ) {
+
+                const transcript =
+                    event.results[index][0]?.transcript
+                        ?.toLowerCase()
+                        .trim() || "";
+
+
+                if (
+                    /\b(?:stop|stop it|please stop|shut up|pause)\b/.test(
+                        transcript
+                    ) ||
+                    /(?:थामो|रुको|बंद करो|থামো|থামুন)/.test(
+                        transcript
+                    )
+                ) {
+
+                    stopStopCommandListener();
+                    interruptNarration();
+
+                    showToast("Narration stopped.");
+
+                    return;
+
+                }
+
+            }
+
+        };
+
+        recognition.onerror = () => {
+
+            stopStopCommandListener();
+
+        };
+
+        recognition.onend = () => {
+
+            stopCommandRecognition = null;
+
+            if (
+                !stopCommandRequested &&
+                isSpeaking &&
+                voiceMode
+            ) {
+
+                startStopCommandListener();
+
+            }
+
+        };
+
+
+        stopCommandRecognition = recognition;
+
+
+        try {
+
+            recognition.start();
+
+        } catch {
+
+            stopCommandRecognition = null;
+
+        }
+
+    }
+
+
+    function stopStopCommandListener() {
+
+        stopCommandRequested = true;
+
+
+        if (!stopCommandRecognition) {
+
+            return;
+
+        }
+
+
+        try {
+
+            stopCommandRecognition.onend = null;
+            stopCommandRecognition.abort();
+
+        } catch {}
+
+
+        stopCommandRecognition = null;
+
+    }
+
+
+    function interruptNarration() {
+
+        if (
+            !isSpeaking &&
+            !speechQueue.length
+        ) {
+
+            return;
+
+        }
+
+
+        speechGeneration++;
+
+        speechQueue = [];
+
+        stopStopCommandListener();
+
+
+        if (
+            "speechSynthesis" in window
+        ) {
+
+            try {
+
+                speechSynthesis.cancel();
+
+            } catch {}
+
+        }
+
+
+        stopSpeakingUI();
+
+
+        if (voiceMode) {
+
+            restartMicrophone();
+
+        }
 
     }
 
@@ -5035,6 +5221,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         speechQueue =
             [];
+
+        stopStopCommandListener();
 
 
         if (
