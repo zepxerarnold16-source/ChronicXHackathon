@@ -1,0 +1,3139 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="ChronicAI — Track your submitted civic report"
+    >
+
+    <title>ChronicAI — Track Report</title>
+
+
+    <!-- =====================================================
+         FONT AWESOME
+    ====================================================== -->
+
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    >
+
+
+    <!-- =====================================================
+         GLOBAL CSS
+    ====================================================== -->
+
+    <link
+        rel="stylesheet"
+        href="global.css"
+    >
+
+
+    <!-- =====================================================
+         PAGE STYLES
+    ====================================================== -->
+
+    <style>
+
+        /* =====================================================
+           ROOT
+        ===================================================== */
+
+        :root {
+
+            --track-bg:
+                #050816;
+
+            --track-card:
+                rgba(13, 18, 38, 0.78);
+
+            --track-border:
+                rgba(120, 150, 255, 0.16);
+
+            --track-blue:
+                #4f8cff;
+
+            --track-cyan:
+                #00d9ff;
+
+            --track-purple:
+                #8b5cf6;
+
+            --track-green:
+                #22c55e;
+
+            --track-yellow:
+                #facc15;
+
+            --track-red:
+                #ef4444;
+
+            --track-text:
+                #f5f7ff;
+
+            --track-muted:
+                #9ca8c7;
+
+        }
+
+
+        /* =====================================================
+           PAGE
+        ===================================================== */
+
+        .track-page {
+
+            min-height: 100vh;
+
+            position: relative;
+
+            overflow: hidden;
+
+            background:
+                radial-gradient(
+                    circle at 15% 15%,
+                    rgba(79, 140, 255, 0.12),
+                    transparent 32%
+                ),
+                radial-gradient(
+                    circle at 85% 20%,
+                    rgba(139, 92, 246, 0.12),
+                    transparent 30%
+                ),
+                radial-gradient(
+                    circle at 50% 90%,
+                    rgba(0, 217, 255, 0.08),
+                    transparent 30%
+                ),
+                var(--track-bg);
+
+            padding:
+                120px 20px 70px;
+
+        }
+
+
+        /* =====================================================
+           AMBIENT GLOW
+        ====================================================== */
+
+        .track-glow {
+
+            position: absolute;
+
+            width: 420px;
+            height: 420px;
+
+            border-radius: 50%;
+
+            filter: blur(100px);
+
+            opacity: 0.18;
+
+            pointer-events: none;
+
+            animation:
+                trackFloat 8s ease-in-out infinite;
+
+        }
+
+
+        .track-glow-one {
+
+            top: -150px;
+            left: -120px;
+
+            background:
+                var(--track-blue);
+
+        }
+
+
+        .track-glow-two {
+
+            right: -140px;
+            top: 30%;
+
+            background:
+                var(--track-purple);
+
+            animation-delay:
+                -3s;
+
+        }
+
+
+        .track-glow-three {
+
+            bottom: -180px;
+            left: 35%;
+
+            background:
+                var(--track-cyan);
+
+            animation-delay:
+                -5s;
+
+        }
+
+
+        @keyframes trackFloat {
+
+            0%,
+            100% {
+
+                transform:
+                    translate3d(
+                        0,
+                        0,
+                        0
+                    );
+
+            }
+
+            50% {
+
+                transform:
+                    translate3d(
+                        20px,
+                        -25px,
+                        0
+                    );
+
+            }
+
+        }
+
+
+        /* =====================================================
+           CONTAINER
+        ====================================================== */
+
+        .track-container {
+
+            width: 100%;
+
+            max-width: 1050px;
+
+            margin:
+                0 auto;
+
+            position: relative;
+
+            z-index: 2;
+
+        }
+
+
+        /* =====================================================
+           HERO
+        ====================================================== */
+
+        .track-hero {
+
+            text-align: center;
+
+            margin-bottom:
+                38px;
+
+            animation:
+                trackFadeUp 0.8s ease both;
+
+        }
+
+
+        .track-icon {
+
+            width: 72px;
+            height: 72px;
+
+            margin:
+                0 auto 20px;
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            border-radius: 22px;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    rgba(79, 140, 255, 0.20),
+                    rgba(139, 92, 246, 0.18)
+                );
+
+            border:
+                1px solid
+                rgba(120, 150, 255, 0.24);
+
+            box-shadow:
+                0 0 40px
+                rgba(79, 140, 255, 0.18);
+
+            color:
+                var(--track-cyan);
+
+            font-size:
+                28px;
+
+            animation:
+                iconFloat 4s ease-in-out infinite;
+
+        }
+
+
+        @keyframes iconFloat {
+
+            0%,
+            100% {
+
+                transform:
+                    translateY(0);
+
+            }
+
+            50% {
+
+                transform:
+                    translateY(-7px);
+
+            }
+
+        }
+
+
+        .track-hero h1 {
+
+            margin: 0;
+
+            color:
+                var(--track-text);
+
+            font-size:
+                clamp(
+                    2rem,
+                    5vw,
+                    3.2rem
+                );
+
+            font-weight:
+                800;
+
+            letter-spacing:
+                -0.04em;
+
+        }
+
+
+        .track-hero h1 span {
+
+            background:
+                linear-gradient(
+                    90deg,
+                    var(--track-blue),
+                    var(--track-cyan),
+                    var(--track-purple)
+                );
+
+            -webkit-background-clip:
+                text;
+
+            background-clip:
+                text;
+
+            color:
+                transparent;
+
+        }
+
+
+        .track-hero p {
+
+            max-width:
+                650px;
+
+            margin:
+                15px auto 0;
+
+            color:
+                var(--track-muted);
+
+            line-height:
+                1.7;
+
+            font-size:
+                15px;
+
+        }
+
+
+        /* =====================================================
+           SEARCH CARD
+        ====================================================== */
+
+        .track-search-card {
+
+            padding:
+                28px;
+
+            border-radius:
+                24px;
+
+            background:
+                var(--track-card);
+
+            border:
+                1px solid
+                var(--track-border);
+
+            box-shadow:
+                0 25px 70px
+                rgba(0, 0, 0, 0.28);
+
+            backdrop-filter:
+                blur(22px);
+
+            -webkit-backdrop-filter:
+                blur(22px);
+
+            animation:
+                trackFadeUp 0.8s 0.12s ease both;
+
+        }
+
+
+        .track-search-label {
+
+            display:
+                flex;
+
+            align-items:
+                center;
+
+            gap:
+                9px;
+
+            margin-bottom:
+                11px;
+
+            color:
+                #dbe4ff;
+
+            font-size:
+                14px;
+
+            font-weight:
+                700;
+
+        }
+
+
+        .track-search-label i {
+
+            color:
+                var(--track-cyan);
+
+        }
+
+
+        .track-input-row {
+
+            display:
+                flex;
+
+            gap:
+                12px;
+
+        }
+
+
+        .track-input-wrapper {
+
+            flex: 1;
+
+            position:
+                relative;
+
+        }
+
+
+        .track-input-wrapper i {
+
+            position:
+                absolute;
+
+            left:
+                18px;
+
+            top:
+                50%;
+
+            transform:
+                translateY(-50%);
+
+            color:
+                #7180a6;
+
+            pointer-events:
+                none;
+
+        }
+
+
+        #reportIdInput {
+
+            width: 100%;
+
+            height: 56px;
+
+            padding:
+                0 18px 0 48px;
+
+            border-radius:
+                15px;
+
+            border:
+                1px solid
+                rgba(120, 150, 255, 0.18);
+
+            outline:
+                none;
+
+            background:
+                rgba(4, 8, 22, 0.72);
+
+            color:
+                #ffffff;
+
+            font-size:
+                15px;
+
+            transition:
+                0.25s ease;
+
+            box-sizing:
+                border-box;
+
+        }
+
+
+        #reportIdInput::placeholder {
+
+            color:
+                #687593;
+
+        }
+
+
+        #reportIdInput:focus {
+
+            border-color:
+                rgba(0, 217, 255, 0.55);
+
+            box-shadow:
+                0 0 0 4px
+                rgba(0, 217, 255, 0.08);
+
+        }
+
+
+        #trackButton {
+
+            min-width:
+                150px;
+
+            height:
+                56px;
+
+            border:
+                none;
+
+            border-radius:
+                15px;
+
+            cursor:
+                pointer;
+
+            color:
+                white;
+
+            font-weight:
+                750;
+
+            font-size:
+                14px;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    var(--track-blue),
+                    var(--track-purple)
+                );
+
+            box-shadow:
+                0 12px 30px
+                rgba(79, 140, 255, 0.22);
+
+            transition:
+                transform 0.25s ease,
+                box-shadow 0.25s ease,
+                opacity 0.25s ease;
+
+        }
+
+
+        #trackButton:hover {
+
+            transform:
+                translateY(-2px);
+
+            box-shadow:
+                0 16px 35px
+                rgba(79, 140, 255, 0.32);
+
+        }
+
+
+        #trackButton:active {
+
+            transform:
+                translateY(0);
+
+        }
+
+
+        #trackButton.loading {
+
+            opacity:
+                0.7;
+
+            pointer-events:
+                none;
+
+        }
+
+
+        #trackButton.loading i {
+
+            animation:
+                spin 0.8s linear infinite;
+
+        }
+
+
+        @keyframes spin {
+
+            to {
+
+                transform:
+                    rotate(360deg);
+
+            }
+
+        }
+
+
+        /* =====================================================
+           MESSAGE
+        ====================================================== */
+
+        #trackMessage {
+
+            display:
+                none;
+
+            margin-top:
+                16px;
+
+            padding:
+                13px 16px;
+
+            border-radius:
+                13px;
+
+            font-size:
+                14px;
+
+            line-height:
+                1.5;
+
+        }
+
+
+        #trackMessage.show {
+
+            display:
+                flex;
+
+            align-items:
+                flex-start;
+
+            gap:
+                10px;
+
+        }
+
+
+        #trackMessage.error {
+
+            color:
+                #fecaca;
+
+            background:
+                rgba(239, 68, 68, 0.08);
+
+            border:
+                1px solid
+                rgba(239, 68, 68, 0.20);
+
+        }
+
+
+        #trackMessage.info {
+
+            color:
+                #bae6fd;
+
+            background:
+                rgba(14, 165, 233, 0.08);
+
+            border:
+                1px solid
+                rgba(14, 165, 233, 0.20);
+
+        }
+
+
+        /* =====================================================
+           RESULT
+        ====================================================== */
+
+        #trackResult {
+
+            display:
+                none;
+
+            margin-top:
+                28px;
+
+            animation:
+                trackFadeUp 0.65s ease both;
+
+        }
+
+
+        #trackResult.show {
+
+            display:
+                block;
+
+        }
+
+
+        /* =====================================================
+           REPORT HEADER
+        ====================================================== */
+
+        .report-card {
+
+            overflow:
+                hidden;
+
+            border-radius:
+                26px;
+
+            background:
+                var(--track-card);
+
+            border:
+                1px solid
+                var(--track-border);
+
+            backdrop-filter:
+                blur(22px);
+
+            -webkit-backdrop-filter:
+                blur(22px);
+
+            box-shadow:
+                0 25px 80px
+                rgba(0, 0, 0, 0.30);
+
+        }
+
+
+        .report-card-header {
+
+            padding:
+                28px;
+
+            display:
+                flex;
+
+            justify-content:
+                space-between;
+
+            align-items:
+                center;
+
+            gap:
+                20px;
+
+            border-bottom:
+                1px solid
+                rgba(120, 150, 255, 0.10);
+
+            background:
+                linear-gradient(
+                    135deg,
+                    rgba(79, 140, 255, 0.07),
+                    rgba(139, 92, 246, 0.05)
+                );
+
+        }
+
+
+        .report-card-title {
+
+            display:
+                flex;
+
+            align-items:
+                center;
+
+            gap:
+                14px;
+
+        }
+
+
+        .report-card-title-icon {
+
+            width:
+                48px;
+
+            height:
+                48px;
+
+            flex-shrink:
+                0;
+
+            border-radius:
+                15px;
+
+            display:
+                flex;
+
+            align-items:
+                center;
+
+            justify-content:
+                center;
+
+            background:
+                rgba(0, 217, 255, 0.09);
+
+            border:
+                1px solid
+                rgba(0, 217, 255, 0.16);
+
+            color:
+                var(--track-cyan);
+
+        }
+
+
+        .report-card-title h2 {
+
+            margin:
+                0 0 4px;
+
+            color:
+                white;
+
+            font-size:
+                18px;
+
+        }
+
+
+        .report-card-title p {
+
+            margin:
+                0;
+
+            color:
+                #7f8bab;
+
+            font-size:
+                13px;
+
+        }
+
+
+        .report-status {
+
+            padding:
+                8px 14px;
+
+            border-radius:
+                999px;
+
+            display:
+                inline-flex;
+
+            align-items:
+                center;
+
+            gap:
+                7px;
+
+            font-size:
+                12px;
+
+            font-weight:
+                700;
+
+            white-space:
+                nowrap;
+
+            color:
+                #bbf7d0;
+
+            background:
+                rgba(34, 197, 94, 0.10);
+
+            border:
+                1px solid
+                rgba(34, 197, 94, 0.20);
+
+        }
+
+
+        .report-status-dot {
+
+            width:
+                7px;
+
+            height:
+                7px;
+
+            border-radius:
+                50%;
+
+            background:
+                var(--track-green);
+
+            box-shadow:
+                0 0 10px
+                rgba(34, 197, 94, 0.65);
+
+            animation:
+                statusPulse 2s ease-in-out infinite;
+
+        }
+
+
+        @keyframes statusPulse {
+
+            0%,
+            100% {
+
+                opacity:
+                    1;
+
+            }
+
+            50% {
+
+                opacity:
+                    0.35;
+
+            }
+
+        }
+
+
+        /* =====================================================
+           REPORT BODY
+        ====================================================== */
+
+        .report-card-body {
+
+            padding:
+                28px;
+
+        }
+
+
+        .report-id-box {
+
+            display:
+                flex;
+
+            align-items:
+                center;
+
+            justify-content:
+                space-between;
+
+            gap:
+                15px;
+
+            padding:
+                16px 18px;
+
+            margin-bottom:
+                25px;
+
+            border-radius:
+                16px;
+
+            background:
+                rgba(79, 140, 255, 0.06);
+
+            border:
+                1px solid
+                rgba(79, 140, 255, 0.12);
+
+        }
+
+
+        .report-id-label {
+
+            color:
+                #8290b2;
+
+            font-size:
+                12px;
+
+            text-transform:
+                uppercase;
+
+            letter-spacing:
+                0.08em;
+
+            font-weight:
+                700;
+
+        }
+
+
+        #resultReportId {
+
+            color:
+                #ffffff;
+
+            font-size:
+                14px;
+
+            font-weight:
+                800;
+
+            letter-spacing:
+                0.04em;
+
+            word-break:
+                break-all;
+
+        }
+
+
+        /* =====================================================
+           INFO GRID
+        ====================================================== */
+
+        .report-info-grid {
+
+            display:
+                grid;
+
+            grid-template-columns:
+                repeat(
+                    2,
+                    minmax(
+                        0,
+                        1fr
+                    )
+                );
+
+            gap:
+                16px;
+
+        }
+
+
+        .report-info-item {
+
+            padding:
+                19px;
+
+            border-radius:
+                17px;
+
+            background:
+                rgba(5, 9, 24, 0.52);
+
+            border:
+                1px solid
+                rgba(120, 150, 255, 0.10);
+
+            transition:
+                transform 0.25s ease,
+                border-color 0.25s ease;
+
+        }
+
+
+        .report-info-item:hover {
+
+            transform:
+                translateY(-3px);
+
+            border-color:
+                rgba(79, 140, 255, 0.24);
+
+        }
+
+
+        .report-info-label {
+
+            display:
+                flex;
+
+            align-items:
+                center;
+
+            gap:
+                8px;
+
+            margin-bottom:
+                8px;
+
+            color:
+                #7784a4;
+
+            font-size:
+                12px;
+
+            font-weight:
+                700;
+
+            text-transform:
+                uppercase;
+
+            letter-spacing:
+                0.05em;
+
+        }
+
+
+        .report-info-label i {
+
+            color:
+                var(--track-cyan);
+
+        }
+
+
+        .report-info-value {
+
+            color:
+                #f4f7ff;
+
+            font-size:
+                14px;
+
+            line-height:
+                1.6;
+
+            word-break:
+                break-word;
+
+        }
+
+
+        /* =====================================================
+           FULL WIDTH INFO
+        ====================================================== */
+
+        .report-info-full {
+
+            grid-column:
+                1 / -1;
+
+        }
+
+
+        /* =====================================================
+           SEVERITY
+        ====================================================== */
+
+        .severity-value {
+
+            display:
+                inline-flex;
+
+            align-items:
+                center;
+
+            gap:
+                7px;
+
+            padding:
+                6px 11px;
+
+            border-radius:
+                999px;
+
+            font-size:
+                12px;
+
+            font-weight:
+                800;
+
+        }
+
+
+        .severity-low {
+
+            color:
+                #bbf7d0;
+
+            background:
+                rgba(34, 197, 94, 0.10);
+
+        }
+
+
+        .severity-medium {
+
+            color:
+                #fde68a;
+
+            background:
+                rgba(250, 204, 21, 0.10);
+
+        }
+
+
+        .severity-high {
+
+            color:
+                #fed7aa;
+
+            background:
+                rgba(249, 115, 22, 0.10);
+
+        }
+
+
+        .severity-critical {
+
+            color:
+                #fecaca;
+
+            background:
+                rgba(239, 68, 68, 0.10);
+
+        }
+
+
+        /* =====================================================
+           FOOTER ACTIONS
+        ====================================================== */
+
+        .track-actions {
+
+            display:
+                flex;
+
+            justify-content:
+                center;
+
+            gap:
+                12px;
+
+            margin-top:
+                25px;
+
+        }
+
+
+        .track-action {
+
+            display:
+                inline-flex;
+
+            align-items:
+                center;
+
+            justify-content:
+                center;
+
+            gap:
+                8px;
+
+            min-height:
+                46px;
+
+            padding:
+                0 18px;
+
+            border-radius:
+                13px;
+
+            border:
+                1px solid
+                rgba(120, 150, 255, 0.14);
+
+            background:
+                rgba(12, 17, 35, 0.75);
+
+            color:
+                #cbd5f5;
+
+            cursor:
+                pointer;
+
+            font-size:
+                13px;
+
+            font-weight:
+                700;
+
+            transition:
+                0.25s ease;
+
+        }
+
+
+        .track-action:hover {
+
+            transform:
+                translateY(-2px);
+
+            border-color:
+                rgba(0, 217, 255, 0.28);
+
+            color:
+                white;
+
+        }
+
+
+        /* =====================================================
+           EMPTY STATE
+        ====================================================== */
+
+        .track-empty {
+
+            text-align:
+                center;
+
+            padding:
+                45px 20px;
+
+            color:
+                #7784a4;
+
+        }
+
+
+        .track-empty i {
+
+            font-size:
+                35px;
+
+            margin-bottom:
+                14px;
+
+            color:
+                #506080;
+
+        }
+
+
+        .track-empty h3 {
+
+            margin:
+                0 0 8px;
+
+            color:
+                #dce5ff;
+
+        }
+
+
+        .track-empty p {
+
+            margin:
+                0;
+
+            font-size:
+                14px;
+
+        }
+
+
+        /* =====================================================
+           ANIMATION
+        ====================================================== */
+
+        @keyframes trackFadeUp {
+
+            from {
+
+                opacity:
+                    0;
+
+                transform:
+                    translateY(25px);
+
+            }
+
+            to {
+
+                opacity:
+                    1;
+
+                transform:
+                    translateY(0);
+
+            }
+
+        }
+
+
+        /* =====================================================
+           RESPONSIVE
+        ====================================================== */
+
+        @media (max-width: 700px) {
+
+            .track-page {
+
+                padding:
+                    100px 14px 50px;
+
+            }
+
+
+            .track-search-card {
+
+                padding:
+                    20px;
+
+                border-radius:
+                    20px;
+
+            }
+
+
+            .track-input-row {
+
+                flex-direction:
+                    column;
+
+            }
+
+
+            #trackButton {
+
+                width:
+                    100%;
+
+            }
+
+
+            .report-card-header {
+
+                align-items:
+                    flex-start;
+
+                flex-direction:
+                    column;
+
+                padding:
+                    22px;
+
+            }
+
+
+            .report-card-body {
+
+                padding:
+                    20px;
+
+            }
+
+
+            .report-info-grid {
+
+                grid-template-columns:
+                    1fr;
+
+            }
+
+
+            .report-info-full {
+
+                grid-column:
+                    auto;
+
+            }
+
+
+            .report-id-box {
+
+                align-items:
+                    flex-start;
+
+                flex-direction:
+                    column;
+
+            }
+
+
+            .track-actions {
+
+                flex-direction:
+                    column;
+
+            }
+
+
+            .track-action {
+
+                width:
+                    100%;
+
+            }
+
+        }
+
+
+        @media (max-width: 420px) {
+
+            .track-hero h1 {
+
+                font-size:
+                    2rem;
+
+            }
+
+
+            .track-hero p {
+
+                font-size:
+                    13px;
+
+            }
+
+
+            .track-icon {
+
+                width:
+                    62px;
+
+                height:
+                    62px;
+
+            }
+
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+    <!-- =====================================================
+         PAGE
+    ====================================================== -->
+
+    <main class="track-page">
+
+
+        <!-- Ambient Effects -->
+
+        <div
+            class="track-glow track-glow-one"
+        ></div>
+
+        <div
+            class="track-glow track-glow-two"
+        ></div>
+
+        <div
+            class="track-glow track-glow-three"
+        ></div>
+
+
+        <div class="track-container">
+
+
+            <!-- =================================================
+                 HERO
+            ================================================== -->
+
+            <section class="track-hero">
+
+                <div class="track-icon">
+
+                    <i
+                        class="fa-solid fa-location-crosshairs"
+                    ></i>
+
+                </div>
+
+
+                <h1>
+
+                    Track Your
+                    <span>Report</span>
+
+                </h1>
+
+
+                <p>
+
+                    Enter your ChronicAI report ID below
+                    to check the current status and
+                    details of your submitted civic issue.
+
+                </p>
+
+            </section>
+
+
+
+            <!-- =================================================
+                 SEARCH
+            ================================================== -->
+
+            <section class="track-search-card">
+
+
+                <label
+                    class="track-search-label"
+                    for="reportIdInput"
+                >
+
+                    <i
+                        class="fa-solid fa-magnifying-glass"
+                    ></i>
+
+                    Enter Report ID
+
+                </label>
+
+
+                <div class="track-input-row">
+
+
+                    <div class="track-input-wrapper">
+
+                        <i
+                            class="fa-solid fa-hashtag"
+                        ></i>
+
+
+                        <input
+                            type="text"
+                            id="reportIdInput"
+                            placeholder="Example: CHRONIC-12345678-1234"
+                            autocomplete="off"
+                            spellcheck="false"
+                        >
+
+                    </div>
+
+
+                    <button
+                        type="button"
+                        id="trackButton"
+                    >
+
+                        <i
+                            class="fa-solid fa-location-dot"
+                        ></i>
+
+                        <span>
+                            Track Report
+                        </span>
+
+                    </button>
+
+
+                </div>
+
+
+                <!-- Message -->
+
+                <div
+                    id="trackMessage"
+                    role="alert"
+                ></div>
+
+
+            </section>
+
+
+
+            <!-- =================================================
+                 RESULT
+            ================================================== -->
+
+            <section
+                id="trackResult"
+            >
+
+
+                <div class="report-card">
+
+
+                    <!-- Header -->
+
+                    <div class="report-card-header">
+
+
+                        <div class="report-card-title">
+
+
+                            <div
+                                class="report-card-title-icon"
+                            >
+
+                                <i
+                                    class="fa-solid fa-file-circle-check"
+                                ></i>
+
+                            </div>
+
+
+                            <div>
+
+                                <h2>
+                                    Civic Report
+                                </h2>
+
+                                <p>
+                                    Report information and current status
+                                </p>
+
+                            </div>
+
+
+                        </div>
+
+
+                        <div
+                            class="report-status"
+                            id="reportStatus"
+                        >
+
+                            <span
+                                class="report-status-dot"
+                            ></span>
+
+                            <span
+                                id="statusText"
+                            >
+                                Submitted
+                            </span>
+
+                        </div>
+
+
+                    </div>
+
+
+
+                    <!-- Body -->
+
+                    <div class="report-card-body">
+
+
+                        <!-- Report ID -->
+
+                        <div class="report-id-box">
+
+
+                            <div>
+
+                                <div
+                                    class="report-id-label"
+                                >
+                                    Report ID
+                                </div>
+
+                            </div>
+
+
+                            <div
+                                id="resultReportId"
+                            >
+                                —
+                            </div>
+
+
+                        </div>
+
+
+
+                        <!-- Information Grid -->
+
+                        <div class="report-info-grid">
+
+
+                            <!-- Problem -->
+
+                            <div
+                                class="report-info-item"
+                            >
+
+                                <div
+                                    class="report-info-label"
+                                >
+
+                                    <i
+                                        class="fa-solid fa-triangle-exclamation"
+                                    ></i>
+
+                                    Problem
+
+                                </div>
+
+
+                                <div
+                                    class="report-info-value"
+                                    id="resultProblem"
+                                >
+                                    —
+                                </div>
+
+                            </div>
+
+
+
+                            <!-- Category -->
+
+                            <div
+                                class="report-info-item"
+                            >
+
+                                <div
+                                    class="report-info-label"
+                                >
+
+                                    <i
+                                        class="fa-solid fa-layer-group"
+                                    ></i>
+
+                                    Category
+
+                                </div>
+
+
+                                <div
+                                    class="report-info-value"
+                                    id="resultCategory"
+                                >
+                                    —
+                                </div>
+
+                            </div>
+
+
+
+                            <!-- Severity -->
+
+                            <div
+                                class="report-info-item"
+                            >
+
+                                <div
+                                    class="report-info-label"
+                                >
+
+                                    <i
+                                        class="fa-solid fa-gauge-high"
+                                    ></i>
+
+                                    Severity
+
+                                </div>
+
+
+                                <div
+                                    class="report-info-value"
+                                    id="resultSeverity"
+                                >
+                                    —
+                                </div>
+
+                            </div>
+
+
+
+                            <!-- Department -->
+
+                            <div
+                                class="report-info-item"
+                            >
+
+                                <div
+                                    class="report-info-label"
+                                >
+
+                                    <i
+                                        class="fa-solid fa-building-columns"
+                                    ></i>
+
+                                    Department
+
+                                </div>
+
+
+                                <div
+                                    class="report-info-value"
+                                    id="resultDepartment"
+                                >
+                                    —
+                                </div>
+
+                            </div>
+
+
+
+                            <!-- Location -->
+
+                            <div
+                                class="report-info-item report-info-full"
+                            >
+
+                                <div
+                                    class="report-info-label"
+                                >
+
+                                    <i
+                                        class="fa-solid fa-location-dot"
+                                    ></i>
+
+                                    Location
+
+                                </div>
+
+
+                                <div
+                                    class="report-info-value"
+                                    id="resultLocation"
+                                >
+                                    —
+                                </div>
+
+                            </div>
+
+
+
+                            <!-- Summary -->
+
+                            <div
+                                class="report-info-item report-info-full"
+                            >
+
+                                <div
+                                    class="report-info-label"
+                                >
+
+                                    <i
+                                        class="fa-solid fa-align-left"
+                                    ></i>
+
+                                    AI Summary
+
+                                </div>
+
+
+                                <div
+                                    class="report-info-value"
+                                    id="resultSummary"
+                                >
+                                    —
+                                </div>
+
+                            </div>
+
+
+
+                            <!-- Recommendation -->
+
+                            <div
+                                class="report-info-item report-info-full"
+                            >
+
+                                <div
+                                    class="report-info-label"
+                                >
+
+                                    <i
+                                        class="fa-solid fa-lightbulb"
+                                    ></i>
+
+                                    Recommended Action
+
+                                </div>
+
+
+                                <div
+                                    class="report-info-value"
+                                    id="resultRecommendation"
+                                >
+                                    —
+                                </div>
+
+                            </div>
+
+
+
+                            <!-- Reporter -->
+
+                            <div
+                                class="report-info-item"
+                            >
+
+                                <div
+                                    class="report-info-label"
+                                >
+
+                                    <i
+                                        class="fa-solid fa-user"
+                                    ></i>
+
+                                    Reporter
+
+                                </div>
+
+
+                                <div
+                                    class="report-info-value"
+                                    id="resultReporter"
+                                >
+                                    —
+                                </div>
+
+                            </div>
+
+
+
+                            <!-- Submitted -->
+
+                            <div
+                                class="report-info-item"
+                            >
+
+                                <div
+                                    class="report-info-label"
+                                >
+
+                                    <i
+                                        class="fa-solid fa-calendar-days"
+                                    ></i>
+
+                                    Submitted
+
+                                </div>
+
+
+                                <div
+                                    class="report-info-value"
+                                    id="resultSubmitted"
+                                >
+                                    —
+                                </div>
+
+                            </div>
+
+
+                        </div>
+
+
+
+                        <!-- Actions -->
+
+                        <div class="track-actions">
+
+
+                            <button
+                                type="button"
+                                class="track-action"
+                                id="trackAgain"
+                            >
+
+                                <i
+                                    class="fa-solid fa-rotate"
+                                ></i>
+
+                                Track Another Report
+
+                            </button>
+
+
+                            <button
+                                type="button"
+                                class="track-action"
+                                id="printReport"
+                            >
+
+                                <i
+                                    class="fa-solid fa-print"
+                                ></i>
+
+                                Print Report
+
+                            </button>
+
+
+                        </div>
+
+
+                    </div>
+
+                </div>
+
+
+            </section>
+
+
+
+            <!-- =================================================
+                 EMPTY STATE
+            ================================================== -->
+
+            <section
+                class="track-search-card"
+                id="trackEmptyState"
+                style="margin-top: 28px;"
+            >
+
+                <div class="track-empty">
+
+                    <i
+                        class="fa-solid fa-file-circle-question"
+                    ></i>
+
+                    <h3>
+                        Track Your Civic Report
+                    </h3>
+
+                    <p>
+                        Your report details will appear here
+                        after you enter a valid report ID.
+                    </p>
+
+                </div>
+
+            </section>
+
+
+        </div>
+
+    </main>
+
+
+
+    <!-- =====================================================
+         TRACK SCRIPT
+    ====================================================== -->
+
+    <script>
+
+        "use strict";
+
+
+        /* =====================================================
+           ELEMENTS
+        ====================================================== */
+
+        const reportIdInput =
+            document.getElementById(
+                "reportIdInput"
+            );
+
+
+        const trackButton =
+            document.getElementById(
+                "trackButton"
+            );
+
+
+        const trackMessage =
+            document.getElementById(
+                "trackMessage"
+            );
+
+
+        const trackResult =
+            document.getElementById(
+                "trackResult"
+            );
+
+
+        const trackEmptyState =
+            document.getElementById(
+                "trackEmptyState"
+            );
+
+
+        const resultReportId =
+            document.getElementById(
+                "resultReportId"
+            );
+
+
+        const resultProblem =
+            document.getElementById(
+                "resultProblem"
+            );
+
+
+        const resultCategory =
+            document.getElementById(
+                "resultCategory"
+            );
+
+
+        const resultSeverity =
+            document.getElementById(
+                "resultSeverity"
+            );
+
+
+        const resultDepartment =
+            document.getElementById(
+                "resultDepartment"
+            );
+
+
+        const resultLocation =
+            document.getElementById(
+                "resultLocation"
+            );
+
+
+        const resultSummary =
+            document.getElementById(
+                "resultSummary"
+            );
+
+
+        const resultRecommendation =
+            document.getElementById(
+                "resultRecommendation"
+            );
+
+
+        const resultReporter =
+            document.getElementById(
+                "resultReporter"
+            );
+
+
+        const resultSubmitted =
+            document.getElementById(
+                "resultSubmitted"
+            );
+
+
+        const statusText =
+            document.getElementById(
+                "statusText"
+            );
+
+
+        const trackAgain =
+            document.getElementById(
+                "trackAgain"
+            );
+
+
+        const printReport =
+            document.getElementById(
+                "printReport"
+            );
+
+
+
+        /* =====================================================
+           API BASE
+        ====================================================== */
+
+        const API_BASE =
+            window.CHRONICAI_API_URL ||
+            "";
+
+
+
+        /* =====================================================
+           HELPERS
+        ====================================================== */
+
+        function cleanText(value) {
+
+            if (
+                value === null ||
+                value === undefined
+            ) {
+
+                return "";
+
+            }
+
+            return String(value).trim();
+
+        }
+
+
+
+        function escapeHTML(value) {
+
+            return cleanText(value)
+                .replace(
+                    /&/g,
+                    "&amp;"
+                )
+                .replace(
+                    /</g,
+                    "&lt;"
+                )
+                .replace(
+                    />/g,
+                    "&gt;"
+                )
+                .replace(
+                    /"/g,
+                    "&quot;"
+                )
+                .replace(
+                    /'/g,
+                    "&#039;"
+                );
+
+        }
+
+
+
+        function showMessage(
+            message,
+            type = "info"
+        ) {
+
+            if (!trackMessage) {
+                return;
+            }
+
+
+            trackMessage.className =
+                `show ${type}`;
+
+
+            trackMessage.innerHTML = `
+
+                <i class="fa-solid ${
+                    type === "error"
+                        ? "fa-circle-exclamation"
+                        : "fa-circle-info"
+                }"></i>
+
+                <span>
+                    ${escapeHTML(message)}
+                </span>
+
+            `;
+
+        }
+
+
+
+        function clearMessage() {
+
+            if (!trackMessage) {
+                return;
+            }
+
+
+            trackMessage.className = "";
+
+            trackMessage.innerHTML = "";
+
+        }
+
+
+
+        /* =====================================================
+           DATE FORMAT
+        ====================================================== */
+
+        function formatDate(value) {
+
+            if (!value) {
+
+                return "Not available";
+
+            }
+
+
+            const date =
+                new Date(value);
+
+
+            if (
+                Number.isNaN(
+                    date.getTime()
+                )
+            ) {
+
+                return cleanText(value);
+
+            }
+
+
+            return date.toLocaleString(
+                undefined,
+                {
+                    dateStyle: "medium",
+                    timeStyle: "short"
+                }
+            );
+
+        }
+
+
+
+        /* =====================================================
+           SEVERITY
+        ====================================================== */
+
+        function setSeverity(value) {
+
+            if (!resultSeverity) {
+                return;
+            }
+
+
+            const severity =
+                cleanText(value) ||
+                "Medium";
+
+
+            const normalized =
+                severity.toLowerCase();
+
+
+            let className =
+                "severity-medium";
+
+
+            if (
+                normalized.includes(
+                    "critical"
+                )
+            ) {
+
+                className =
+                    "severity-critical";
+
+            } else if (
+                normalized.includes(
+                    "high"
+                )
+            ) {
+
+                className =
+                    "severity-high";
+
+            } else if (
+                normalized.includes(
+                    "low"
+                )
+            ) {
+
+                className =
+                    "severity-low";
+
+            }
+
+
+            resultSeverity.innerHTML = `
+
+                <span
+                    class="severity-value ${className}"
+                >
+
+                    <i
+                        class="fa-solid fa-circle"
+                    ></i>
+
+                    ${escapeHTML(severity)}
+
+                </span>
+
+            `;
+
+        }
+
+
+
+        /* =====================================================
+           STATUS
+        ====================================================== */
+
+        function setStatus(value) {
+
+            const status =
+                cleanText(value) ||
+                "Submitted";
+
+
+            if (statusText) {
+
+                statusText.textContent =
+                    status;
+
+            }
+
+
+            const statusElement =
+                document.getElementById(
+                    "reportStatus"
+                );
+
+
+            if (!statusElement) {
+                return;
+            }
+
+
+            const normalized =
+                status.toLowerCase();
+
+
+            let color =
+                "green";
+
+
+            if (
+                normalized.includes(
+                    "pending"
+                )
+            ) {
+
+                color =
+                    "yellow";
+
+            }
+
+
+            if (
+                normalized.includes(
+                    "progress"
+                ) ||
+                normalized.includes(
+                    "review"
+                )
+            ) {
+
+                color =
+                    "yellow";
+
+            }
+
+
+            if (
+                normalized.includes(
+                    "rejected"
+                ) ||
+                normalized.includes(
+                    "closed"
+                )
+            ) {
+
+                color =
+                    "red";
+
+            }
+
+
+            if (
+                color === "yellow"
+            ) {
+
+                statusElement.style.color =
+                    "#fde68a";
+
+                statusElement.style.background =
+                    "rgba(250,204,21,0.10)";
+
+                statusElement.style.borderColor =
+                    "rgba(250,204,21,0.20)";
+
+            } else if (
+                color === "red"
+            ) {
+
+                statusElement.style.color =
+                    "#fecaca";
+
+                statusElement.style.background =
+                    "rgba(239,68,68,0.10)";
+
+                statusElement.style.borderColor =
+                    "rgba(239,68,68,0.20)";
+
+            } else {
+
+                statusElement.style.color =
+                    "#bbf7d0";
+
+                statusElement.style.background =
+                    "rgba(34,197,94,0.10)";
+
+                statusElement.style.borderColor =
+                    "rgba(34,197,94,0.20)";
+
+            }
+
+        }
+
+
+
+        /* =====================================================
+           SHOW REPORT
+        ====================================================== */
+
+        function showReport(report) {
+
+            if (!report) {
+
+                throw new Error(
+                    "Invalid report data."
+                );
+
+            }
+
+
+            const analysis =
+                report.analysis ||
+                {};
+
+
+            if (resultReportId) {
+
+                resultReportId.textContent =
+                    report.reportId ||
+                    "Unknown";
+
+            }
+
+
+            if (resultProblem) {
+
+                resultProblem.textContent =
+                    analysis.problem ||
+                    "Public civic issue";
+
+            }
+
+
+            if (resultCategory) {
+
+                resultCategory.textContent =
+                    analysis.category ||
+                    "General Civic Issue";
+
+            }
+
+
+            setSeverity(
+                analysis.severity ||
+                "Medium"
+            );
+
+
+            if (resultDepartment) {
+
+                resultDepartment.textContent =
+                    analysis.department ||
+                    "Municipal Authority";
+
+            }
+
+
+            if (resultLocation) {
+
+                resultLocation.textContent =
+                    report.location ||
+                    analysis.location ||
+                    "Not provided";
+
+            }
+
+
+            if (resultSummary) {
+
+                resultSummary.textContent =
+                    analysis.summary ||
+                    "No summary available.";
+
+            }
+
+
+            if (resultRecommendation) {
+
+                resultRecommendation.textContent =
+                    analysis.recommendation ||
+                    "The responsible civic authority should review the issue.";
+
+            }
+
+
+            if (resultReporter) {
+
+                resultReporter.textContent =
+                    report.reporterName ||
+                    "Anonymous";
+
+            }
+
+
+            if (resultSubmitted) {
+
+                resultSubmitted.textContent =
+                    formatDate(
+                        report.submittedAt ||
+                        report.createdAt
+                    );
+
+            }
+
+
+            setStatus(
+                report.status ||
+                "Submitted"
+            );
+
+
+            if (trackEmptyState) {
+
+                trackEmptyState.style.display =
+                    "none";
+
+            }
+
+
+            if (trackResult) {
+
+                trackResult.classList.add(
+                    "show"
+                );
+
+            }
+
+
+            setTimeout(
+                () => {
+
+                    trackResult?.scrollIntoView({
+
+                        behavior:
+                            "smooth",
+
+                        block:
+                            "start"
+
+                    });
+
+                },
+                100
+            );
+
+        }
+
+
+
+        /* =====================================================
+           TRACK REPORT
+        ====================================================== */
+
+        async function trackReport() {
+
+            const reportId =
+                cleanText(
+                    reportIdInput?.value
+                );
+
+
+            clearMessage();
+
+
+            if (!reportId) {
+
+                showMessage(
+                    "Please enter your ChronicAI report ID.",
+                    "error"
+                );
+
+                reportIdInput?.focus();
+
+                return;
+
+            }
+
+
+            if (trackButton) {
+
+                trackButton.disabled =
+                    true;
+
+                trackButton.classList.add(
+                    "loading"
+                );
+
+
+                trackButton.innerHTML = `
+
+                    <i
+                        class="fa-solid fa-spinner"
+                    ></i>
+
+                    <span>
+                        Searching...
+                    </span>
+
+                `;
+
+            }
+
+
+            try {
+
+                const response =
+                    await fetch(
+                        `${API_BASE}/api/reports/${encodeURIComponent(reportId)}`,
+                        {
+                            method:
+                                "GET",
+
+                            headers: {
+
+                                "Accept":
+                                    "application/json"
+
+                            }
+
+                        }
+                    );
+
+
+                let data = null;
+
+
+                try {
+
+                    data =
+                        await response.json();
+
+                } catch {
+
+                    data = null;
+
+                }
+
+
+                if (
+                    response.status === 404
+                ) {
+
+                    throw new Error(
+                        "No report was found with this ID. Please check the report ID and try again."
+                    );
+
+                }
+
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        data?.error ||
+                        `Unable to load report. Server returned ${response.status}.`
+                    );
+
+                }
+
+
+                const report =
+                    data?.report ||
+                    data?.data ||
+                    data;
+
+
+                if (!report) {
+
+                    throw new Error(
+                        "The server returned an empty report."
+                    );
+
+                }
+
+
+                showReport(
+                    report
+                );
+
+
+            } catch (error) {
+
+                console.error(
+                    "Track report error:",
+                    error
+                );
+
+
+                if (trackResult) {
+
+                    trackResult.classList.remove(
+                        "show"
+                    );
+
+                }
+
+
+                showMessage(
+                    error.message ||
+                    "Unable to find the report. Please try again.",
+                    "error"
+                );
+
+
+            } finally {
+
+                if (trackButton) {
+
+                    trackButton.disabled =
+                        false;
+
+                    trackButton.classList.remove(
+                        "loading"
+                    );
+
+
+                    trackButton.innerHTML = `
+
+                        <i
+                            class="fa-solid fa-location-dot"
+                        ></i>
+
+                        <span>
+                            Track Report
+                        </span>
+
+                    `;
+
+                }
+
+            }
+
+        }
+
+
+
+        /* =====================================================
+           BUTTON
+        ====================================================== */
+
+        if (trackButton) {
+
+            trackButton.addEventListener(
+                "click",
+                trackReport
+            );
+
+        }
+
+
+
+        /* =====================================================
+           ENTER KEY
+        ====================================================== */
+
+        if (reportIdInput) {
+
+            reportIdInput.addEventListener(
+                "keydown",
+                (event) => {
+
+                    if (
+                        event.key ===
+                        "Enter"
+                    ) {
+
+                        event.preventDefault();
+
+                        trackReport();
+
+                    }
+
+                }
+            );
+
+        }
+
+
+
+        /* =====================================================
+           TRACK ANOTHER
+        ====================================================== */
+
+        if (trackAgain) {
+
+            trackAgain.addEventListener(
+                "click",
+                () => {
+
+                    if (trackResult) {
+
+                        trackResult.classList.remove(
+                            "show"
+                        );
+
+                    }
+
+
+                    if (trackEmptyState) {
+
+                        trackEmptyState.style.display =
+                            "block";
+
+                    }
+
+
+                    clearMessage();
+
+
+                    if (reportIdInput) {
+
+                        reportIdInput.value =
+                            "";
+
+                        reportIdInput.focus();
+
+                    }
+
+
+                    window.scrollTo({
+
+                        top:
+                            0,
+
+                        behavior:
+                            "smooth"
+
+                    });
+
+                }
+            );
+
+        }
+
+
+
+        /* =====================================================
+           PRINT
+        ====================================================== */
+
+        if (printReport) {
+
+            printReport.addEventListener(
+                "click",
+                () => {
+
+                    window.print();
+
+                }
+            );
+
+        }
+
+
+
+        /* =====================================================
+           AUTO LOAD FROM URL
+           
+           Example:
+           track.html?id=CHRONIC-12345678-1234
+        ====================================================== */
+
+        const urlParams =
+            new URLSearchParams(
+                window.location.search
+            );
+
+
+        const urlReportId =
+            cleanText(
+                urlParams.get("id")
+            );
+
+
+        if (
+            urlReportId &&
+            reportIdInput
+        ) {
+
+            reportIdInput.value =
+                urlReportId;
+
+
+            setTimeout(
+                () => {
+
+                    trackReport();
+
+                },
+                500
+            );
+
+        }
+
+
+
+        /* =====================================================
+           INITIALIZATION
+        ====================================================== */
+
+        console.log(
+            "ChronicAI Track System initialized successfully 🚀"
+        );
+
+    </script>
+
+
+</body>
+
+</html>

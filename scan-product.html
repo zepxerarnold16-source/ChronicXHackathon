@@ -1,0 +1,3590 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="ChronicAI — AI-powered product scanner"
+    >
+
+    <meta
+        name="theme-color"
+        content="#07111f"
+    >
+
+    <title>ChronicAI — Scan a Product</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+
+    <link
+        rel="preconnect"
+        href="https://fonts.gstatic.com"
+        crossorigin
+    >
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+        rel="stylesheet"
+    >
+
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="global.css"
+    >
+    
+    <link
+        rel="icon"
+        type="image/svg+xml"
+        href="icon.svg"
+    >
+    <style>
+
+        .scan-product-page {
+            min-height: 100vh;
+            padding: 130px 20px 80px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .scan-bg-glow {
+            position: fixed;
+            width: 500px;
+            height: 500px;
+            border-radius: 50%;
+            filter: blur(120px);
+            opacity: .18;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .scan-bg-glow.one {
+            background: #287bff;
+            top: 10%;
+            left: -200px;
+        }
+
+        .scan-bg-glow.two {
+            background: #8b5cf6;
+            bottom: -150px;
+            right: -150px;
+        }
+
+        .scan-page-header {
+            max-width: 1200px;
+            margin: 0 auto 45px;
+            text-align: center;
+        }
+
+        .scan-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            padding: 8px 15px;
+            border: 1px solid rgba(255,255,255,.12);
+            background: rgba(255,255,255,.04);
+            border-radius: 50px;
+            color: #72a7ff;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin-bottom: 18px;
+        }
+
+        .scan-label .dot {
+            width: 7px;
+            height: 7px;
+            background: #35e28b;
+            border-radius: 50%;
+            box-shadow: 0 0 12px #35e28b;
+        }
+
+        .scan-page-header h1 {
+            font-family: "Space Grotesk", sans-serif;
+            font-size: clamp(38px, 6vw, 70px);
+            line-height: 1.05;
+            margin: 0 0 18px;
+            color: #fff;
+            font-weight: 700;
+        }
+
+        .scan-gradient {
+            background: linear-gradient(
+                90deg,
+                #4facfe,
+                #8b5cf6,
+                #22d3ee
+            );
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .scan-page-header p {
+            max-width: 680px;
+            margin: auto;
+            color: rgba(255,255,255,.62);
+            line-height: 1.8;
+            font-size: 16px;
+        }
+
+        .scanner-container {
+            max-width: 1200px;
+            margin: auto;
+            display: grid;
+            grid-template-columns: 1.05fr .95fr;
+            gap: 28px;
+            align-items: stretch;
+        }
+
+        .scanner-card {
+            background:
+                linear-gradient(
+                    145deg,
+                    rgba(18,35,58,.92),
+                    rgba(8,18,32,.94)
+                );
+            border: 1px solid rgba(255,255,255,.09);
+            border-radius: 28px;
+            box-shadow:
+                0 30px 80px rgba(0,0,0,.35),
+                inset 0 1px 0 rgba(255,255,255,.04);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .upload-card {
+            padding: 25px;
+        }
+
+        .upload-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .upload-header h2 {
+            margin: 0;
+            color: #fff;
+            font-family: "Space Grotesk", sans-serif;
+            font-size: 21px;
+        }
+
+        .upload-header span {
+            color: rgba(255,255,255,.45);
+            font-size: 12px;
+        }
+
+        .upload-zone {
+            min-height: 390px;
+            border: 1px dashed rgba(92,153,255,.38);
+            border-radius: 22px;
+            background:
+                radial-gradient(
+                    circle at center,
+                    rgba(50,110,255,.10),
+                    transparent 60%
+                ),
+                rgba(4,13,25,.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            transition: .3s ease;
+        }
+
+        .upload-zone:hover {
+            border-color: rgba(92,153,255,.75);
+            background:
+                radial-gradient(
+                    circle at center,
+                    rgba(50,110,255,.15),
+                    transparent 65%
+                ),
+                rgba(4,13,25,.7);
+        }
+
+        .upload-zone.dragging {
+            border-color: #4facfe;
+            transform: scale(.995);
+        }
+
+        .upload-content {
+            padding: 30px;
+        }
+
+        .scan-icon-wrapper {
+            width: 95px;
+            height: 95px;
+            margin: 0 auto 22px;
+            border-radius: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background:
+                linear-gradient(
+                    145deg,
+                    rgba(79,172,254,.18),
+                    rgba(139,92,246,.16)
+                );
+            border: 1px solid rgba(100,170,255,.25);
+            box-shadow:
+                0 0 40px rgba(79,172,254,.12);
+            animation: scannerFloat 3s ease-in-out infinite;
+        }
+
+        .scan-icon-wrapper i {
+            font-size: 38px;
+            color: #65b7ff;
+        }
+
+        @keyframes scannerFloat {
+
+            0%,100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-8px);
+            }
+
+        }
+
+        .upload-content h3 {
+            color: #fff;
+            font-family: "Space Grotesk", sans-serif;
+            font-size: 22px;
+            margin: 0 0 10px;
+        }
+
+        .upload-content p {
+            color: rgba(255,255,255,.5);
+            font-size: 14px;
+            line-height: 1.7;
+            max-width: 400px;
+            margin: 0 auto 22px;
+        }
+
+        .scan-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .scan-btn {
+            border: 0;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 9px;
+            padding: 13px 20px;
+            border-radius: 13px;
+            font-weight: 700;
+            font-size: 13px;
+            transition: .25s ease;
+        }
+
+        .scan-btn-primary {
+            color: #fff;
+            background:
+                linear-gradient(
+                    135deg,
+                    #2779ff,
+                    #6845e8
+                );
+            box-shadow:
+                0 12px 30px rgba(52,103,255,.25);
+        }
+
+        .scan-btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow:
+                0 16px 35px rgba(52,103,255,.38);
+        }
+
+        .scan-btn-secondary {
+            color: rgba(255,255,255,.85);
+            background: rgba(255,255,255,.055);
+            border: 1px solid rgba(255,255,255,.1);
+        }
+
+        .scan-btn-secondary:hover {
+            background: rgba(255,255,255,.09);
+        }
+
+        #productInput {
+            display: none;
+        }
+
+        .preview-container {
+            display: none;
+            position: absolute;
+            inset: 0;
+            background: #06101e;
+        }
+
+        .preview-container.active {
+            display: block;
+        }
+
+        .preview-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .preview-overlay {
+            position: absolute;
+            inset: auto 0 0 0;
+            padding: 20px;
+            background:
+                linear-gradient(
+                    transparent,
+                    rgba(2,8,18,.95)
+                );
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+        }
+
+        .preview-name {
+            color: #fff;
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        .analyze-button {
+            margin-top: 18px;
+            width: 100%;
+            padding: 16px;
+            border: 0;
+            border-radius: 15px;
+            cursor: pointer;
+            color: #fff;
+            background:
+                linear-gradient(
+                    135deg,
+                    #2563eb,
+                    #7c3aed
+                );
+            font-size: 14px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow:
+                0 15px 35px rgba(37,99,235,.2);
+            transition: .25s ease;
+        }
+
+        .analyze-button:hover {
+            transform: translateY(-2px);
+        }
+
+        .analyze-button:disabled {
+            opacity: .45;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .ai-panel {
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .ai-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 22px;
+        }
+
+        .ai-panel-title {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+        }
+
+        .ai-panel-title-icon {
+            width: 42px;
+            height: 42px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 13px;
+            background: rgba(139,92,246,.13);
+            border: 1px solid rgba(139,92,246,.2);
+            color: #a78bfa;
+        }
+
+        .ai-panel-title h2 {
+            margin: 0;
+            color: #fff;
+            font-family: "Space Grotesk", sans-serif;
+            font-size: 20px;
+        }
+
+        .ai-online {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 7px 10px;
+            border-radius: 50px;
+            background: rgba(50,220,140,.08);
+            color: #58e6a0;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: .7px;
+        }
+
+        .ai-online span {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #4ade80;
+            box-shadow: 0 0 10px #4ade80;
+        }
+
+        .ai-empty {
+            flex: 1;
+            min-height: 390px;
+            border-radius: 20px;
+            background: rgba(255,255,255,.025);
+            border: 1px solid rgba(255,255,255,.06);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 30px;
+        }
+
+        .ai-empty-orb {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 22px;
+            background:
+                radial-gradient(
+                    circle,
+                    rgba(79,172,254,.22),
+                    rgba(139,92,246,.05) 65%,
+                    transparent
+                );
+            border: 1px solid rgba(100,160,255,.2);
+            box-shadow:
+                0 0 60px rgba(79,172,254,.12);
+        }
+
+        .ai-empty-orb i {
+            font-size: 34px;
+            color: #65b7ff;
+        }
+
+        .ai-empty h3 {
+            margin: 0 0 10px;
+            color: #fff;
+            font-family: "Space Grotesk", sans-serif;
+        }
+
+        .ai-empty p {
+            max-width: 350px;
+            margin: 0;
+            color: rgba(255,255,255,.45);
+            font-size: 13px;
+            line-height: 1.7;
+        }
+
+        .ai-loading {
+            display: none;
+            min-height: 390px;
+            border-radius: 20px;
+            background: rgba(255,255,255,.025);
+            border: 1px solid rgba(255,255,255,.06);
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .ai-loading.active {
+            display: flex;
+        }
+
+        .ai-scan-animation {
+            width: 130px;
+            height: 130px;
+            border-radius: 50%;
+            border: 1px solid rgba(79,172,254,.3);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 25px;
+        }
+
+        .ai-scan-animation::before,
+        .ai-scan-animation::after {
+            content: "";
+            position: absolute;
+            border-radius: 50%;
+            border: 1px solid rgba(139,92,246,.3);
+        }
+
+        .ai-scan-animation::before {
+            inset: 12px;
+            animation: rotateScan 2s linear infinite;
+        }
+
+        .ai-scan-animation::after {
+            inset: 25px;
+            animation: rotateScan 1.4s linear infinite reverse;
+        }
+
+        .ai-scan-animation i {
+            color: #65b7ff;
+            font-size: 32px;
+            animation: brainPulse 1.2s ease-in-out infinite;
+        }
+
+        @keyframes rotateScan {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes brainPulse {
+
+            0%,100% {
+                transform: scale(1);
+                opacity: .7;
+            }
+
+            50% {
+                transform: scale(1.15);
+                opacity: 1;
+            }
+
+        }
+
+        .loading-title {
+            color: #fff;
+            font-family: "Space Grotesk", sans-serif;
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+
+        .loading-text {
+            color: rgba(255,255,255,.45);
+            font-size: 13px;
+        }
+
+        .loading-progress {
+            width: 260px;
+            max-width: 80%;
+            height: 5px;
+            margin-top: 20px;
+            background: rgba(255,255,255,.07);
+            border-radius: 50px;
+            overflow: hidden;
+        }
+
+        .loading-progress span {
+            display: block;
+            width: 45%;
+            height: 100%;
+            background:
+                linear-gradient(
+                    90deg,
+                    #4facfe,
+                    #8b5cf6
+                );
+            border-radius: inherit;
+            animation: loadingMove 1.5s ease-in-out infinite;
+        }
+
+        @keyframes loadingMove {
+
+            0% {
+                transform: translateX(-120%);
+            }
+
+            100% {
+                transform: translateX(300%);
+            }
+
+        }
+
+        .ai-results {
+            display: none;
+            flex-direction: column;
+            gap: 13px;
+        }
+
+        .ai-results.active {
+            display: flex;
+        }
+
+        .result-main {
+            padding: 18px;
+            border-radius: 18px;
+            background:
+                linear-gradient(
+                    135deg,
+                    rgba(79,172,254,.09),
+                    rgba(139,92,246,.07)
+                );
+            border: 1px solid rgba(100,160,255,.12);
+        }
+
+        .result-label {
+            color: rgba(255,255,255,.42);
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 7px;
+        }
+
+        .result-main h3 {
+            color: #fff;
+            margin: 0;
+            font-family: "Space Grotesk", sans-serif;
+            font-size: 22px;
+        }
+
+        .result-description {
+            margin-top: 8px;
+            color: rgba(255,255,255,.58);
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .result-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .result-box {
+            padding: 15px;
+            border-radius: 15px;
+            background: rgba(255,255,255,.035);
+            border: 1px solid rgba(255,255,255,.06);
+        }
+
+        .result-box-top {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 7px;
+        }
+
+        .result-box-top i {
+            color: #65b7ff;
+        }
+
+        .result-box-top span {
+            color: rgba(255,255,255,.42);
+            font-size: 10px;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: .6px;
+        }
+
+        .result-box strong {
+            display: block;
+            color: #fff;
+            font-size: 14px;
+            line-height: 1.45;
+        }
+
+        .result-warning {
+            padding: 15px;
+            border-radius: 15px;
+            background: rgba(245,158,11,.07);
+            border: 1px solid rgba(245,158,11,.14);
+            display: flex;
+            gap: 12px;
+        }
+
+        .warning-icon {
+            width: 36px;
+            height: 36px;
+            flex-shrink: 0;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(245,158,11,.12);
+            color: #fbbf24;
+        }
+
+        .result-warning strong {
+            display: block;
+            color: #fff;
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+
+        .result-warning p {
+            margin: 0;
+            color: rgba(255,255,255,.5);
+            font-size: 11px;
+            line-height: 1.5;
+        }
+
+        .confidence-box {
+            padding: 15px;
+            border-radius: 15px;
+            background: rgba(52,211,153,.05);
+            border: 1px solid rgba(52,211,153,.1);
+        }
+
+        .confidence-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 9px;
+        }
+
+        .confidence-header span {
+            color: rgba(255,255,255,.45);
+            font-size: 11px;
+        }
+
+        .confidence-header strong {
+            color: #5ee8a6;
+            font-size: 11px;
+        }
+
+        .confidence-bar {
+            height: 6px;
+            border-radius: 50px;
+            background: rgba(255,255,255,.07);
+            overflow: hidden;
+        }
+
+        .confidence-bar span {
+            display: block;
+            width: 0%;
+            height: 100%;
+            border-radius: inherit;
+            background: #34d399;
+            transition: width .5s ease;
+        }
+
+        .ask-ai-box {
+            margin-top: 4px;
+            display: flex;
+            gap: 9px;
+        }
+
+        .ask-ai-box input {
+            flex: 1;
+            min-width: 0;
+            padding: 13px 15px;
+            border-radius: 13px;
+            border: 1px solid rgba(255,255,255,.08);
+            background: rgba(255,255,255,.035);
+            color: #fff;
+            outline: none;
+        }
+
+        .ask-ai-box input::placeholder {
+            color: rgba(255,255,255,.3);
+        }
+
+        .ask-ai-box input:focus {
+            border-color: rgba(79,172,254,.4);
+        }
+
+        .ask-ai-box button {
+            width: 45px;
+            border: 0;
+            border-radius: 13px;
+            background:
+                linear-gradient(
+                    135deg,
+                    #2563eb,
+                    #7c3aed
+                );
+            color: #fff;
+            cursor: pointer;
+        }
+
+        .ask-ai-box button:disabled {
+            opacity: .5;
+            cursor: not-allowed;
+        }
+
+        .reset-button {
+            border: 0;
+            background: transparent;
+            color: rgba(255,255,255,.4);
+            cursor: pointer;
+            font-size: 11px;
+            margin-top: 5px;
+        }
+
+        .reset-button:hover {
+            color: #fff;
+        }
+
+        .scanner-features {
+            max-width: 1200px;
+            margin: 25px auto 0;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+
+        .scanner-feature {
+            padding: 17px;
+            border-radius: 17px;
+            background: rgba(255,255,255,.025);
+            border: 1px solid rgba(255,255,255,.06);
+        }
+
+        .scanner-feature i {
+            color: #65b7ff;
+            margin-bottom: 9px;
+            font-size: 17px;
+        }
+
+        .scanner-feature strong {
+            display: block;
+            color: #fff;
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+
+        .scanner-feature span {
+            display: block;
+            color: rgba(255,255,255,.4);
+            font-size: 10px;
+            line-height: 1.5;
+        }
+
+        @media (max-width: 900px) {
+
+            .scanner-container {
+                grid-template-columns: 1fr;
+            }
+
+            .scanner-features {
+                grid-template-columns: 1fr 1fr;
+            }
+
+        }
+
+        @media (max-width: 600px) {
+
+            .scan-product-page {
+                padding: 110px 14px 50px;
+            }
+
+            .scan-page-header {
+                margin-bottom: 30px;
+            }
+
+            .scan-page-header h1 {
+                font-size: 39px;
+            }
+
+            .scanner-card {
+                border-radius: 21px;
+            }
+
+            .upload-card,
+            .ai-panel {
+                padding: 17px;
+            }
+
+            .upload-zone {
+                min-height: 330px;
+            }
+
+            .scanner-features {
+                grid-template-columns: 1fr;
+            }
+
+            .result-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .scan-buttons {
+                flex-direction: column;
+            }
+
+            .scan-btn {
+                width: 100%;
+            }
+
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+    <div class="scan-bg-glow one"></div>
+    <div class="scan-bg-glow two"></div>
+
+
+    <header class="main-header">
+
+        <div class="container nav-container">
+
+            <a href="index.html" class="brand">
+
+                <div class="brand-icon">
+
+                    <i class="fa-solid fa-shield-halved"></i>
+
+                    <span class="brand-pulse"></span>
+
+                </div>
+
+                <div class="brand-text">
+
+                    <strong>ChronicAI</strong>
+
+                    <span>
+                        SMART CITIZEN PLATFORM
+                    </span>
+
+                </div>
+
+            </a>
+
+
+            <nav class="desktop-nav">
+
+                <a
+                    href="index.html"
+                    class="nav-link"
+                >
+                    Home
+                </a>
+
+                <a
+                    href="life-helper.html"
+                    class="nav-link active"
+                >
+                    AI Helper
+                </a>
+
+                <a
+                    href="track.html"
+                    class="nav-link"
+                >
+                    Track
+                </a>
+
+            </nav>
+
+
+            <div class="nav-actions">
+
+                <a
+                    href="login.html"
+                    class="nav-login"
+                >
+                    Login
+                </a>
+
+                <a
+                    href="register.html"
+                    class="nav-register"
+                >
+                    Get Started
+                    <i class="fa-solid fa-arrow-right"></i>
+                </a>
+
+            </div>
+
+
+            <button
+                class="mobile-menu-button"
+                id="mobileMenuButton"
+                type="button"
+            >
+
+                <span></span>
+                <span></span>
+                <span></span>
+
+            </button>
+
+        </div>
+
+
+        <div
+            class="mobile-navigation"
+            id="mobileNavigation"
+        >
+
+            <a href="index.html">
+                Home
+            </a>
+
+            <a href="life-helper.html">
+                AI Helper
+            </a>
+
+            <a href="track.html">
+                Track
+            </a>
+
+            <a href="login.html">
+                Login
+            </a>
+
+            <a href="register.html">
+                Get Started
+            </a>
+
+        </div>
+
+    </header>
+
+
+    <main>
+
+        <section class="scan-product-page">
+
+            <div class="scan-page-header">
+
+                <div class="scan-label">
+
+                    <span class="dot"></span>
+
+                    CHRONICAI VISION AI
+
+                </div>
+
+
+                <h1>
+
+                    Scan a
+
+                    <span class="scan-gradient">
+                        Product.
+                    </span>
+
+                </h1>
+
+
+                <p>
+
+                    Take a photo of any product and let ChronicAI
+                    understand what it is, analyze its details,
+                    identify possible risks and give you useful
+                    information in seconds.
+
+                </p>
+
+            </div>
+
+
+            <div class="scanner-container">
+
+
+                <div class="scanner-card upload-card">
+
+                    <div class="upload-header">
+
+                        <h2>
+                            Product Scanner
+                        </h2>
+
+                        <span>
+                            AI VISION
+                        </span>
+
+                    </div>
+
+
+                    <div
+                        class="upload-zone"
+                        id="uploadZone"
+                    >
+
+                        <div
+                            class="upload-content"
+                            id="uploadContent"
+                        >
+
+                            <div class="scan-icon-wrapper">
+
+                                <i class="fa-solid fa-camera-viewfinder"></i>
+
+                            </div>
+
+
+                            <h3>
+                                Show ChronicAI the product
+                            </h3>
+
+
+                            <p>
+
+                                Upload a clear photo of the product,
+                                package, label or barcode.
+
+                                ChronicAI will analyze the image
+                                using AI vision.
+
+                            </p>
+
+
+                            <div class="scan-buttons">
+
+                                <button
+                                    class="scan-btn scan-btn-primary"
+                                    id="uploadButton"
+                                    type="button"
+                                >
+
+                                    <i class="fa-solid fa-image"></i>
+
+                                    Upload Photo
+
+                                </button>
+
+
+                                <button
+                                    class="scan-btn scan-btn-secondary"
+                                    id="cameraButton"
+                                    type="button"
+                                >
+
+                                    <i class="fa-solid fa-camera"></i>
+
+                                    Use Camera
+
+                                </button>
+
+                            </div>
+
+
+                            <input
+                                type="file"
+                                id="productInput"
+                                accept="image/*"
+                            >
+
+                        </div>
+
+
+                        <div
+                            class="preview-container"
+                            id="previewContainer"
+                        >
+
+                            <img
+                                id="productPreview"
+                                alt="Product preview"
+                            >
+
+
+                            <div class="preview-overlay">
+
+                                <span
+                                    class="preview-name"
+                                    id="previewName"
+                                >
+                                    Product image
+                                </span>
+
+
+                                <button
+                                    class="scan-btn scan-btn-secondary"
+                                    id="changeImage"
+                                    type="button"
+                                >
+
+                                    <i class="fa-solid fa-rotate"></i>
+
+                                    Change
+
+                                </button>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <button
+                        class="analyze-button"
+                        id="analyzeButton"
+                        disabled
+                    >
+
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+
+                        Analyze Product with AI
+
+                    </button>
+
+                </div>
+
+
+                <div class="scanner-card ai-panel">
+
+                    <div class="ai-panel-header">
+
+                        <div class="ai-panel-title">
+
+                            <div class="ai-panel-title-icon">
+
+                                <i class="fa-solid fa-brain"></i>
+
+                            </div>
+
+
+                            <h2>
+                                AI Analysis
+                            </h2>
+
+                        </div>
+
+
+                        <div class="ai-online">
+
+                            <span></span>
+
+                            CHECKING AI
+
+                        </div>
+
+                    </div>
+
+
+                    <div
+                        class="ai-empty"
+                        id="aiEmpty"
+                    >
+
+                        <div class="ai-empty-orb">
+
+                            <i class="fa-solid fa-microchip"></i>
+
+                        </div>
+
+
+                        <h3>
+                            Waiting for a product
+                        </h3>
+
+
+                        <p>
+
+                            Upload or capture a product image.
+                            ChronicAI will automatically analyze
+                            what it sees.
+
+                        </p>
+
+                    </div>
+
+
+                    <div
+                        class="ai-loading"
+                        id="aiLoading"
+                    >
+
+                        <div class="ai-scan-animation">
+
+                            <i class="fa-solid fa-brain"></i>
+
+                        </div>
+
+
+                        <div class="loading-title">
+                            ChronicAI is analyzing...
+                        </div>
+
+
+                        <div
+                            class="loading-text"
+                            id="loadingText"
+                        >
+                            Understanding the product image
+                        </div>
+
+
+                        <div class="loading-progress">
+
+                            <span></span>
+
+                        </div>
+
+                    </div>
+
+
+                    <div
+                        class="ai-results"
+                        id="aiResults"
+                    >
+
+                        <div class="result-main">
+
+                            <div class="result-label">
+                                AI IDENTIFIED
+                            </div>
+
+                            <h3 id="productName">
+                                Unknown product
+                            </h3>
+
+                            <div
+                                class="result-description"
+                                id="productDescription"
+                            >
+                                AI-generated product description
+                                will appear here.
+                            </div>
+
+                        </div>
+
+
+                        <div class="result-grid">
+
+                            <div class="result-box">
+
+                                <div class="result-box-top">
+
+                                    <i class="fa-solid fa-tag"></i>
+
+                                    <span>
+                                        Category
+                                    </span>
+
+                                </div>
+
+                                <strong id="productCategory">
+                                    Unknown
+                                </strong>
+
+                            </div>
+
+
+                            <div class="result-box">
+
+                                <div class="result-box-top">
+
+                                    <i class="fa-solid fa-indian-rupee-sign"></i>
+
+                                    <span>
+                                        Estimated Price
+                                    </span>
+
+                                </div>
+
+                                <strong id="productPrice">
+                                    Not available
+                                </strong>
+
+                            </div>
+
+
+                            <div class="result-box">
+
+                                <div class="result-box-top">
+
+                                    <i class="fa-solid fa-star"></i>
+
+                                    <span>
+                                        Condition
+                                    </span>
+
+                                </div>
+
+                                <strong id="productCondition">
+                                    Not determined
+                                </strong>
+
+                            </div>
+
+
+                            <div class="result-box">
+
+                                <div class="result-box-top">
+
+                                    <i class="fa-solid fa-calendar"></i>
+
+                                    <span>
+                                        Expiry
+                                    </span>
+
+                                </div>
+
+                                <strong id="productExpiry">
+                                    Not detected
+                                </strong>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="result-warning">
+
+                            <div class="warning-icon">
+
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+
+                            </div>
+
+
+                            <div>
+
+                                <strong>
+                                    AI Safety Check
+                                </strong>
+
+                                <p id="productWarning">
+
+                                    No clear warning could be determined
+                                    from the image.
+
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="confidence-box">
+
+                            <div class="confidence-header">
+
+                                <span>
+                                    AI Recognition Confidence
+                                </span>
+
+                                <strong id="confidenceValue">
+                                    0%
+                                </strong>
+
+                            </div>
+
+
+                            <div class="confidence-bar">
+
+                                <span id="confidenceBar"></span>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="ask-ai-box">
+
+                            <input
+                                type="text"
+                                id="productQuestion"
+                                placeholder="Ask AI about this product..."
+                            >
+
+
+                            <button
+                                id="askAIButton"
+                                type="button"
+                            >
+
+                                <i class="fa-solid fa-paper-plane"></i>
+
+                            </button>
+
+                        </div>
+
+
+                        <button
+                            class="reset-button"
+                            id="resetScanner"
+                            type="button"
+                        >
+
+                            <i class="fa-solid fa-rotate-left"></i>
+
+                            Scan another product
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="scanner-features">
+
+                <div class="scanner-feature">
+
+                    <i class="fa-solid fa-eye"></i>
+
+                    <strong>
+                        AI Vision
+                    </strong>
+
+                    <span>
+                        Understands objects,
+                        labels and packaging.
+                    </span>
+
+                </div>
+
+
+                <div class="scanner-feature">
+
+                    <i class="fa-solid fa-barcode"></i>
+
+                    <strong>
+                        Product Detection
+                    </strong>
+
+                    <span>
+                        Identifies the product
+                        and its category.
+                    </span>
+
+                </div>
+
+
+                <div class="scanner-feature">
+
+                    <i class="fa-solid fa-shield-halved"></i>
+
+                    <strong>
+                        Safety Check
+                    </strong>
+
+                    <span>
+                        Looks for visible
+                        warnings and risks.
+                    </span>
+
+                </div>
+
+
+                <div class="scanner-feature">
+
+                    <i class="fa-solid fa-comments"></i>
+
+                    <strong>
+                        Ask AI
+                    </strong>
+
+                    <span>
+                        Ask questions about
+                        the scanned product.
+                    </span>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+<script>
+"use strict";
+
+document.addEventListener("DOMContentLoaded", () => {
+
+    /* =========================================================
+       CHRONICAI — FAST PRODUCT AI SCANNER
+       Optimized Frontend
+       ========================================================= */
+
+    /* =========================================================
+       ELEMENTS
+       ========================================================= */
+
+    const productInput = document.getElementById("productInput");
+    const uploadButton = document.getElementById("uploadButton");
+    const cameraButton = document.getElementById("cameraButton");
+    const uploadZone = document.getElementById("uploadZone");
+    const uploadContent = document.getElementById("uploadContent");
+
+    const previewContainer =
+        document.getElementById("previewContainer");
+
+    const productPreview =
+        document.getElementById("productPreview");
+
+    const previewName =
+        document.getElementById("previewName");
+
+    const changeImage =
+        document.getElementById("changeImage");
+
+    const analyzeButton =
+        document.getElementById("analyzeButton");
+
+    const aiEmpty =
+        document.getElementById("aiEmpty");
+
+    const aiLoading =
+        document.getElementById("aiLoading");
+
+    const aiResults =
+        document.getElementById("aiResults");
+
+    const loadingText =
+        document.getElementById("loadingText");
+
+    const resetScanner =
+        document.getElementById("resetScanner");
+
+    const askAIButton =
+        document.getElementById("askAIButton");
+
+    const productQuestion =
+        document.getElementById("productQuestion");
+
+    const productName =
+        document.getElementById("productName");
+
+    const productDescription =
+        document.getElementById("productDescription");
+
+    const productCategory =
+        document.getElementById("productCategory");
+
+    const productPrice =
+        document.getElementById("productPrice");
+
+    const productCondition =
+        document.getElementById("productCondition");
+
+    const productExpiry =
+        document.getElementById("productExpiry");
+
+    const productWarning =
+        document.getElementById("productWarning");
+
+    const confidenceValue =
+        document.getElementById("confidenceValue");
+
+    const confidenceBar =
+        document.getElementById("confidenceBar");
+
+    const aiOnline =
+        document.querySelector(".ai-online");
+
+    const mobileMenuButton =
+        document.getElementById("mobileMenuButton");
+
+    const mobileNavigation =
+        document.getElementById("mobileNavigation");
+
+
+    /* =========================================================
+       API
+       ========================================================= */
+
+    const API_BASE =
+        window.CHRONICAI_API_URL || "";
+
+
+    /* =========================================================
+       STATE
+       ========================================================= */
+
+    let selectedFile = null;
+    let selectedImageBase64 = null;
+    let currentAnalysis = null;
+
+    let isAnalyzing = false;
+    let isAsking = false;
+
+    let loadingInterval = null;
+
+
+    /* =========================================================
+       IMAGE SETTINGS
+       ========================================================= */
+
+    /*
+     * IMPORTANT:
+     *
+     * Original phone images can be 5MB, 8MB, 12MB+
+     *
+     * We resize them before sending to Gemini.
+     *
+     * This dramatically reduces:
+     *
+     * File size
+     * Upload time
+     * Request payload
+     * AI processing time
+     */
+
+    const MAX_IMAGE_WIDTH = 1280;
+    const MAX_IMAGE_HEIGHT = 1280;
+
+    const JPEG_QUALITY = 0.78;
+
+    const MAX_FILE_SIZE =
+        15 * 1024 * 1024;
+
+
+    /* =========================================================
+       INITIAL HEALTH CHECK
+       ========================================================= */
+
+    checkBackendHealth();
+
+
+    async function checkBackendHealth() {
+
+        try {
+
+            const response =
+                await fetch(
+                    `${API_BASE}/api/health`,
+                    {
+                        method: "GET",
+                        cache: "no-store",
+                        headers: {
+                            "Accept":
+                                "application/json"
+                        }
+                    }
+                );
+
+
+            const rawText =
+                await response.text();
+
+
+            let data;
+
+            try {
+
+                data =
+                    JSON.parse(rawText);
+
+            } catch {
+
+                throw new Error(
+                    rawText ||
+                    "Invalid backend response."
+                );
+
+            }
+
+
+            if (!response.ok) {
+
+                throw new Error(
+                    data.error ||
+                    `Health check failed: ${response.status}`
+                );
+
+            }
+
+
+            const aiConfigured =
+                data.aiConfigured !== false &&
+                data.success !== false;
+
+
+            if (aiConfigured) {
+
+                setAIStatus(
+                    true,
+                    "AI ONLINE"
+                );
+
+                console.log(
+                    "ChronicAI: Backend + AI ready."
+                );
+
+            } else {
+
+                setAIStatus(
+                    false,
+                    "AI NOT CONFIGURED"
+                );
+
+            }
+
+
+        } catch (error) {
+
+            console.error(
+                "ChronicAI health check failed:",
+                error
+            );
+
+            setAIStatus(
+                false,
+                "AI OFFLINE"
+            );
+
+        }
+
+    }
+
+
+    /* =========================================================
+       AI STATUS
+       ========================================================= */
+
+    function setAIStatus(
+        online,
+        text
+    ) {
+
+        if (!aiOnline) {
+            return;
+        }
+
+
+        aiOnline.innerHTML = "";
+
+
+        const dot =
+            document.createElement("span");
+
+
+        const label =
+            document.createTextNode(text);
+
+
+        if (online) {
+
+            dot.style.background =
+                "#4ade80";
+
+            dot.style.boxShadow =
+                "0 0 10px #4ade80";
+
+            aiOnline.style.color =
+                "#58e6a0";
+
+            aiOnline.style.background =
+                "rgba(50,220,140,.08)";
+
+        } else {
+
+            dot.style.background =
+                "#ef4444";
+
+            dot.style.boxShadow =
+                "0 0 10px #ef4444";
+
+            aiOnline.style.color =
+                "#f87171";
+
+            aiOnline.style.background =
+                "rgba(239,68,68,.08)";
+
+        }
+
+
+        aiOnline.appendChild(dot);
+        aiOnline.appendChild(label);
+
+    }
+
+
+    /* =========================================================
+       UPLOAD BUTTON
+       ========================================================= */
+
+    if (uploadButton) {
+
+        uploadButton.addEventListener(
+            "click",
+            () => {
+
+                productInput.removeAttribute(
+                    "capture"
+                );
+
+                productInput.value = "";
+
+                productInput.click();
+
+            }
+        );
+
+    }
+
+
+    /* =========================================================
+       CAMERA BUTTON
+       ========================================================= */
+
+    if (cameraButton) {
+
+        cameraButton.addEventListener(
+            "click",
+            () => {
+
+                productInput.value = "";
+
+                productInput.setAttribute(
+                    "capture",
+                    "environment"
+                );
+
+                productInput.click();
+
+            }
+        );
+
+    }
+
+
+    /* =========================================================
+       FILE SELECT
+       ========================================================= */
+
+    if (productInput) {
+
+        productInput.addEventListener(
+            "change",
+            async event => {
+
+                const file =
+                    event.target.files?.[0];
+
+
+                if (!file) {
+                    return;
+                }
+
+
+                await showPreview(file);
+
+            }
+        );
+
+    }
+
+
+    /* =========================================================
+       SHOW PREVIEW
+       ========================================================= */
+
+    async function showPreview(file) {
+
+        if (
+            !file.type ||
+            !file.type.startsWith("image/")
+        ) {
+
+            alert(
+                "Please select a valid image file."
+            );
+
+            return;
+
+        }
+
+
+        if (
+            file.size >
+            MAX_FILE_SIZE
+        ) {
+
+            alert(
+                "Image is too large.\n\n" +
+                "Please choose an image smaller than 15 MB."
+            );
+
+            return;
+
+        }
+
+
+        selectedFile = file;
+
+
+        try {
+
+            /*
+             * Compress image BEFORE AI request.
+             */
+
+            selectedImageBase64 =
+                await compressImage(file);
+
+
+        } catch (error) {
+
+            console.error(
+                "Image compression failed:",
+                error
+            );
+
+
+            alert(
+                "Could not process this image."
+            );
+
+
+            selectedFile = null;
+            selectedImageBase64 = null;
+
+            return;
+
+        }
+
+
+        /*
+         * Preview original image.
+         */
+
+        productPreview.src =
+            URL.createObjectURL(file);
+
+
+        previewName.textContent =
+            file.name ||
+            "Product image";
+
+
+        uploadContent.style.display =
+            "none";
+
+
+        previewContainer.classList.add(
+            "active"
+        );
+
+
+        analyzeButton.disabled =
+            false;
+
+
+        /*
+         * Reset old result.
+         */
+
+        aiResults.classList.remove(
+            "active"
+        );
+
+
+        aiLoading.classList.remove(
+            "active"
+        );
+
+
+        aiEmpty.style.display =
+            "flex";
+
+
+        currentAnalysis = null;
+
+        productQuestion.value = "";
+
+
+        console.log(
+            "Original image:",
+            formatBytes(file.size)
+        );
+
+
+        console.log(
+            "Optimized image:",
+            formatBase64Size(
+                selectedImageBase64
+            )
+        );
+
+    }
+
+
+    /* =========================================================
+       FAST IMAGE COMPRESSION
+       ========================================================= */
+
+    function compressImage(file) {
+
+        return new Promise(
+            (resolve, reject) => {
+
+                const reader =
+                    new FileReader();
+
+
+                reader.onload = event => {
+
+                    const img =
+                        new Image();
+
+
+                    img.onload = () => {
+
+                        let width =
+                            img.width;
+
+                        let height =
+                            img.height;
+
+
+                        /*
+                         * Keep aspect ratio.
+                         */
+
+                        const scale =
+                            Math.min(
+                                1,
+                                MAX_IMAGE_WIDTH / width,
+                                MAX_IMAGE_HEIGHT / height
+                            );
+
+
+                        width =
+                            Math.round(
+                                width * scale
+                            );
+
+
+                        height =
+                            Math.round(
+                                height * scale
+                            );
+
+
+                        const canvas =
+                            document.createElement(
+                                "canvas"
+                            );
+
+
+                        canvas.width =
+                            width;
+
+                        canvas.height =
+                            height;
+
+
+                        const ctx =
+                            canvas.getContext(
+                                "2d",
+                                {
+                                    alpha: false
+                                }
+                            );
+
+
+                        /*
+                         * White background.
+                         * Prevent transparent image issues.
+                         */
+
+                        ctx.fillStyle =
+                            "#ffffff";
+
+                        ctx.fillRect(
+                            0,
+                            0,
+                            width,
+                            height
+                        );
+
+
+                        ctx.drawImage(
+                            img,
+                            0,
+                            0,
+                            width,
+                            height
+                        );
+
+
+                        /*
+                         * JPEG is much smaller
+                         * than original camera image.
+                         */
+
+                        const compressed =
+                            canvas.toDataURL(
+                                "image/jpeg",
+                                JPEG_QUALITY
+                            );
+
+
+                        resolve(
+                            compressed
+                        );
+
+                    };
+
+
+                    img.onerror = () => {
+
+                        reject(
+                            new Error(
+                                "Unable to decode image."
+                            )
+                        );
+
+                    };
+
+
+                    img.src =
+                        event.target.result;
+
+                };
+
+
+                reader.onerror = () => {
+
+                    reject(
+                        new Error(
+                            "Unable to read image."
+                        )
+                    );
+
+                };
+
+
+                reader.readAsDataURL(file);
+
+            }
+        );
+
+    }
+
+
+    /* =========================================================
+       DRAG & DROP
+       ========================================================= */
+
+    [
+        "dragenter",
+        "dragover"
+    ].forEach(
+        eventName => {
+
+            uploadZone.addEventListener(
+                eventName,
+                event => {
+
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    uploadZone.classList.add(
+                        "dragging"
+                    );
+
+                }
+            );
+
+        }
+    );
+
+
+    [
+        "dragleave",
+        "drop"
+    ].forEach(
+        eventName => {
+
+            uploadZone.addEventListener(
+                eventName,
+                event => {
+
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    uploadZone.classList.remove(
+                        "dragging"
+                    );
+
+                }
+            );
+
+        }
+    );
+
+
+    uploadZone.addEventListener(
+        "drop",
+        async event => {
+
+            const file =
+                event.dataTransfer
+                    ?.files?.[0];
+
+
+            if (!file) {
+                return;
+            }
+
+
+            await showPreview(file);
+
+        }
+    );
+
+
+    /* =========================================================
+       CHANGE IMAGE
+       ========================================================= */
+
+    if (changeImage) {
+
+        changeImage.addEventListener(
+            "click",
+            event => {
+
+                event.stopPropagation();
+
+                productInput.removeAttribute(
+                    "capture"
+                );
+
+                productInput.value = "";
+
+                productInput.click();
+
+            }
+        );
+
+    }
+
+
+    /* =========================================================
+       ANALYZE BUTTON
+       ========================================================= */
+
+    if (analyzeButton) {
+
+        analyzeButton.addEventListener(
+            "click",
+            analyzeProduct
+        );
+
+    }
+
+
+    /* =========================================================
+       ANALYZE PRODUCT
+       ========================================================= */
+
+    async function analyzeProduct() {
+
+        if (
+            !selectedFile ||
+            !selectedImageBase64 ||
+            isAnalyzing
+        ) {
+
+            return;
+
+        }
+
+
+        isAnalyzing = true;
+
+
+        analyzeButton.disabled = true;
+
+
+        aiEmpty.style.display =
+            "none";
+
+
+        aiResults.classList.remove(
+            "active"
+        );
+
+
+        aiLoading.classList.add(
+            "active"
+        );
+
+
+        /*
+         * Faster, cleaner loading messages.
+         */
+
+        const loadingMessages = [
+
+            "Optimizing product image...",
+
+            "ChronicAI Vision is analyzing...",
+
+            "Identifying the product...",
+
+            "Reading visible details...",
+
+            "Checking condition and expiry...",
+
+            "Finalizing AI result..."
+
+        ];
+
+
+        let messageIndex = 0;
+
+
+        loadingText.textContent =
+            loadingMessages[0];
+
+
+        loadingInterval =
+            setInterval(
+                () => {
+
+                    messageIndex =
+                        (
+                            messageIndex + 1
+                        ) %
+                        loadingMessages.length;
+
+
+                    loadingText.textContent =
+                        loadingMessages[
+                            messageIndex
+                        ];
+
+                },
+                900
+            );
+
+
+        try {
+
+            console.log(
+                "ChronicAI: Sending optimized image..."
+            );
+
+
+            const controller =
+                new AbortController();
+
+
+            /*
+             * Maximum frontend wait:
+             * 90 seconds.
+             */
+
+            const timeout =
+                setTimeout(
+                    () => {
+                        controller.abort();
+                    },
+                    90000
+                );
+
+
+            const response =
+                await fetch(
+                    `${API_BASE}/api/analyze-product`,
+                    {
+                        method: "POST",
+
+                        headers: {
+
+                            "Content-Type":
+                                "application/json",
+
+                            "Accept":
+                                "application/json"
+
+                        },
+
+                        body:
+                            JSON.stringify({
+
+                                image:
+                                    selectedImageBase64,
+
+                                productName:
+                                    selectedFile?.name || "",
+
+                                description:
+                                    ""
+
+                            }),
+
+                        signal:
+                            controller.signal
+                    }
+                );
+
+
+            clearTimeout(timeout);
+
+
+            const rawText =
+                await response.text();
+
+
+            let data;
+
+
+            try {
+
+                data =
+                    JSON.parse(rawText);
+
+            } catch {
+
+                throw new Error(
+                    rawText ||
+                    `Backend returned HTTP ${response.status}`
+                );
+
+            }
+
+
+            if (!response.ok) {
+
+                throw new Error(
+                    data.error ||
+                    data.message ||
+                    `Backend error ${response.status}`
+                );
+
+            }
+
+
+            if (
+                !data ||
+                data.success !== true
+            ) {
+
+                throw new Error(
+                    data?.error ||
+                    data?.message ||
+                    "AI analysis failed."
+                );
+
+            }
+
+
+            if (!data.analysis) {
+
+                throw new Error(
+                    "Backend returned no analysis."
+                );
+
+            }
+
+
+            console.log(
+                "ChronicAI AI RESPONSE:",
+                data.analysis
+            );
+
+
+            currentAnalysis =
+                normalizeProductAnalysis(
+                    data.analysis
+                );
+
+
+            renderProductAnalysis(
+                currentAnalysis
+            );
+
+
+            aiLoading.classList.remove(
+                "active"
+            );
+
+
+            aiResults.classList.add(
+                "active"
+            );
+
+
+        } catch (error) {
+
+            console.error(
+                "ChronicAI product analysis failed:",
+                error
+            );
+
+            /* Frontend timeout cleanup */
+            if (typeof timeout !== "undefined") {
+                clearTimeout(timeout);
+            }
+
+
+            aiLoading.classList.remove(
+                "active"
+            );
+
+
+            aiEmpty.style.display =
+                "flex";
+
+
+            showRealError(error);
+
+        } finally {
+
+            if (loadingInterval) {
+
+                clearInterval(
+                    loadingInterval
+                );
+
+                loadingInterval = null;
+
+            }
+
+
+            isAnalyzing = false;
+
+
+            analyzeButton.disabled = false;
+
+        }
+
+    }
+
+
+    /* =========================================================
+       NORMALIZE AI RESPONSE
+       ========================================================= */
+
+    function normalizeProductAnalysis(
+        analysis
+    ) {
+
+        return {
+
+            productName:
+                safeText(
+                    analysis.productName ??
+                    analysis.name ??
+                    analysis.product ??
+                    analysis.title,
+                    "Unknown product"
+                ),
+
+
+            description:
+                safeText(
+                    analysis.description ??
+                    analysis.productDescription ??
+                    analysis.details,
+                    "No detailed description available."
+                ),
+
+
+            category:
+                safeText(
+                    analysis.category ??
+                    analysis.productCategory ??
+                    analysis.type,
+                    "Unknown"
+                ),
+
+
+            estimatedPrice:
+                normalizePrice(
+                    analysis.estimatedPrice ??
+                    analysis.estimated_price ??
+                    analysis.price ??
+                    analysis.estimatedPriceRange
+                ),
+
+
+            condition:
+                normalizeCondition(
+                    analysis.condition ??
+                    analysis.productCondition
+                ),
+
+
+            expiry:
+                normalizeExpiry(
+                    analysis.expiry ??
+                    analysis.expiryDate ??
+                    analysis.expiration ??
+                    analysis.expirationDate
+                ),
+
+
+            warning:
+                safeText(
+                    analysis.warning ??
+                    analysis.safetyWarning ??
+                    analysis.safety ??
+                    analysis.risk,
+                    "No clear warning could be determined from the image."
+                ),
+
+
+            confidence:
+                normalizeConfidence(
+                    analysis.confidence ??
+                    analysis.confidenceScore
+                )
+
+        };
+
+    }
+
+
+    /* =========================================================
+       PRICE NORMALIZER
+       ========================================================= */
+
+    function normalizePrice(value) {
+
+        if (
+            value === null ||
+            value === undefined
+        ) {
+
+            return "Not available";
+
+        }
+
+
+        const text =
+            String(value).trim();
+
+
+        if (!text) {
+            return "Not available";
+        }
+
+
+        /*
+         * If backend returns things like:
+         *
+         * 499
+         * 499 INR
+         * ₹499
+         * ₹400-₹600
+         *
+         * keep them.
+         */
+
+        return text;
+
+    }
+
+
+    /* =========================================================
+       CONDITION NORMALIZER
+       ========================================================= */
+
+    function normalizeCondition(value) {
+
+        if (
+            value === null ||
+            value === undefined
+        ) {
+
+            return "Not determined";
+
+        }
+
+
+        const text =
+            String(value).trim();
+
+
+        if (!text) {
+            return "Not determined";
+        }
+
+
+        return text;
+
+    }
+
+
+    /* =========================================================
+       EXPIRY NORMALIZER
+       ========================================================= */
+
+    function normalizeExpiry(value) {
+
+        if (
+            value === null ||
+            value === undefined
+        ) {
+
+            return "Not detected";
+
+        }
+
+
+        const text =
+            String(value).trim();
+
+
+        if (
+            !text ||
+            text.toLowerCase() === "null" ||
+            text.toLowerCase() === "unknown" ||
+            text.toLowerCase() === "not visible"
+        ) {
+
+            return "Not detected";
+
+        }
+
+
+        return text;
+
+    }
+
+
+    /* =========================================================
+       RENDER RESULT
+       ========================================================= */
+
+    function renderProductAnalysis(
+        analysis
+    ) {
+
+        productName.textContent =
+            analysis.productName;
+
+
+        productDescription.textContent =
+            analysis.description;
+
+
+        productCategory.textContent =
+            analysis.category;
+
+
+        productPrice.textContent =
+            analysis.estimatedPrice;
+
+
+        productCondition.textContent =
+            analysis.condition;
+
+
+        productExpiry.textContent =
+            analysis.expiry;
+
+
+        productWarning.textContent =
+            analysis.warning;
+
+
+        confidenceValue.textContent =
+            `${analysis.confidence}%`;
+
+
+        confidenceBar.style.width =
+            `${analysis.confidence}%`;
+
+    }
+
+
+    /* =========================================================
+       CONFIDENCE
+       ========================================================= */
+
+    function normalizeConfidence(value) {
+
+        if (
+            typeof value === "number" &&
+            Number.isFinite(value)
+        ) {
+
+            if (
+                value > 0 &&
+                value <= 1
+            ) {
+
+                value *= 100;
+
+            }
+
+
+            return Math.max(
+                0,
+                Math.min(
+                    100,
+                    Math.round(value)
+                )
+            );
+
+        }
+
+
+        if (
+            typeof value === "string"
+        ) {
+
+            const trimmed =
+                value.trim();
+
+
+            if (
+                /^0?\.\d+$/.test(
+                    trimmed
+                )
+            ) {
+
+                return Math.round(
+                    Number(trimmed) * 100
+                );
+
+            }
+
+
+            const match =
+                trimmed.match(
+                    /(\d{1,3})(?:\.\d+)?/
+                );
+
+
+            if (match) {
+
+                return Math.max(
+                    0,
+                    Math.min(
+                        100,
+                        Number(match[1])
+                    )
+                );
+
+            }
+
+
+            const lower =
+                trimmed.toLowerCase();
+
+
+            if (
+                lower.includes("high")
+            ) {
+                return 90;
+            }
+
+
+            if (
+                lower.includes("medium")
+            ) {
+                return 65;
+            }
+
+
+            if (
+                lower.includes("low")
+            ) {
+                return 35;
+            }
+
+        }
+
+
+        return 0;
+
+    }
+
+
+    /* =========================================================
+       SAFE TEXT
+       ========================================================= */
+
+    function safeText(
+        value,
+        fallback
+    ) {
+
+        if (
+            value === null ||
+            value === undefined
+        ) {
+
+            return fallback;
+
+        }
+
+
+        const text =
+            String(value).trim();
+
+
+        if (
+            !text ||
+            text.toLowerCase() === "null" ||
+            text.toLowerCase() === "undefined"
+        ) {
+
+            return fallback;
+
+        }
+
+
+        return text;
+
+    }
+
+
+    /* =========================================================
+       ERROR
+       ========================================================= */
+
+    function showRealError(error) {
+
+        let message =
+            error?.message ||
+            "Unknown AI connection error.";
+
+
+        if (
+            error?.name === "AbortError"
+        ) {
+
+            message =
+                "AI analysis timed out. Please try again. The image was already optimized before upload.";
+
+        }
+
+
+        alert(
+            "ChronicAI AI Error:\n\n" +
+            message +
+            "\n\n" +
+            "Please check your backend and Gemini configuration."
+        );
+
+    }
+
+
+    /* =========================================================
+       ASK AI
+       ========================================================= */
+
+    if (askAIButton) {
+
+        askAIButton.addEventListener(
+            "click",
+            askProductQuestion
+        );
+
+    }
+
+
+    async function askProductQuestion() {
+
+        const question =
+            productQuestion.value.trim();
+
+
+        if (!question) {
+
+            productQuestion.focus();
+
+            return;
+
+        }
+
+
+        if (!selectedImageBase64) {
+
+            alert(
+                "Please scan a product first."
+            );
+
+            return;
+
+        }
+
+
+        if (isAsking) {
+            return;
+        }
+
+
+        isAsking = true;
+
+
+        askAIButton.disabled = true;
+
+
+        const originalHTML =
+            askAIButton.innerHTML;
+
+
+        askAIButton.innerHTML =
+            '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+
+        try {
+
+            const controller =
+                new AbortController();
+
+
+            const timeout =
+                setTimeout(
+                    () => {
+                        controller.abort();
+                    },
+                    30000
+                );
+
+
+            const response =
+                await fetch(
+                    `${API_BASE}/api/product-question`,
+                    {
+                        method: "POST",
+
+                        headers: {
+
+                            "Content-Type":
+                                "application/json",
+
+                            "Accept":
+                                "application/json"
+
+                        },
+
+                        body:
+                            JSON.stringify({
+
+                                image:
+                                    selectedImageBase64,
+
+                                question:
+                                    question,
+
+                                productName:
+                                    currentAnalysis
+                                        ?.productName ||
+                                    "",
+
+                                product:
+                                    currentAnalysis ||
+                                    null
+
+                            }),
+
+                        signal:
+                            controller.signal
+                    }
+                );
+
+
+            clearTimeout(timeout);
+
+
+            const rawText =
+                await response.text();
+
+
+            let data;
+
+
+            try {
+
+                data =
+                    JSON.parse(rawText);
+
+            } catch {
+
+                throw new Error(
+                    rawText ||
+                    "Invalid AI response."
+                );
+
+            }
+
+
+            if (!response.ok) {
+
+                throw new Error(
+                    data.error ||
+                    data.message ||
+                    `Request failed: ${response.status}`
+                );
+
+            }
+
+
+            if (
+                data.success !== true ||
+                !data.answer
+            ) {
+
+                throw new Error(
+                    data.error ||
+                    data.message ||
+                    "AI returned an empty answer."
+                );
+
+            }
+
+
+            alert(
+                "ChronicAI AI:\n\n" +
+                data.answer
+            );
+
+
+            productQuestion.value = "";
+
+
+        } catch (error) {
+
+            console.error(
+                "ChronicAI question error:",
+                error
+            );
+
+
+            alert(
+                "ChronicAI AI Error:\n\n" +
+                (
+                    error?.message ||
+                    "Unable to get AI answer."
+                )
+            );
+
+        } finally {
+
+            isAsking = false;
+
+            askAIButton.disabled = false;
+
+            askAIButton.innerHTML =
+                originalHTML;
+
+        }
+
+    }
+
+
+    /* =========================================================
+       ENTER KEY
+       ========================================================= */
+
+    if (productQuestion) {
+
+        productQuestion.addEventListener(
+            "keydown",
+            event => {
+
+                if (
+                    event.key === "Enter"
+                ) {
+
+                    event.preventDefault();
+
+                    askProductQuestion();
+
+                }
+
+            }
+        );
+
+    }
+
+
+    /* =========================================================
+       RESET
+       ========================================================= */
+
+    if (resetScanner) {
+
+        resetScanner.addEventListener(
+            "click",
+            () => {
+
+                if (loadingInterval) {
+
+                    clearInterval(
+                        loadingInterval
+                    );
+
+                    loadingInterval = null;
+
+                }
+
+
+                productInput.value = "";
+
+                productPreview.src = "";
+
+                selectedFile = null;
+
+                selectedImageBase64 = null;
+
+                currentAnalysis = null;
+
+
+                previewContainer.classList.remove(
+                    "active"
+                );
+
+
+                uploadContent.style.display =
+                    "block";
+
+
+                aiResults.classList.remove(
+                    "active"
+                );
+
+
+                aiLoading.classList.remove(
+                    "active"
+                );
+
+
+                aiEmpty.style.display =
+                    "flex";
+
+
+                analyzeButton.disabled =
+                    true;
+
+
+                productQuestion.value = "";
+
+
+                confidenceValue.textContent =
+                    "0%";
+
+
+                confidenceBar.style.width =
+                    "0%";
+
+
+                productName.textContent =
+                    "Unknown product";
+
+
+                productDescription.textContent =
+                    "AI-generated product description will appear here.";
+
+
+                productCategory.textContent =
+                    "Unknown";
+
+
+                productPrice.textContent =
+                    "Not available";
+
+
+                productCondition.textContent =
+                    "Not determined";
+
+
+                productExpiry.textContent =
+                    "Not detected";
+
+
+                productWarning.textContent =
+                    "No clear warning could be determined from the image.";
+
+            }
+        );
+
+    }
+
+
+    /* =========================================================
+       MOBILE MENU
+       ========================================================= */
+
+    if (
+        mobileMenuButton &&
+        mobileNavigation
+    ) {
+
+        mobileMenuButton.addEventListener(
+            "click",
+            () => {
+
+                mobileNavigation.classList.toggle(
+                    "active"
+                );
+
+            }
+        );
+
+
+        const mobileLinks =
+            mobileNavigation.querySelectorAll(
+                "a"
+            );
+
+
+        mobileLinks.forEach(
+            link => {
+
+                link.addEventListener(
+                    "click",
+                    () => {
+
+                        mobileNavigation.classList.remove(
+                            "active"
+                        );
+
+                    }
+                );
+
+            }
+        );
+
+    }
+
+
+    /* =========================================================
+       UTILITY
+       ========================================================= */
+
+    function formatBytes(bytes) {
+
+        if (!bytes) {
+            return "0 B";
+        }
+
+
+        const units = [
+            "B",
+            "KB",
+            "MB",
+            "GB"
+        ];
+
+
+        const index =
+            Math.floor(
+                Math.log(bytes) /
+                Math.log(1024)
+            );
+
+
+        return (
+            (
+                bytes /
+                Math.pow(
+                    1024,
+                    index
+                )
+            ).toFixed(2) +
+            " " +
+            units[index]
+        );
+
+    }
+
+
+    function formatBase64Size(base64) {
+
+        if (!base64) {
+            return "0 KB";
+        }
+
+
+        const base64Length =
+            base64.length -
+            (
+                base64.indexOf(",") + 1
+            );
+
+
+        const bytes =
+            Math.ceil(
+                base64Length * 3 / 4
+            );
+
+
+        return formatBytes(bytes);
+
+    }
+
+
+    /* =========================================================
+       INITIAL LOG
+       ========================================================= */
+
+    console.log(
+        "=========================================="
+    );
+
+    console.log(
+        "CHRONICAI FAST PRODUCT SCANNER"
+    );
+
+    console.log(
+        "Image compression: ENABLED"
+    );
+
+    console.log(
+        "Optimized image:",
+        `${MAX_IMAGE_WIDTH}x${MAX_IMAGE_HEIGHT}`
+    );
+
+    console.log(
+        "JPEG quality:",
+        JPEG_QUALITY
+    );
+
+    console.log(
+        "Backend:",
+        `${API_BASE || window.location.origin}`
+    );
+
+    console.log(
+        "Analyze:",
+        `${API_BASE || window.location.origin}/api/analyze-product`
+    );
+
+    console.log(
+        "Question:",
+        `${API_BASE || window.location.origin}/api/product-question`
+    );
+
+    console.log(
+        "=========================================="
+    );
+
+});
+</script>
+   
+</body>
+
+</html>

@@ -1,0 +1,5951 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+
+<title>ChronicAI — AI Life Helper</title>
+
+<link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+>
+
+<style>
+
+*{
+    box-sizing:border-box;
+    margin:0;
+    padding:0;
+}
+
+:root{
+    --bg:#060b16;
+    --panel:#0d1424;
+    --panel2:#111a2d;
+    --text:#f5f7fb;
+    --text2:#aeb8ca;
+    --muted:#737f94;
+    --border:rgba(255,255,255,.08);
+    --border2:rgba(255,255,255,.14);
+    --p:#5b7cff;
+    --p2:#8b5cf6;
+    --green:#2dd4bf;
+}
+
+html,
+body{
+    width:100%;
+    height:100%;
+}
+
+body{
+    font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+    color:var(--text);
+
+    background:
+        radial-gradient(
+            circle at 15% 10%,
+            rgba(91,124,255,.12),
+            transparent 30%
+        ),
+        radial-gradient(
+            circle at 85% 85%,
+            rgba(139,92,246,.10),
+            transparent 30%
+        ),
+        var(--bg);
+
+    overflow:hidden;
+}
+
+button,
+input,
+textarea{
+    font:inherit;
+}
+
+button{
+    -webkit-tap-highlight-color:transparent;
+}
+
+.app{
+    height:100vh;
+    display:flex;
+}
+
+.sidebar{
+    width:280px;
+    height:100%;
+
+    background:rgba(8,13,26,.94);
+
+    border-right:1px solid var(--border);
+
+    padding:18px;
+
+    display:flex;
+    flex-direction:column;
+
+    z-index:30;
+
+    backdrop-filter:blur(20px);
+}
+
+.logo{
+    display:flex;
+    align-items:center;
+    gap:12px;
+
+    padding:8px 8px 22px;
+}
+
+.logo-icon{
+    width:42px;
+    height:42px;
+
+    border-radius:14px;
+
+    display:grid;
+    place-items:center;
+
+    background:
+        linear-gradient(
+            135deg,
+            var(--p),
+            var(--p2)
+        );
+
+    box-shadow:
+        0 8px 25px rgba(91,124,255,.25);
+}
+
+.logo-text{
+    font-size:20px;
+    font-weight:800;
+}
+
+.logo-text span{
+    color:#8295ff;
+}
+
+.new-chat,
+.sidebar-btn{
+    width:100%;
+
+    border:1px solid var(--border2);
+
+    border-radius:13px;
+
+    padding:12px;
+
+    background:rgba(255,255,255,.035);
+
+    color:var(--text);
+
+    cursor:pointer;
+
+    text-align:left;
+}
+
+.new-chat{
+    font-weight:700;
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(91,124,255,.18),
+            rgba(139,92,246,.10)
+        );
+}
+
+.search-box{
+    margin:18px 0;
+    position:relative;
+}
+
+.search-box i{
+    position:absolute;
+    left:13px;
+    top:50%;
+
+    transform:translateY(-50%);
+
+    color:var(--muted);
+}
+
+.search-box input{
+    width:100%;
+
+    padding:
+        11px
+        12px
+        11px
+        36px;
+
+    border-radius:12px;
+
+    border:1px solid var(--border);
+
+    background:rgba(255,255,255,.035);
+
+    color:white;
+
+    outline:0;
+}
+
+.sidebar-title{
+    font-size:11px;
+    color:var(--muted);
+
+    font-weight:800;
+
+    letter-spacing:1px;
+
+    margin:
+        5px
+        5px
+        10px;
+
+    text-transform:uppercase;
+}
+
+.recent-list{
+    overflow:auto;
+    flex:1;
+}
+
+.recent-item{
+    padding:10px;
+
+    border-radius:10px;
+
+    color:var(--text2);
+
+    font-size:12px;
+
+    cursor:pointer;
+}
+
+.recent-item:hover{
+    background:rgba(255,255,255,.05);
+    color:white;
+}
+
+.empty-recent{
+    color:var(--muted);
+    font-size:12px;
+    padding:10px;
+}
+
+.sidebar-bottom{
+    border-top:1px solid var(--border);
+
+    padding-top:12px;
+    margin-top:12px;
+
+    display:grid;
+    gap:7px;
+}
+
+.sidebar-btn{
+    border:0;
+    background:transparent;
+    color:var(--text2);
+}
+
+.sidebar-btn:hover{
+    background:rgba(255,255,255,.05);
+    color:white;
+}
+
+.main{
+    flex:1;
+
+    min-width:0;
+
+    height:100%;
+
+    display:flex;
+    flex-direction:column;
+
+    position:relative;
+}
+
+.header{
+    height:70px;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:space-between;
+
+    padding:
+        0
+        28px;
+
+    border-bottom:1px solid var(--border);
+
+    background:rgba(6,11,22,.7);
+
+    backdrop-filter:blur(20px);
+}
+
+.header-left{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+.mobile-menu{
+    display:none;
+
+    background:0;
+    border:0;
+
+    color:white;
+
+    font-size:19px;
+
+    cursor:pointer;
+}
+
+.header-title{
+    font-weight:750;
+    font-size:15px;
+}
+
+.status{
+    font-size:11px;
+
+    color:var(--text2);
+
+    display:flex;
+
+    gap:7px;
+
+    align-items:center;
+}
+
+.status-dot{
+    width:7px;
+    height:7px;
+
+    border-radius:50%;
+
+    background:var(--green);
+
+    box-shadow:
+        0 0 10px
+        rgba(45,212,191,.8);
+}
+
+.header-actions{
+    display:flex;
+    gap:7px;
+}
+
+.icon-btn{
+    width:38px;
+    height:38px;
+
+    border:1px solid var(--border);
+
+    border-radius:11px;
+
+    background:rgba(255,255,255,.035);
+
+    color:var(--text2);
+
+    cursor:pointer;
+}
+
+.chat-area{
+    flex:1;
+
+    min-height:0;
+
+    overflow:auto;
+
+    padding:
+        30px
+        20px
+        230px;
+}
+
+.chat-container{
+    width:min(900px,100%);
+    margin:auto;
+}
+
+.welcome{
+    min-height:50vh;
+
+    display:flex;
+
+    flex-direction:column;
+
+    align-items:center;
+
+    justify-content:center;
+
+    text-align:center;
+}
+
+.welcome-logo{
+    width:76px;
+    height:76px;
+
+    border-radius:25px;
+
+    display:grid;
+
+    place-items:center;
+
+    font-size:31px;
+
+    background:
+        linear-gradient(
+            135deg,
+            #5b7cff,
+            #8b5cf6
+        );
+
+    box-shadow:
+        0 18px 50px
+        rgba(91,124,255,.25);
+
+    animation:
+        float 4s
+        ease-in-out
+        infinite;
+}
+
+@keyframes float{
+    50%{
+        transform:translateY(-7px);
+    }
+}
+
+.welcome h1{
+    font-size:
+        clamp(
+            30px,
+            5vw,
+            48px
+        );
+
+    margin:
+        22px
+        0
+        12px;
+
+    background:
+        linear-gradient(
+            90deg,
+            #fff,
+            #aab7ff
+        );
+
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+}
+
+.welcome p{
+    max-width:620px;
+
+    color:var(--text2);
+
+    line-height:1.7;
+
+    font-size:14px;
+}
+
+.message{
+    display:flex;
+
+    gap:12px;
+
+    margin-bottom:24px;
+
+    animation:
+        messageIn
+        .3s
+        ease;
+}
+
+.message.user{
+    flex-direction:row-reverse;
+}
+
+@keyframes messageIn{
+    from{
+        opacity:0;
+        transform:translateY(7px);
+    }
+
+    to{
+        opacity:1;
+        transform:none;
+    }
+}
+
+.message-avatar{
+    width:36px;
+    height:36px;
+
+    flex:
+        0
+        0
+        36px;
+
+    border-radius:12px;
+
+    display:grid;
+
+    place-items:center;
+
+    background:
+        linear-gradient(
+            135deg,
+            #5b7cff,
+            #7c5cff
+        );
+
+    font-size:13px;
+}
+
+.message.user .message-avatar{
+    background:#27344e;
+}
+
+.message-body{
+    max-width:
+        min(
+            75%,
+            720px
+        );
+}
+
+.message.user .message-body{
+    text-align:right;
+}
+
+.message-bubble{
+    padding:
+        14px
+        17px;
+
+    border-radius:17px;
+
+    background:
+        rgba(255,255,255,.045);
+
+    border:
+        1px solid
+        var(--border);
+
+    color:#e9edf5;
+
+    line-height:1.7;
+
+    font-size:14px;
+
+    word-wrap:break-word;
+
+    text-align:left;
+}
+
+.message.user .message-bubble{
+    background:
+        linear-gradient(
+            135deg,
+            rgba(91,124,255,.20),
+            rgba(124,92,255,.16)
+        );
+}
+
+.message-meta{
+    display:flex;
+
+    gap:10px;
+
+    margin-top:5px;
+
+    color:#5e697d;
+
+    font-size:10px;
+}
+
+.message-meta button{
+    border:0;
+
+    background:transparent;
+
+    color:#657188;
+
+    cursor:pointer;
+}
+
+.message-bubble pre{
+    background:#050913;
+
+    border:
+        1px solid
+        var(--border);
+
+    padding:14px;
+
+    border-radius:10px;
+
+    overflow:auto;
+
+    margin:10px 0;
+}
+
+.typing{
+    display:none;
+
+    gap:10px;
+
+    margin-bottom:20px;
+}
+
+.typing.show{
+    display:flex;
+}
+
+.typing-avatar{
+    width:36px;
+    height:36px;
+
+    border-radius:12px;
+
+    display:grid;
+
+    place-items:center;
+
+    background:
+        linear-gradient(
+            135deg,
+            #5b7cff,
+            #7c5cff
+        );
+}
+
+.typing-bubble{
+    padding:
+        13px
+        16px;
+
+    background:
+        rgba(255,255,255,.04);
+
+    border:
+        1px solid
+        var(--border);
+
+    border-radius:15px;
+}
+
+.typing-dots{
+    display:flex;
+    gap:4px;
+}
+
+.typing-dots span{
+    width:6px;
+    height:6px;
+
+    border-radius:50%;
+
+    background:#8490ff;
+
+    animation:
+        dot
+        1.2s
+        infinite;
+}
+
+.typing-dots span:nth-child(2){
+    animation-delay:.15s;
+}
+
+.typing-dots span:nth-child(3){
+    animation-delay:.3s;
+}
+
+@keyframes dot{
+    0%,60%,100%{
+        transform:none;
+        opacity:.45;
+    }
+
+    30%{
+        transform:translateY(-4px);
+        opacity:1;
+    }
+}
+
+/* =========================================================
+   DRAGGABLE AI ASSISTANT
+========================================================= */
+
+.assistant-dock{
+
+    position:fixed;
+
+    left:auto;
+    top:auto;
+
+    right:calc(50% + 465px);
+    bottom:86px;
+
+    width:118px;
+
+    text-align:center;
+
+    z-index:1000;
+
+    /*
+       IMPORTANT:
+       old version had pointer-events:none.
+       That prevented dragging.
+    */
+    pointer-events:auto;
+
+    user-select:none;
+
+    touch-action:none;
+
+    cursor:grab;
+}
+
+.assistant-dock.dragging{
+    cursor:grabbing;
+}
+
+.ai-orb{
+
+    width:94px;
+    height:94px;
+
+    margin:auto;
+
+    border-radius:50%;
+
+    position:relative;
+
+    display:grid;
+
+    place-items:center;
+
+    background:
+        radial-gradient(
+            circle at 38% 30%,
+            #ffd9c8 0 13%,
+            #d99175 14% 16%,
+            transparent 17%
+        ),
+        linear-gradient(
+            145deg,
+            #8b5cf6,
+            #5b7cff
+        );
+
+    box-shadow:
+        0 0 0 5px
+        rgba(91,124,255,.08),
+
+        0 15px 45px
+        rgba(91,124,255,.3);
+
+    animation:
+        orbFloat
+        3.5s
+        ease-in-out
+        infinite;
+
+    cursor:grab;
+
+    touch-action:none;
+}
+
+.assistant-dock.dragging .ai-orb{
+    cursor:grabbing;
+}
+
+.ai-orb:before{
+    content:"";
+
+    position:absolute;
+
+    inset:10px;
+
+    border-radius:50%;
+
+    border:
+        1px solid
+        rgba(255,255,255,.28);
+}
+
+.ai-face{
+    width:55px;
+    height:63px;
+
+    border-radius:
+        48%
+        48%
+        44%
+        44%;
+
+    position:relative;
+
+    background:
+        linear-gradient(
+            160deg,
+            #ffd8c8,
+            #e7a58c
+        );
+
+    box-shadow:
+        inset
+        0 -5px
+        12px
+        rgba(100,30,20,.08);
+}
+
+.ai-hair{
+    position:absolute;
+
+    left:-4px;
+    right:-4px;
+
+    top:-7px;
+
+    height:35px;
+
+    border-radius:
+        55%
+        55%
+        40%
+        40%;
+
+    background:#251d39;
+}
+
+.eye{
+    position:absolute;
+
+    top:27px;
+
+    width:6px;
+    height:4px;
+
+    border-radius:50%;
+
+    background:#30233b;
+}
+
+.eye.l{
+    left:15px;
+}
+
+.eye.r{
+    right:15px;
+}
+
+.mouth{
+    position:absolute;
+
+    left:22px;
+
+    top:42px;
+
+    width:12px;
+
+    height:5px;
+
+    border-bottom:
+        2px solid
+        #8f3e50;
+
+    border-radius:
+        0
+        0
+        10px
+        10px;
+}
+
+.ai-orb.speaking{
+    animation:
+        orbSpeak
+        .7s
+        ease-in-out
+        infinite;
+}
+
+.ai-orb.speaking .mouth{
+    height:9px;
+
+    border:
+        2px solid
+        #8f3e50;
+
+    border-radius:50%;
+}
+
+@keyframes orbFloat{
+    50%{
+        transform:translateY(-7px);
+    }
+}
+
+@keyframes orbSpeak{
+    50%{
+        transform:scale(1.045);
+    }
+}
+
+.assistant-label{
+    font-size:10px;
+
+    color:#aeb8ca;
+
+    margin-top:7px;
+
+    cursor:grab;
+}
+
+.assistant-label b{
+    color:white;
+}
+
+.voice-toggle{
+
+    margin-top:6px;
+
+    border:
+        1px solid
+        var(--border2);
+
+    background:
+        rgba(13,20,36,.9);
+
+    color:#dce3ff;
+
+    border-radius:20px;
+
+    padding:
+        5px
+        9px;
+
+    font-size:10px;
+
+    cursor:pointer;
+
+    pointer-events:auto;
+}
+
+.voice-toggle.on{
+    background:
+        linear-gradient(
+            135deg,
+            rgba(91,124,255,.35),
+            rgba(139,92,246,.35)
+        );
+
+    color:white;
+}
+
+.voice-wave{
+    display:none;
+
+    justify-content:center;
+
+    gap:2px;
+
+    margin-top:5px;
+}
+
+.voice-wave.show{
+    display:flex;
+}
+
+.voice-wave i{
+    width:3px;
+    height:10px;
+
+    background:#7c8cff;
+
+    border-radius:3px;
+
+    animation:
+        wave
+        .65s
+        infinite
+        alternate;
+}
+
+.voice-wave i:nth-child(2){
+    animation-delay:.12s;
+}
+
+.voice-wave i:nth-child(3){
+    animation-delay:.24s;
+}
+
+.voice-wave i:nth-child(4){
+    animation-delay:.36s;
+}
+
+@keyframes wave{
+    to{
+        height:18px;
+    }
+}
+
+/* =========================================================
+   INPUT
+========================================================= */
+
+.input-wrapper{
+
+    position:absolute;
+
+    left:0;
+    right:0;
+    bottom:0;
+
+    padding:
+        20px
+        20px
+        24px;
+
+    background:
+        linear-gradient(
+            to top,
+            var(--bg) 65%,
+            transparent
+        );
+
+    z-index:10;
+}
+
+.input-container{
+
+    width:min(
+        900px,
+        100%
+    );
+
+    margin:auto;
+
+    border:
+        1px solid
+        var(--border2);
+
+    background:
+        rgba(13,20,36,.92);
+
+    border-radius:20px;
+
+    box-shadow:
+        0 20px
+        60px
+        rgba(0,0,0,.35);
+
+    backdrop-filter:blur(20px);
+}
+
+.voice-status{
+
+    display:none;
+
+    padding:
+        8px
+        14px
+        0;
+
+    color:var(--text2);
+
+    font-size:11px;
+}
+
+.voice-status.show{
+    display:block;
+}
+
+.input-row{
+
+    display:flex;
+
+    align-items:flex-end;
+
+    gap:8px;
+
+    padding:12px;
+}
+
+.input-actions{
+    display:flex;
+    gap:4px;
+}
+
+.tool-btn{
+
+    width:38px;
+    height:38px;
+
+    border:0;
+
+    border-radius:11px;
+
+    background:transparent;
+
+    color:#7b879c;
+
+    cursor:pointer;
+}
+
+.tool-btn:hover,
+.tool-btn.active{
+
+    background:
+        rgba(91,124,255,.15);
+
+    color:white;
+}
+
+.chat-input{
+
+    flex:1;
+
+    min-width:0;
+
+    max-height:130px;
+
+    resize:none;
+
+    overflow:auto;
+
+    border:0;
+
+    outline:0;
+
+    background:transparent;
+
+    color:white;
+
+    padding:
+        9px
+        5px;
+
+    font:
+        14px/1.5
+        inherit;
+}
+
+.chat-input::placeholder{
+    color:#69758a;
+}
+
+.send-btn{
+
+    width:42px;
+    height:42px;
+
+    border:0;
+
+    border-radius:13px;
+
+    background:
+        linear-gradient(
+            135deg,
+            #5b7cff,
+            #7c5cff
+        );
+
+    color:white;
+
+    cursor:pointer;
+}
+
+.send-btn:disabled{
+    opacity:.5;
+}
+
+.input-footer{
+
+    text-align:center;
+
+    color:#4f5a6d;
+
+    font-size:10px;
+
+    padding:
+        0
+        15px
+        10px;
+}
+
+.attachment-preview{
+
+    display:none;
+
+    align-items:center;
+
+    gap:9px;
+
+    margin:
+        12px
+        14px
+        0;
+
+    padding:
+        9px
+        11px;
+
+    border-radius:10px;
+
+    background:
+        rgba(91,124,255,.08);
+
+    font-size:12px;
+}
+
+.attachment-preview.show{
+    display:flex;
+}
+
+.attachment-preview span{
+
+    flex:1;
+
+    overflow:hidden;
+
+    text-overflow:ellipsis;
+
+    white-space:nowrap;
+}
+
+.remove-attachment{
+
+    border:0;
+
+    background:transparent;
+
+    color:#aaa;
+
+    cursor:pointer;
+}
+
+.toast{
+
+    position:fixed;
+
+    bottom:105px;
+
+    left:50%;
+
+    transform:
+        translate(
+            -50%,
+            20px
+        );
+
+    opacity:0;
+
+    pointer-events:none;
+
+    background:#151e32;
+
+    color:white;
+
+    border:
+        1px solid
+        var(--border2);
+
+    border-radius:12px;
+
+    padding:
+        11px
+        17px;
+
+    font-size:12px;
+
+    transition:.3s;
+
+    z-index:2000;
+}
+
+.toast.show{
+
+    opacity:1;
+
+    transform:
+        translate(
+            -50%,
+            0
+        );
+}
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media(max-width:1120px){
+
+    .assistant-dock{
+
+        right:14px;
+        bottom:155px;
+
+        transform:scale(.82);
+
+        transform-origin:
+            right
+            bottom;
+    }
+}
+
+@media(max-width:850px){
+
+    .sidebar{
+
+        position:fixed;
+
+        left:-300px;
+
+        top:0;
+
+        transition:.3s;
+
+        box-shadow:
+            20px
+            0
+            50px
+            rgba(0,0,0,.3);
+    }
+
+    .sidebar.open{
+        left:0;
+    }
+
+    .mobile-menu{
+        display:block;
+    }
+
+    .header{
+        padding:
+            0
+            15px;
+    }
+
+    .chat-area{
+
+        padding:
+            20px
+            12px
+            220px;
+    }
+
+    .input-wrapper{
+
+        padding:
+            15px
+            10px
+            18px;
+    }
+
+    .message-body{
+        max-width:82%;
+    }
+
+    .assistant-dock{
+
+        right:6px;
+
+        bottom:155px;
+
+        transform:scale(.72);
+    }
+}
+
+@media(max-width:600px){
+
+    .assistant-dock{
+
+        right:10px;
+
+        bottom:148px;
+
+        transform:scale(.62);
+    }
+
+    .message-body{
+        max-width:84%;
+    }
+
+    .header-title{
+        font-size:13px;
+    }
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+    <aside class="sidebar" id="sidebar">
+
+        <div class="logo">
+
+            <div class="logo-icon">
+                <i class="fa-solid fa-brain"></i>
+            </div>
+
+            <div class="logo-text">
+                Chronic<span>AI</span>
+            </div>
+
+        </div>
+
+        <button
+            class="new-chat"
+            id="sidebarNewChat"
+        >
+            <i class="fa-solid fa-plus"></i>
+            New conversation
+        </button>
+
+        <div class="search-box">
+
+            <i class="fa-solid fa-magnifying-glass"></i>
+
+            <input
+                id="chatSearch"
+                placeholder="Search chats..."
+            >
+
+        </div>
+
+        <div class="sidebar-title">
+            Recent
+        </div>
+
+        <div
+            class="recent-list"
+            id="recentSearchList"
+        ></div>
+
+        <div class="sidebar-bottom">
+
+            <button
+                class="sidebar-btn"
+                id="saveChatButton"
+            >
+                <i class="fa-regular fa-bookmark"></i>
+                Save conversation
+            </button>
+
+            <button
+                class="sidebar-btn"
+                id="exportChatButton"
+            >
+                <i class="fa-solid fa-copy"></i>
+                Copy conversation
+            </button>
+
+            <button
+                class="sidebar-btn"
+                id="clearHistoryButton"
+            >
+                <i class="fa-regular fa-trash-can"></i>
+                Clear conversation
+            </button>
+
+        </div>
+
+    </aside>
+
+
+    <main class="main">
+
+        <header class="header">
+
+            <div class="header-left">
+
+                <button
+                    class="mobile-menu"
+                    id="mobileMenu"
+                >
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+
+                <div>
+
+                    <div class="header-title">
+                        ChronicAI Life Helper
+                    </div>
+
+                    <div class="status">
+
+                        <span class="status-dot"></span>
+
+                        AI assistant online
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="header-actions">
+
+                <button
+                    class="icon-btn"
+                    id="newChatButton"
+                    title="New chat"
+                >
+                    <i class="fa-solid fa-plus"></i>
+                </button>
+
+                <button
+                    class="icon-btn"
+                    id="themeButton"
+                    title="Theme"
+                >
+                    <i class="fa-solid fa-moon"></i>
+                </button>
+
+            </div>
+
+        </header>
+
+
+        <section
+            class="chat-area"
+            id="chatMessages"
+        >
+
+            <div
+                class="chat-container"
+                id="chatContainer"
+            >
+
+                <div
+                    class="welcome"
+                    id="welcomeScreen"
+                >
+
+                    <div class="welcome-logo">
+                        <i class="fa-solid fa-sparkles"></i>
+                    </div>
+
+                    <h1>
+                        How can I help you?
+                    </h1>
+
+                    <p>
+                        ChronicAI is your AI life helper.
+                        Ask questions, speak naturally,
+                        upload an image, or use Voice Assistant
+                        for a hands-free conversation.
+                    </p>
+
+                </div>
+
+
+                <div
+                    class="typing"
+                    id="typingIndicator"
+                >
+
+                    <div class="typing-avatar">
+                        <i class="fa-solid fa-sparkles"></i>
+                    </div>
+
+                    <div class="typing-bubble">
+
+                        <div class="typing-dots">
+
+                            <span></span>
+                            <span></span>
+                            <span></span>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- =====================================================
+             DRAGGABLE AI AVATAR
+        ====================================================== -->
+
+        <div
+            class="assistant-dock"
+            id="assistantDock"
+        >
+
+            <div
+                class="ai-orb"
+                id="aiOrb"
+                title="Drag me anywhere"
+            >
+
+                <div class="ai-face">
+
+                    <div class="ai-hair"></div>
+
+                    <i class="eye l"></i>
+                    <i class="eye r"></i>
+
+                    <i class="mouth"></i>
+
+                </div>
+
+            </div>
+
+
+            <div class="assistant-label">
+                <b>ChronicAI Assistant</b>
+            </div>
+
+
+            <button
+                class="voice-toggle"
+                id="voiceToggle"
+            >
+                <i class="fa-solid fa-microphone"></i>
+                Voice OFF
+            </button>
+
+
+            <div
+                class="voice-wave"
+                id="voiceWave"
+            >
+                <i></i>
+                <i></i>
+                <i></i>
+                <i></i>
+            </div>
+
+        </div>
+
+
+        <!-- =====================================================
+             INPUT
+        ====================================================== -->
+
+        <div class="input-wrapper">
+
+            <div class="input-container">
+
+                <div
+                    class="voice-status"
+                    id="voiceStatus"
+                ></div>
+
+
+                <div
+                    class="attachment-preview"
+                    id="attachmentPreview"
+                >
+
+                    <i
+                        id="attachmentIcon"
+                        class="fa-solid fa-image"
+                    ></i>
+
+                    <span id="attachmentName"></span>
+
+                    <button
+                        class="remove-attachment"
+                        id="removeAttachment"
+                        type="button"
+                    >
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+
+                </div>
+
+
+                <div class="input-row">
+
+                    <div class="input-actions">
+
+                        <button
+                            class="tool-btn"
+                            id="fileButton"
+                            title="Upload image"
+                            type="button"
+                        >
+                            <i class="fa-solid fa-paperclip"></i>
+                        </button>
+
+
+                        <button
+                            class="tool-btn"
+                            id="cameraButton"
+                            title="Camera"
+                            type="button"
+                        >
+                            <i class="fa-solid fa-camera"></i>
+                        </button>
+
+
+                        <button
+                            class="tool-btn"
+                            id="voiceButton"
+                            title="Voice input"
+                            type="button"
+                        >
+                            <i class="fa-solid fa-microphone"></i>
+                        </button>
+
+                    </div>
+
+
+                    <textarea
+                        class="chat-input"
+                        id="chatInput"
+                        rows="1"
+                        placeholder="Message ChronicAI..."
+                    ></textarea>
+
+
+                    <button
+                        class="send-btn"
+                        id="sendButton"
+                        title="Send"
+                        type="button"
+                    >
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+
+                </div>
+
+
+                <div class="input-footer">
+                    ChronicAI can make mistakes.
+                    Verify important information when necessary.
+                </div>
+
+
+                <input
+                    type="file"
+                    id="fileInput"
+                    hidden
+                    accept="image/*"
+                >
+
+            </div>
+
+        </div>
+
+    </main>
+
+</div>
+
+
+<div
+    class="toast"
+    id="helperToast"
+></div>
+
+<script>
+"use strict";
+
+document.addEventListener("DOMContentLoaded", () => {
+
+    /* =========================================================
+       CHRONICAI LIFE HELPER
+       COMPLETE CORRECTED VERSION
+
+       FIXED:
+       ✓ Text chat
+       ✓ Image chat
+       ✓ Camera
+       ✓ Voice input
+       ✓ MediaRecorder
+       ✓ Groq Whisper through backend
+       ✓ Bengali / English / Hindi detection
+       ✓ Banglish preserved
+       ✓ Automatic voice submission
+       ✓ AI voice reply
+       ✓ Voice mode remains ON
+       ✓ Microphone restarts after AI reply
+       ✓ No Groq SDK in frontend
+       ✓ No SpeechRecognition dependency
+       ✓ No automatic recorder loop
+       ✓ Mobile friendly
+       ✓ Local history
+       ✓ Recent searches
+       ✓ Theme
+       ✓ Header menu
+       ✓ Drag assistant
+    ========================================================= */
+
+
+    /* =========================================================
+       DOM
+    ========================================================= */
+
+    const $ = id => document.getElementById(id);
+
+    const sidebar = $("sidebar");
+    const chatMessages = $("chatMessages");
+    const chatContainer = $("chatContainer");
+
+    const chatInput = $("chatInput");
+    const sendButton = $("sendButton");
+    const typing = $("typingIndicator");
+    const welcome = $("welcomeScreen");
+
+    const fileInput = $("fileInput");
+    const fileButton = $("fileButton");
+    const cameraButton = $("cameraButton");
+    const voiceButton = $("voiceButton");
+
+    const voiceToggle = $("voiceToggle");
+    const voiceStatus = $("voiceStatus");
+
+    const aiOrb = $("aiOrb");
+    const voiceWave = $("voiceWave");
+
+    const attachmentPreview = $("attachmentPreview");
+    const attachmentName = $("attachmentName");
+    const attachmentIcon = $("attachmentIcon");
+    const removeAttachment = $("removeAttachment");
+
+    const toast = $("helperToast");
+    const recentList = $("recentSearchList");
+    const chatSearch = $("chatSearch");
+
+    const headerMenuButton = $("headerMenuButton");
+    const headerMenu = $("headerMenu");
+    const headerSaveButton = $("headerSaveButton");
+    const headerCopyButton = $("headerCopyButton");
+    const headerClearButton = $("headerClearButton");
+
+
+    /* =========================================================
+       API
+    ========================================================= */
+
+    const CHAT_API_ENDPOINT = "/api/chat";
+    const ANALYZE_API_ENDPOINT = "/api/analyze";
+
+    /*
+       IMPORTANT:
+
+       This endpoint must exist in server.js.
+
+       Frontend sends audio here.
+       server.js receives audio.
+       server.js talks to Groq Whisper.
+       Groq API key NEVER comes into this file.
+    */
+    const TRANSCRIBE_API_ENDPOINT = "/api/transcribe";
+
+
+    /* =========================================================
+       STORAGE
+    ========================================================= */
+
+    const STORAGE_MESSAGES = "chronicai_messages";
+    const STORAGE_RECENT = "chronicai_recent";
+    const STORAGE_THEME = "chronicai_theme";
+
+
+    /* =========================================================
+       STATE
+    ========================================================= */
+
+    let messages = [];
+    let recentSearches = [];
+
+    let selectedFile = null;
+
+    let isSending = false;
+
+
+    /* =========================================================
+       VOICE STATE
+    ========================================================= */
+
+    let voiceMode = false;
+
+    let microphoneStream = null;
+    let mediaRecorder = null;
+
+    let audioChunks = [];
+
+    let recordingActive = false;
+    let processingVoice = false;
+
+    let recordingStartedAt = 0;
+    let lastSoundAt = 0;
+    let speechDetected = false;
+
+    let silenceTimer = null;
+    let microphoneStarting = false;
+
+    let detectedLanguage = null;
+
+
+    /* =========================================================
+       TTS STATE
+    ========================================================= */
+
+    let speechQueue = [];
+    let speechGeneration = 0;
+
+    let isSpeaking = false;
+
+
+    /* =========================================================
+       VOICE SETTINGS
+    ========================================================= */
+
+    /*
+       User must speak at least this long.
+    */
+    const MIN_RECORDING_MS = 500;
+
+    /*
+       After user stops speaking,
+       wait this much before submitting.
+    */
+    const SPEECH_END_SILENCE_MS = 1800;
+
+    /*
+       If absolutely nothing is spoken,
+       turn voice mode OFF after this time.
+    */
+    const NO_SPEECH_TIMEOUT_MS = 7000;
+
+    /*
+       Audio level threshold.
+       Lower = more sensitive.
+    */
+    const VOICE_THRESHOLD = 0.025;
+
+
+    /* =========================================================
+       STORAGE
+    ========================================================= */
+
+    function loadStorage() {
+
+        try {
+
+            messages = JSON.parse(
+                localStorage.getItem(STORAGE_MESSAGES) || "[]"
+            );
+
+            recentSearches = JSON.parse(
+                localStorage.getItem(STORAGE_RECENT) || "[]"
+            );
+
+            if (!Array.isArray(messages)) {
+                messages = [];
+            }
+
+            if (!Array.isArray(recentSearches)) {
+                recentSearches = [];
+            }
+
+        } catch {
+
+            messages = [];
+            recentSearches = [];
+
+        }
+
+
+        messages.forEach(message => {
+
+            if (
+                message &&
+                message.content
+            ) {
+
+                renderMessage(
+                    message.role,
+                    message.content,
+                    false
+                );
+
+            }
+
+        });
+
+
+        renderRecent();
+
+    }
+
+
+    function saveMessages() {
+
+        try {
+
+            localStorage.setItem(
+                STORAGE_MESSAGES,
+                JSON.stringify(
+                    messages.slice(-100)
+                )
+            );
+
+        } catch {}
+
+    }
+
+
+    function saveRecent() {
+
+        try {
+
+            localStorage.setItem(
+                STORAGE_RECENT,
+                JSON.stringify(recentSearches)
+            );
+
+        } catch {}
+
+    }
+
+
+    /* =========================================================
+       TOAST
+    ========================================================= */
+
+    function showToast(text) {
+
+        if (!toast) return;
+
+        toast.textContent = String(text || "");
+
+        toast.classList.add("show");
+
+        clearTimeout(showToast.timer);
+
+        showToast.timer = setTimeout(() => {
+
+            toast.classList.remove("show");
+
+        }, 2600);
+
+    }
+
+
+    /* =========================================================
+       HTML SAFETY
+    ========================================================= */
+
+    function escapeHTML(value) {
+
+        const div = document.createElement("div");
+
+        div.textContent = value ?? "";
+
+        return div.innerHTML;
+
+    }
+
+
+    function formatMessage(text) {
+
+        let html = escapeHTML(
+            String(text || "")
+        );
+
+
+        html = html.replace(
+            /```([\s\S]*?)```/g,
+            "<pre><code>$1</code></pre>"
+        );
+
+
+        html = html.replace(
+            /`([^`]+)`/g,
+            "<code>$1</code>"
+        );
+
+
+        html = html.replace(
+            /\*\*(.*?)\*\*/g,
+            "<strong>$1</strong>"
+        );
+
+
+        html = html.replace(
+            /^[-•] (.*)$/gm,
+            "<div>• $1</div>"
+        );
+
+
+        return html.replace(
+            /\n/g,
+            "<br>"
+        );
+
+    }
+
+
+    function time() {
+
+        return new Date().toLocaleTimeString(
+            [],
+            {
+                hour: "2-digit",
+                minute: "2-digit"
+            }
+        );
+
+    }
+
+
+    function scrollBottom() {
+
+        requestAnimationFrame(() => {
+
+            if (chatMessages) {
+
+                chatMessages.scrollTop =
+                    chatMessages.scrollHeight;
+
+            }
+
+        });
+
+    }
+
+
+    /* =========================================================
+       RENDER MESSAGE
+    ========================================================= */
+
+    function renderMessage(
+        role,
+        content,
+        save = true
+    ) {
+
+        if (!chatContainer) return;
+
+
+        if (welcome) {
+
+            welcome.style.display = "none";
+
+        }
+
+
+        const message =
+            document.createElement("div");
+
+        message.className =
+            "message " +
+            (
+                role === "user"
+                    ? "user"
+                    : "ai"
+            );
+
+
+        const avatar =
+            document.createElement("div");
+
+        avatar.className =
+            "message-avatar";
+
+
+        avatar.innerHTML =
+            role === "ai"
+                ? '<i class="fa-solid fa-sparkles"></i>'
+                : '<i class="fa-solid fa-user"></i>';
+
+
+        const body =
+            document.createElement("div");
+
+        body.className =
+            "message-body";
+
+
+        const bubble =
+            document.createElement("div");
+
+        bubble.className =
+            "message-bubble";
+
+
+        bubble.innerHTML =
+            formatMessage(content);
+
+
+        const meta =
+            document.createElement("div");
+
+        meta.className =
+            "message-meta";
+
+
+        meta.innerHTML =
+            `<span>${time()}</span>`;
+
+
+        if (role === "ai") {
+
+            const copyButton =
+                document.createElement("button");
+
+            copyButton.innerHTML =
+                '<i class="fa-regular fa-copy"></i>';
+
+            copyButton.title =
+                "Copy";
+
+            copyButton.onclick =
+                () => copyText(content);
+
+            meta.appendChild(copyButton);
+
+        }
+
+
+        body.append(
+            bubble,
+            meta
+        );
+
+
+        message.append(
+            avatar,
+            body
+        );
+
+
+        if (typing) {
+
+            chatContainer.insertBefore(
+                message,
+                typing
+            );
+
+        } else {
+
+            chatContainer.appendChild(
+                message
+            );
+
+        }
+
+
+        if (save) {
+
+            messages.push({
+                role,
+                content: String(content),
+                time: Date.now()
+            });
+
+            saveMessages();
+
+        }
+
+
+        scrollBottom();
+
+    }
+
+
+    /* =========================================================
+       RECENT SEARCH
+    ========================================================= */
+
+    function addRecent(text) {
+
+        text =
+            String(text || "").trim();
+
+        if (!text) return;
+
+
+        recentSearches =
+            recentSearches.filter(
+                item =>
+                    item.toLowerCase() !==
+                    text.toLowerCase()
+            );
+
+
+        recentSearches.unshift(text);
+
+        recentSearches =
+            recentSearches.slice(0, 8);
+
+
+        saveRecent();
+
+        renderRecent();
+
+    }
+
+
+    function renderRecent() {
+
+        if (!recentList) return;
+
+
+        recentList.innerHTML = "";
+
+
+        if (!recentSearches.length) {
+
+            recentList.innerHTML =
+                '<div class="empty-recent">' +
+                'Your recent AI questions will appear here.' +
+                '</div>';
+
+            return;
+
+        }
+
+
+        recentSearches.forEach(query => {
+
+            const item =
+                document.createElement("div");
+
+            item.className =
+                "recent-item";
+
+            item.textContent =
+                query;
+
+
+            item.onclick = () => {
+
+                if (!chatInput) return;
+
+                chatInput.value =
+                    query;
+
+                resize();
+
+                chatInput.focus();
+
+            };
+
+
+            recentList.appendChild(item);
+
+        });
+
+    }
+
+
+    /* =========================================================
+       COPY
+    ========================================================= */
+
+    async function copyText(text) {
+
+        try {
+
+            await navigator.clipboard.writeText(
+                String(text || "")
+            );
+
+            showToast("Copied.");
+
+        } catch {
+
+            showToast(
+                "Unable to copy."
+            );
+
+        }
+
+    }
+
+
+    /* =========================================================
+       TEXT INPUT
+    ========================================================= */
+
+    function resize() {
+
+        if (!chatInput) return;
+
+
+        chatInput.style.height =
+            "auto";
+
+
+        chatInput.style.height =
+            Math.min(
+                chatInput.scrollHeight,
+                130
+            ) + "px";
+
+    }
+
+
+    if (chatInput) {
+
+        chatInput.disabled = false;
+        chatInput.readOnly = false;
+        chatInput.tabIndex = 0;
+
+        chatInput.addEventListener(
+            "input",
+            resize
+        );
+
+
+        chatInput.addEventListener(
+            "keydown",
+            event => {
+
+                if (
+                    event.key === "Enter" &&
+                    !event.shiftKey
+                ) {
+
+                    event.preventDefault();
+
+                    sendMessage();
+
+                }
+
+            }
+        );
+
+    }
+
+
+    /* =========================================================
+       SERVER RESPONSE
+    ========================================================= */
+
+    async function serverResponse(response) {
+
+        const raw =
+            await response.text();
+
+
+        let data;
+
+
+        try {
+
+            data =
+                JSON.parse(raw);
+
+        } catch {
+
+            if (
+                raw.trim().startsWith("<")
+            ) {
+
+                throw new Error(
+                    "Backend returned HTML instead of JSON. Check server.js and API route."
+                );
+
+            }
+
+            throw new Error(
+                "Backend returned invalid JSON."
+            );
+
+        }
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                data?.error ||
+                data?.message ||
+                `AI server error: HTTP ${response.status}`
+            );
+
+        }
+
+
+        return {
+
+            text: String(
+                data?.answer ??
+                data?.response ??
+                data?.reply ??
+                data?.text ??
+                data?.content ??
+                data?.analysis ??
+                ""
+            ).trim(),
+
+
+            language:
+                data?.language ||
+                data?.lang ||
+                null
+
+        };
+
+    }
+
+
+    /* =========================================================
+       IMAGE TO DATA URL
+    ========================================================= */
+
+    function fileToDataURL(file) {
+
+        return new Promise(
+            (resolve, reject) => {
+
+                const reader =
+                    new FileReader();
+
+
+                reader.onload =
+                    () => resolve(
+                        reader.result
+                    );
+
+
+                reader.onerror =
+                    () => reject(
+                        new Error(
+                            "Unable to read image."
+                        )
+                    );
+
+
+                reader.readAsDataURL(file);
+
+            }
+        );
+
+    }
+
+
+    /* =========================================================
+       AI REQUEST
+    ========================================================= */
+
+    async function getAI(
+        text,
+        file
+    ) {
+
+        /*
+           IMAGE REQUEST
+        */
+
+        if (file) {
+
+            const image =
+                await fileToDataURL(file);
+
+
+            const response =
+                await fetch(
+                    ANALYZE_API_ENDPOINT,
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json",
+
+                            "Accept":
+                                "application/json"
+                        },
+
+                        body: JSON.stringify({
+
+                            description:
+                                text ||
+                                "Analyze this image naturally and explain what you see.",
+
+                            location: "",
+
+                            reporterName:
+                                "ChronicAI User",
+
+                            image
+
+                        })
+
+                    }
+                );
+
+
+            return serverResponse(response);
+
+        }
+
+
+        /*
+           NORMAL CHAT
+        */
+
+        const conversation =
+            messages
+                .slice(-20)
+                .map(message => ({
+
+                    role:
+                        message.role === "ai"
+                            ? "assistant"
+                            : "user",
+
+                    content:
+                        String(
+                            message.content || ""
+                        )
+
+                }));
+
+
+        const response =
+            await fetch(
+                CHAT_API_ENDPOINT,
+                {
+                    method: "POST",
+
+                    headers: {
+
+                        "Content-Type":
+                            "application/json",
+
+                        "Accept":
+                            "application/json"
+
+                    },
+
+                    body: JSON.stringify({
+
+                        message: text,
+
+                        conversation
+
+                    })
+
+                }
+            );
+
+
+        return serverResponse(response);
+
+    }
+
+
+    /* =========================================================
+       SEND MESSAGE
+    ========================================================= */
+
+    async function sendMessage() {
+
+        if (isSending) return;
+
+
+        const text =
+            String(
+                chatInput?.value || ""
+            ).trim();
+
+
+        const file =
+            selectedFile;
+
+
+        if (!text && !file) {
+
+            showToast(
+                "Write a message or speak first."
+            );
+
+            return;
+
+        }
+
+
+        isSending = true;
+
+
+        if (sendButton) {
+
+            sendButton.disabled = true;
+
+        }
+
+
+        const shown =
+            file
+                ? (
+                    text
+                        ? text +
+                          "\n\n📎 Attached: " +
+                          file.name
+                        : "📎 Attached: " +
+                          file.name
+                )
+                : text;
+
+
+        renderMessage(
+            "user",
+            shown
+        );
+
+
+        if (text) {
+
+            addRecent(text);
+
+        }
+
+
+        if (chatInput) {
+
+            chatInput.value = "";
+
+            resize();
+
+        }
+
+
+        if (typing) {
+
+            typing.classList.add(
+                "show"
+            );
+
+        }
+
+
+        scrollBottom();
+
+
+        try {
+
+            const result =
+                await getAI(
+                    text,
+                    file
+                );
+
+
+            if (typing) {
+
+                typing.classList.remove(
+                    "show"
+                );
+
+            }
+
+
+            const answer =
+                String(
+                    result?.text || ""
+                ).trim();
+
+
+            if (!answer) {
+
+                throw new Error(
+                    "AI returned an empty response."
+                );
+
+            }
+
+
+            /*
+               If backend gives language,
+               keep it.
+            */
+
+            if (result?.language) {
+
+                detectedLanguage =
+                    normalizeLanguage(
+                        result.language
+                    ) ||
+                    detectedLanguage;
+
+            }
+
+
+            renderMessage(
+                "ai",
+                answer
+            );
+
+
+            /*
+               VOICE OUTPUT
+            */
+
+            if (voiceMode) {
+
+                speak(
+                    answer,
+                    detectedLanguage
+                );
+
+            }
+
+        } catch (error) {
+
+            if (typing) {
+
+                typing.classList.remove(
+                    "show"
+                );
+
+            }
+
+
+            console.error(
+                "ChronicAI chat error:",
+                error
+            );
+
+
+            renderMessage(
+                "ai",
+                "**ChronicAI couldn't process your request.**\n\n" +
+                (
+                    error?.message ||
+                    "Unknown AI error."
+                )
+            );
+
+        } finally {
+
+            isSending = false;
+
+
+            if (sendButton) {
+
+                sendButton.disabled = false;
+
+            }
+
+
+            clearAttachment();
+
+
+            if (chatInput) {
+
+                chatInput.focus();
+
+            }
+
+
+            /*
+               IMPORTANT:
+               Voice recorder is restarted
+               by voice lifecycle, not here.
+            */
+
+        }
+
+    }
+
+
+    /* =========================================================
+       FILE BUTTON
+    ========================================================= */
+
+    if (fileButton) {
+
+        fileButton.onclick = () => {
+
+            if (!fileInput) return;
+
+            fileInput.removeAttribute(
+                "capture"
+            );
+
+            fileInput.click();
+
+        };
+
+    }
+
+
+    /* =========================================================
+       CAMERA BUTTON
+    ========================================================= */
+
+    if (cameraButton) {
+
+        cameraButton.onclick = () => {
+
+            if (!fileInput) return;
+
+            fileInput.setAttribute(
+                "capture",
+                "environment"
+            );
+
+            fileInput.click();
+
+        };
+
+    }
+
+
+    /* =========================================================
+       FILE INPUT
+    ========================================================= */
+
+    if (fileInput) {
+
+        fileInput.onchange = () => {
+
+            const file =
+                fileInput.files?.[0];
+
+
+            if (!file) return;
+
+
+            if (
+                !file.type.startsWith("image/")
+            ) {
+
+                showToast(
+                    "Please choose an image."
+                );
+
+                fileInput.value = "";
+
+                return;
+
+            }
+
+
+            if (
+                file.size >
+                10 * 1024 * 1024
+            ) {
+
+                showToast(
+                    "Please choose an image under 10 MB."
+                );
+
+                fileInput.value = "";
+
+                return;
+
+            }
+
+
+            selectedFile = file;
+
+
+            if (attachmentName) {
+
+                attachmentName.textContent =
+                    file.name;
+
+            }
+
+
+            if (attachmentIcon) {
+
+                attachmentIcon.className =
+                    "fa-solid fa-image";
+
+            }
+
+
+            if (attachmentPreview) {
+
+                attachmentPreview.classList.add(
+                    "show"
+                );
+
+            }
+
+        };
+
+    }
+
+
+    if (removeAttachment) {
+
+        removeAttachment.onclick =
+            clearAttachment;
+
+    }
+
+
+    function clearAttachment() {
+
+        selectedFile = null;
+
+
+        if (attachmentPreview) {
+
+            attachmentPreview.classList.remove(
+                "show"
+            );
+
+        }
+
+
+        if (attachmentName) {
+
+            attachmentName.textContent =
+                "";
+
+        }
+
+
+        if (fileInput) {
+
+            fileInput.value = "";
+
+        }
+
+    }
+
+
+    /* =========================================================
+       LANGUAGE
+    ========================================================= */
+
+    function normalizeLanguage(language) {
+
+        if (!language) {
+
+            return null;
+
+        }
+
+
+        const lang =
+            String(language)
+                .toLowerCase()
+                .trim();
+
+
+        if (
+            lang === "bn" ||
+            lang.startsWith("bn-") ||
+            lang.includes("bengali") ||
+            lang.includes("bangla")
+        ) {
+
+            return "bn-IN";
+
+        }
+
+
+        if (
+            lang === "hi" ||
+            lang.startsWith("hi-") ||
+            lang.includes("hindi")
+        ) {
+
+            return "hi-IN";
+
+        }
+
+
+        if (
+            lang === "en" ||
+            lang.startsWith("en-") ||
+            lang.includes("english")
+        ) {
+
+            return "en-IN";
+
+        }
+
+
+        if (
+            lang === "ta" ||
+            lang.startsWith("ta-") ||
+            lang.includes("tamil")
+        ) {
+
+            return "ta-IN";
+
+        }
+
+
+        if (
+            lang === "te" ||
+            lang.startsWith("te-") ||
+            lang.includes("telugu")
+        ) {
+
+            return "te-IN";
+
+        }
+
+
+        if (
+            lang === "mr" ||
+            lang.startsWith("mr-")
+        ) {
+
+            return "mr-IN";
+
+        }
+
+
+        if (
+            lang === "gu" ||
+            lang.startsWith("gu-")
+        ) {
+
+            return "gu-IN";
+
+        }
+
+
+        if (
+            lang === "kn" ||
+            lang.startsWith("kn-")
+        ) {
+
+            return "kn-IN";
+
+        }
+
+
+        return language;
+
+    }
+
+
+    function detectLanguageFromText(text) {
+
+        const value =
+            String(text || "");
+
+
+        if (
+            /[\u0980-\u09FF]/.test(value)
+        ) {
+
+            return "bn-IN";
+
+        }
+
+
+        if (
+            /[\u0900-\u097F]/.test(value)
+        ) {
+
+            return "hi-IN";
+
+        }
+
+
+        if (
+            /[\u0B80-\u0BFF]/.test(value)
+        ) {
+
+            return "ta-IN";
+
+        }
+
+
+        if (
+            /[\u0C00-\u0C7F]/.test(value)
+        ) {
+
+            return "te-IN";
+
+        }
+
+
+        return "en-IN";
+
+    }
+
+
+    /* =========================================================
+       TTS
+    ========================================================= */
+
+    function getVoices() {
+
+        if (
+            !("speechSynthesis" in window)
+        ) {
+
+            return [];
+
+        }
+
+
+        return speechSynthesis.getVoices();
+
+    }
+
+
+    function chooseVoice(language) {
+
+        const voices =
+            getVoices();
+
+
+        if (!voices.length) {
+
+            return null;
+
+        }
+
+
+        const normalized =
+            normalizeLanguage(language) ||
+            "en-IN";
+
+
+        const base =
+            normalized
+                .split("-")[0]
+                .toLowerCase();
+
+
+        let voice =
+            voices.find(
+                v =>
+                    String(v.lang)
+                        .toLowerCase() ===
+                    normalized.toLowerCase()
+            );
+
+
+        if (voice) {
+
+            return voice;
+
+        }
+
+
+        voice =
+            voices.find(
+                v =>
+                    String(v.lang)
+                        .toLowerCase()
+                        .startsWith(base)
+            );
+
+
+        if (voice) {
+
+            return voice;
+
+        }
+
+
+        if (base === "bn") {
+
+            voice =
+                voices.find(
+                    v =>
+                        /bengali|bangla/i.test(
+                            v.name
+                        )
+                );
+
+            if (voice) return voice;
+
+        }
+
+
+        if (base === "hi") {
+
+            voice =
+                voices.find(
+                    v =>
+                        /hindi/i.test(
+                            v.name
+                        )
+                );
+
+            if (voice) return voice;
+
+        }
+
+
+        return (
+            voices.find(
+                v =>
+                    /^en(-|_)/i.test(
+                        v.lang
+                    )
+            ) ||
+            voices[0]
+        );
+
+    }
+
+
+    function cleanForSpeech(text) {
+
+        return String(text || "")
+
+            .replace(
+                /```[\s\S]*?```/g,
+                " "
+            )
+
+            .replace(
+                /https?:\/\/\S+/g,
+                " "
+            )
+
+            .replace(
+                /[*#_`]/g,
+                " "
+            )
+
+            .replace(
+                /\s+/g,
+                " "
+            )
+
+            .trim();
+
+    }
+
+
+    function splitSpeech(text) {
+
+        const clean =
+            cleanForSpeech(text);
+
+
+        if (!clean) {
+
+            return [];
+
+        }
+
+
+        return (
+            clean.match(
+                /[^.!?।]+[.!?।]?/g
+            ) || [clean]
+        )
+            .map(
+                item => item.trim()
+            )
+            .filter(Boolean);
+
+    }
+
+
+    function speak(
+        text,
+        language = null
+    ) {
+
+        if (
+            !voiceMode ||
+            !("speechSynthesis" in window)
+        ) {
+
+            return;
+
+        }
+
+
+        const clean =
+            cleanForSpeech(text);
+
+
+        if (!clean) return;
+
+
+        speechGeneration++;
+
+        const generation =
+            speechGeneration;
+
+
+        speechQueue =
+            splitSpeech(clean);
+
+
+        try {
+
+            speechSynthesis.cancel();
+
+        } catch {}
+
+
+        stopSpeakingUI();
+
+
+        const finalLanguage =
+            normalizeLanguage(language) ||
+            detectLanguageFromText(clean);
+
+
+        speakNext(
+            generation,
+            finalLanguage
+        );
+
+    }
+
+
+    function speakNext(
+        generation,
+        language
+    ) {
+
+        if (
+            generation !==
+            speechGeneration
+        ) {
+
+            stopSpeakingUI();
+
+            return;
+
+        }
+
+
+        if (!voiceMode) {
+
+            stopSpeakingUI();
+
+            return;
+
+        }
+
+
+        if (!speechQueue.length) {
+
+            stopSpeakingUI();
+
+            /*
+               IMPORTANT:
+               Do NOT turn voice mode off.
+               Microphone lifecycle handles
+               listening.
+            */
+
+            return;
+
+        }
+
+
+        const sentence =
+            speechQueue.shift();
+
+
+        const utterance =
+            new SpeechSynthesisUtterance(
+                sentence
+            );
+
+
+        const finalLanguage =
+            normalizeLanguage(language) ||
+            detectLanguageFromText(sentence);
+
+
+        utterance.lang =
+            finalLanguage;
+
+
+        const selectedVoice =
+            chooseVoice(
+                finalLanguage
+            );
+
+
+        if (selectedVoice) {
+
+            utterance.voice =
+                selectedVoice;
+
+        }
+
+
+        utterance.rate =
+            finalLanguage === "bn-IN"
+                ? 0.94
+                : 0.98;
+
+
+        utterance.pitch =
+            1.05;
+
+
+        utterance.volume =
+            1;
+
+
+        utterance.onstart = () => {
+
+            isSpeaking = true;
+
+            aiOrb?.classList.add(
+                "speaking"
+            );
+
+            voiceWave?.classList.add(
+                "show"
+            );
+
+        };
+
+
+        utterance.onend = () => {
+
+            isSpeaking = false;
+
+            try {
+
+                speechSynthesis.resume();
+
+            } catch {}
+
+
+            setTimeout(() => {
+
+                speakNext(
+                    generation,
+                    finalLanguage
+                );
+
+            }, 50);
+
+        };
+
+
+        utterance.onerror = error => {
+
+            console.warn(
+                "TTS error:",
+                error
+            );
+
+
+            isSpeaking = false;
+
+
+            setTimeout(() => {
+
+                speakNext(
+                    generation,
+                    finalLanguage
+                );
+
+            }, 50);
+
+        };
+
+
+        try {
+
+            speechSynthesis.resume();
+
+            speechSynthesis.speak(
+                utterance
+            );
+
+        } catch (error) {
+
+            console.error(
+                "Speech synthesis failed:",
+                error
+            );
+
+            stopSpeakingUI();
+
+        }
+
+    }
+
+
+    function stopSpeakingUI() {
+
+        isSpeaking = false;
+
+        aiOrb?.classList.remove(
+            "speaking"
+        );
+
+        voiceWave?.classList.remove(
+            "show"
+        );
+
+    }
+
+
+    if (
+        "speechSynthesis" in window
+    ) {
+
+        speechSynthesis.onvoiceschanged =
+            () => {
+
+                getVoices();
+
+            };
+
+    }
+
+
+    /* =========================================================
+       IMPORTANT:
+       PREVENT CHROME TTS FROM STAYING PAUSED
+    ========================================================= */
+
+    setInterval(() => {
+
+        if (
+            isSpeaking &&
+            voiceMode &&
+            "speechSynthesis" in window
+        ) {
+
+            try {
+
+                speechSynthesis.resume();
+
+            } catch {}
+
+        }
+
+    }, 3000);
+
+
+    /* =========================================================
+       MICROPHONE MIME TYPE
+    ========================================================= */
+
+    function getSupportedMimeType() {
+
+        const types = [
+
+            "audio/webm;codecs=opus",
+
+            "audio/webm",
+
+            "audio/ogg;codecs=opus",
+
+            "audio/ogg"
+
+        ];
+
+
+        for (
+            const type of types
+        ) {
+
+            try {
+
+                if (
+                    MediaRecorder.isTypeSupported(
+                        type
+                    )
+                ) {
+
+                    return type;
+
+                }
+
+            } catch {}
+
+        }
+
+
+        return "";
+
+    }
+
+
+    /* =========================================================
+       START MICROPHONE
+    ========================================================= */
+
+    async function startMicrophone() {
+
+        if (
+            microphoneStarting ||
+            recordingActive ||
+            processingVoice ||
+            !voiceMode
+        ) {
+
+            return;
+
+        }
+
+
+        microphoneStarting = true;
+
+
+        try {
+
+            if (
+                !navigator.mediaDevices ||
+                !navigator.mediaDevices.getUserMedia
+            ) {
+
+                throw new Error(
+                    "Microphone is not supported by this browser."
+                );
+
+            }
+
+
+            if (!window.MediaRecorder) {
+
+                throw new Error(
+                    "MediaRecorder is not supported. Please use Chrome or Edge."
+                );
+
+            }
+
+
+            /*
+               If an old stream exists,
+               clean it first.
+            */
+
+            stopRecorderOnly();
+
+
+            /*
+               GET MICROPHONE
+            */
+
+            microphoneStream =
+                await navigator.mediaDevices.getUserMedia(
+                    {
+                        audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true
+                        }
+                    }
+                );
+
+
+            /*
+               CREATE RECORDER
+            */
+
+            const mimeType =
+                getSupportedMimeType();
+
+
+            if (mimeType) {
+
+                mediaRecorder =
+                    new MediaRecorder(
+                        microphoneStream,
+                        {
+                            mimeType
+                        }
+                    );
+
+            } else {
+
+                mediaRecorder =
+                    new MediaRecorder(
+                        microphoneStream
+                    );
+
+            }
+
+
+            audioChunks = [];
+
+
+            /*
+               DATA
+            */
+
+            mediaRecorder.ondataavailable =
+                event => {
+
+                    if (
+                        event.data &&
+                        event.data.size > 0
+                    ) {
+
+                        audioChunks.push(
+                            event.data
+                        );
+
+                    }
+
+                };
+
+
+            /*
+               STOP
+            */
+
+            mediaRecorder.onstop =
+                async () => {
+
+                    await handleRecorderStop();
+
+                };
+
+
+            /*
+               ERROR
+            */
+
+            mediaRecorder.onerror =
+                event => {
+
+                    console.error(
+                        "MediaRecorder error:",
+                        event
+                    );
+
+
+                    processingVoice = false;
+                    recordingActive = false;
+
+
+                    showToast(
+                        "Microphone recording error."
+                    );
+
+
+                    if (voiceMode) {
+
+                        restartMicrophone();
+
+                    }
+
+                };
+
+
+            /*
+               START RECORDING
+            */
+
+            mediaRecorder.start(250);
+
+
+            recordingActive = true;
+
+            processingVoice = false;
+
+            recordingStartedAt =
+                Date.now();
+
+            lastSoundAt =
+                Date.now();
+
+            speechDetected = false;
+
+
+            updateVoiceUI(
+                "Listening… speak now"
+            );
+
+
+            /*
+               Start audio level detection
+            */
+
+            startVoiceActivityDetection();
+
+
+        } catch (error) {
+
+            console.error(
+                "Microphone start error:",
+                error
+            );
+
+
+            recordingActive = false;
+
+
+            showToast(
+                error?.message ||
+                "Microphone permission denied or unavailable."
+            );
+
+
+            voiceMode = false;
+
+            stopAllMicrophone();
+
+            updateVoiceUI("");
+
+        } finally {
+
+            microphoneStarting = false;
+
+        }
+
+    }
+
+
+    /* =========================================================
+       AUDIO ACTIVITY DETECTION
+    ========================================================= */
+
+    let audioContext = null;
+    let analyser = null;
+    let microphoneSource = null;
+    let audioData = null;
+    let activityFrame = null;
+
+
+    function setupAudioMeter() {
+
+        try {
+
+            if (audioContext) {
+
+                try {
+
+                    audioContext.close();
+
+                } catch {}
+
+            }
+
+
+            const AudioContextClass =
+                window.AudioContext ||
+                window.webkitAudioContext;
+
+
+            if (!AudioContextClass) {
+
+                return;
+
+            }
+
+
+            audioContext =
+                new AudioContextClass();
+
+
+            analyser =
+                audioContext.createAnalyser();
+
+
+            analyser.fftSize =
+                2048;
+
+
+            analyser.smoothingTimeConstant =
+                0.80;
+
+
+            microphoneSource =
+                audioContext.createMediaStreamSource(
+                    microphoneStream
+                );
+
+
+            microphoneSource.connect(
+                analyser
+            );
+
+
+            audioData =
+                new Uint8Array(
+                    analyser.fftSize
+                );
+
+
+        } catch (error) {
+
+            console.warn(
+                "Audio meter setup failed:",
+                error
+            );
+
+
+            analyser = null;
+            audioData = null;
+
+        }
+
+    }
+
+
+    function startVoiceActivityDetection() {
+
+        stopVoiceActivityDetection();
+
+
+        setupAudioMeter();
+
+
+        function check() {
+
+            if (
+                !voiceMode ||
+                !recordingActive ||
+                processingVoice
+            ) {
+
+                return;
+
+            }
+
+
+            const now =
+                Date.now();
+
+
+            let volume = 0;
+
+
+            /*
+               Calculate RMS microphone volume.
+            */
+
+            if (
+                analyser &&
+                audioData
+            ) {
+
+                analyser.getByteTimeDomainData(
+                    audioData
+                );
+
+
+                let sum = 0;
+
+
+                for (
+                    let i = 0;
+                    i < audioData.length;
+                    i++
+                ) {
+
+                    const normalized =
+                        (
+                            audioData[i] -
+                            128
+                        ) / 128;
+
+
+                    sum +=
+                        normalized *
+                        normalized;
+
+                }
+
+
+                volume =
+                    Math.sqrt(
+                        sum /
+                        audioData.length
+                    );
+
+            }
+
+
+            /*
+               SPEECH DETECTED
+            */
+
+            if (
+                volume >
+                VOICE_THRESHOLD
+            ) {
+
+                speechDetected =
+                    true;
+
+                lastSoundAt =
+                    now;
+
+
+                updateVoiceUI(
+                    "Listening… hearing you"
+                );
+
+            }
+
+
+            /*
+               USER SPOKE THEN STOPPED
+            */
+
+            if (
+                speechDetected &&
+                now - lastSoundAt >=
+                SPEECH_END_SILENCE_MS
+            ) {
+
+                finishCurrentRecording();
+
+                return;
+
+            }
+
+
+            /*
+               USER NEVER SPOKE
+            */
+
+            if (
+                !speechDetected &&
+                now - recordingStartedAt >=
+                NO_SPEECH_TIMEOUT_MS
+            ) {
+
+                showToast(
+                    "No speech detected. Voice listening OFF."
+                );
+
+
+                stopVoiceMode();
+
+                return;
+
+            }
+
+
+            activityFrame =
+                requestAnimationFrame(
+                    check
+                );
+
+        }
+
+
+        activityFrame =
+            requestAnimationFrame(
+                check
+            );
+
+    }
+
+
+    function stopVoiceActivityDetection() {
+
+        if (activityFrame) {
+
+            cancelAnimationFrame(
+                activityFrame
+            );
+
+            activityFrame = null;
+
+        }
+
+    }
+
+
+    /* =========================================================
+       FINISH CURRENT RECORDING
+    ========================================================= */
+
+    function finishCurrentRecording() {
+
+        if (
+            !recordingActive ||
+            processingVoice
+        ) {
+
+            return;
+
+        }
+
+
+        const elapsed =
+            Date.now() -
+            recordingStartedAt;
+
+
+        if (
+            elapsed <
+            MIN_RECORDING_MS
+        ) {
+
+            return;
+
+        }
+
+
+        /*
+           If nothing was detected,
+           don't send an empty recording.
+        */
+
+        if (!speechDetected) {
+
+            return;
+
+        }
+
+
+        processingVoice = true;
+
+
+        stopVoiceActivityDetection();
+
+
+        updateVoiceUI(
+            "Processing voice…"
+        );
+
+
+        try {
+
+            if (
+                mediaRecorder &&
+                mediaRecorder.state !==
+                "inactive"
+            ) {
+
+                mediaRecorder.stop();
+
+            } else {
+
+                processingVoice = false;
+
+            }
+
+        } catch (error) {
+
+            console.error(
+                "Recorder stop error:",
+                error
+            );
+
+
+            processingVoice = false;
+
+
+            restartMicrophone();
+
+        }
+
+    }
+
+
+    /* =========================================================
+       HANDLE RECORDER STOP
+    ========================================================= */
+
+    async function handleRecorderStop() {
+
+        recordingActive = false;
+
+
+        stopVoiceActivityDetection();
+
+
+        const chunks =
+            audioChunks.slice();
+
+
+        audioChunks = [];
+
+
+        if (!chunks.length) {
+
+            processingVoice = false;
+
+
+            if (voiceMode) {
+
+                restartMicrophone();
+
+            }
+
+
+            return;
+
+        }
+
+
+        /*
+           IMPORTANT:
+           Save mime type BEFORE destroying recorder.
+        */
+
+        const mimeType =
+            mediaRecorder?.mimeType ||
+            "audio/webm";
+
+
+        const blob =
+            new Blob(
+                chunks,
+                {
+                    type: mimeType
+                }
+            );
+
+
+        console.log(
+            "Voice blob:",
+            blob.size,
+            blob.type
+        );
+
+
+        /*
+           Small/invalid recording.
+        */
+
+        if (
+            blob.size < 1000
+        ) {
+
+            console.warn(
+                "Voice recording too small."
+            );
+
+
+            processingVoice = false;
+
+
+            if (voiceMode) {
+
+                restartMicrophone();
+
+            }
+
+
+            return;
+
+        }
+
+
+        /*
+           SEND TO BACKEND
+        */
+
+        await transcribeVoice(
+            blob
+        );
+
+    }
+
+
+    /* =========================================================
+       TRANSCRIBE VOICE
+    ========================================================= */
+
+    async function transcribeVoice(blob) {
+
+        try {
+
+            updateVoiceUI(
+                "Transcribing…"
+            );
+
+
+            const formData =
+                new FormData();
+
+
+            /*
+               Determine extension.
+            */
+
+            let extension =
+                "webm";
+
+
+            if (
+                blob.type.includes("ogg")
+            ) {
+
+                extension =
+                    "ogg";
+
+            }
+
+
+            formData.append(
+                "audio",
+                blob,
+                `chronicai-voice.${extension}`
+            );
+
+
+            console.log(
+                "Sending audio to:",
+                TRANSCRIBE_API_ENDPOINT
+            );
+
+
+            /*
+               IMPORTANT:
+               Do NOT set Content-Type manually.
+               Browser automatically creates
+               multipart/form-data boundary.
+            */
+
+            const response =
+                await fetch(
+                    TRANSCRIBE_API_ENDPOINT,
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Accept":
+                                "application/json"
+                        },
+
+                        body:
+                            formData
+                    }
+                );
+
+
+            const raw =
+                await response.text();
+
+
+            console.log(
+                "Transcription response:",
+                raw
+            );
+
+
+            let result;
+
+
+            try {
+
+                result =
+                    JSON.parse(raw);
+
+            } catch {
+
+                throw new Error(
+                    raw.trim().startsWith("<")
+                        ? "Transcription API returned HTML. Check /api/transcribe in server.js."
+                        : "Transcription API returned invalid JSON."
+                );
+
+            }
+
+
+            if (!response.ok) {
+
+                throw new Error(
+                    result?.error ||
+                    result?.message ||
+                    `Transcription failed: HTTP ${response.status}`
+                );
+
+            }
+
+
+            /*
+               Support multiple backend formats.
+            */
+
+            const transcript =
+                String(
+                    result?.text ??
+                    result?.transcript ??
+                    result?.answer ??
+                    result?.response ??
+                    ""
+                ).trim();
+
+
+            if (!transcript) {
+
+                throw new Error(
+                    "No speech could be detected."
+                );
+
+            }
+
+
+            /*
+               LANGUAGE
+            */
+
+            detectedLanguage =
+                normalizeLanguage(
+                    result?.language ||
+                    result?.lang
+                ) ||
+                detectLanguageFromText(
+                    transcript
+                );
+
+
+            console.log(
+                "Transcript:",
+                transcript
+            );
+
+
+            console.log(
+                "Detected language:",
+                detectedLanguage
+            );
+
+
+            /*
+               PUT TRANSCRIPT INTO INPUT
+            */
+
+            if (chatInput) {
+
+                chatInput.value =
+                    transcript;
+
+                resize();
+
+            }
+
+
+            /*
+               Show transcript briefly.
+            */
+
+            updateVoiceUI(
+                "Heard: " +
+                (
+                    transcript.length > 55
+                        ? transcript.slice(0, 55) + "…"
+                        : transcript
+                )
+            );
+
+
+            /*
+               IMPORTANT:
+               Automatically submit the transcript.
+            */
+
+            await sendMessage();
+
+
+        } catch (error) {
+
+            console.error(
+                "VOICE TRANSCRIPTION ERROR:",
+                error
+            );
+
+
+            showToast(
+                error?.message ||
+                "Unable to understand your voice."
+            );
+
+
+        } finally {
+
+            processingVoice =
+                false;
+
+
+            /*
+               Voice mode stays ON.
+               Start a NEW recording only after
+               current request has finished.
+            */
+
+            if (voiceMode) {
+
+                restartMicrophone();
+
+            } else {
+
+                stopAllMicrophone();
+
+            }
+
+        }
+
+    }
+
+
+    /* =========================================================
+       RESTART MICROPHONE
+    ========================================================= */
+
+    function restartMicrophone() {
+
+        if (!voiceMode) {
+
+            return;
+
+        }
+
+
+        if (
+            microphoneStarting ||
+            recordingActive ||
+            processingVoice
+        ) {
+
+            return;
+
+        }
+
+
+        setTimeout(() => {
+
+            if (
+                voiceMode &&
+                !microphoneStarting &&
+                !recordingActive &&
+                !processingVoice
+            ) {
+
+                startMicrophone();
+
+            }
+
+        }, 500);
+
+    }
+
+
+    /* =========================================================
+       STOP RECORDER ONLY
+    ========================================================= */
+
+    function stopRecorderOnly() {
+
+        stopVoiceActivityDetection();
+
+
+        if (mediaRecorder) {
+
+            try {
+
+                mediaRecorder.onstop = null;
+                mediaRecorder.onerror = null;
+
+            } catch {}
+
+
+            try {
+
+                if (
+                    mediaRecorder.state !==
+                    "inactive"
+                ) {
+
+                    mediaRecorder.stop();
+
+                }
+
+            } catch {}
+
+        }
+
+
+        mediaRecorder =
+            null;
+
+
+        recordingActive =
+            false;
+
+
+        audioChunks =
+            [];
+
+    }
+
+
+    /* =========================================================
+       VOICE UI
+    ========================================================= */
+
+    function updateVoiceUI(text) {
+
+        if (voiceButton) {
+
+            voiceButton.classList.toggle(
+                "active",
+                voiceMode
+            );
+
+        }
+
+
+        if (voiceStatus) {
+
+            if (text) {
+
+                voiceStatus.classList.add(
+                    "show"
+                );
+
+                voiceStatus.textContent =
+                    text;
+
+            } else {
+
+                voiceStatus.classList.remove(
+                    "show"
+                );
+
+                voiceStatus.textContent =
+                    "";
+
+            }
+
+        }
+
+
+        if (voiceToggle) {
+
+            voiceToggle.classList.toggle(
+                "on",
+                voiceMode
+            );
+
+
+            voiceToggle.innerHTML =
+                voiceMode
+
+                    ? '<i class="fa-solid fa-microphone"></i> Voice ON'
+
+                    : '<i class="fa-solid fa-microphone"></i> Voice OFF';
+
+        }
+
+    }
+
+
+    /* =========================================================
+       STOP ALL MICROPHONE
+    ========================================================= */
+
+    function stopAllMicrophone() {
+
+        stopVoiceActivityDetection();
+
+
+        if (mediaRecorder) {
+
+            try {
+
+                mediaRecorder.onstop = null;
+                mediaRecorder.onerror = null;
+
+            } catch {}
+
+
+            try {
+
+                if (
+                    mediaRecorder.state !==
+                    "inactive"
+                ) {
+
+                    mediaRecorder.stop();
+
+                }
+
+            } catch {}
+
+        }
+
+
+        mediaRecorder =
+            null;
+
+
+        recordingActive =
+            false;
+
+
+        processingVoice =
+            false;
+
+
+        audioChunks =
+            [];
+
+
+        if (microphoneStream) {
+
+            microphoneStream
+                .getTracks()
+                .forEach(track => {
+
+                    try {
+
+                        track.stop();
+
+                    } catch {}
+
+                });
+
+        }
+
+
+        microphoneStream =
+            null;
+
+
+        if (microphoneSource) {
+
+            try {
+
+                microphoneSource.disconnect();
+
+            } catch {}
+
+        }
+
+
+        microphoneSource =
+            null;
+
+
+        analyser =
+            null;
+
+
+        audioData =
+            null;
+
+
+        if (audioContext) {
+
+            try {
+
+                audioContext.close();
+
+            } catch {}
+
+        }
+
+
+        audioContext =
+            null;
+
+
+        if (voiceButton) {
+
+            voiceButton.classList.remove(
+                "active"
+            );
+
+        }
+
+
+        if (voiceStatus) {
+
+            voiceStatus.classList.remove(
+                "show"
+            );
+
+            voiceStatus.textContent =
+                "";
+
+        }
+
+    }
+
+
+    /* =========================================================
+       TTS UNLOCK
+    ========================================================= */
+
+    function unlockSpeechSynthesis() {
+
+        if (
+            !("speechSynthesis" in window)
+        ) {
+
+            return;
+
+        }
+
+
+        try {
+
+            speechSynthesis.cancel();
+
+
+            const utterance =
+                new SpeechSynthesisUtterance("");
+
+
+            utterance.volume =
+                0;
+
+
+            speechSynthesis.speak(
+                utterance
+            );
+
+
+            speechSynthesis.resume();
+
+        } catch {}
+
+    }
+
+
+    /* =========================================================
+       START VOICE MODE
+    ========================================================= */
+
+    async function startVoiceMode() {
+
+        if (voiceMode) {
+
+            return;
+
+        }
+
+
+        voiceMode =
+            true;
+
+
+        detectedLanguage =
+            null;
+
+
+        updateVoiceUI(
+            "Starting microphone…"
+        );
+
+
+        unlockSpeechSynthesis();
+
+
+        showToast(
+            "Voice Assistant ON"
+        );
+
+
+        await startMicrophone();
+
+    }
+
+
+    /* =========================================================
+       STOP VOICE MODE
+    ========================================================= */
+
+    function stopVoiceMode() {
+
+        voiceMode =
+            false;
+
+
+        speechGeneration++;
+
+
+        speechQueue =
+            [];
+
+
+        if (
+            "speechSynthesis" in window
+        ) {
+
+            try {
+
+                speechSynthesis.cancel();
+
+                speechSynthesis.resume();
+
+            } catch {}
+
+        }
+
+
+        stopSpeakingUI();
+
+
+        stopAllMicrophone();
+
+
+        updateVoiceUI("");
+
+
+        if (voiceToggle) {
+
+            voiceToggle.classList.remove(
+                "on"
+            );
+
+            voiceToggle.innerHTML =
+                '<i class="fa-solid fa-microphone"></i> Voice OFF';
+
+        }
+
+
+        showToast(
+            "Voice Assistant OFF"
+        );
+
+    }
+
+
+    /* =========================================================
+       VOICE BUTTON
+    ========================================================= */
+
+    if (voiceButton) {
+
+        voiceButton.onclick =
+            async event => {
+
+                event?.stopPropagation();
+
+
+                if (voiceMode) {
+
+                    stopVoiceMode();
+
+                } else {
+
+                    await startVoiceMode();
+
+                }
+
+            };
+
+    }
+
+
+    if (voiceToggle) {
+
+        voiceToggle.onclick =
+            async event => {
+
+                event?.stopPropagation();
+
+
+                if (voiceMode) {
+
+                    stopVoiceMode();
+
+                } else {
+
+                    await startVoiceMode();
+
+                }
+
+            };
+
+    }
+
+
+    /* =========================================================
+       NEW CHAT
+    ========================================================= */
+
+    function startNewChat() {
+
+        messages = [];
+
+        saveMessages();
+
+
+        chatContainer
+            ?.querySelectorAll(
+                ".message"
+            )
+            .forEach(
+                element =>
+                    element.remove()
+            );
+
+
+        if (welcome) {
+
+            welcome.style.display =
+                "flex";
+
+        }
+
+
+        if (chatInput) {
+
+            chatInput.value =
+                "";
+
+            resize();
+
+            chatInput.focus();
+
+        }
+
+
+        clearAttachment();
+
+
+        closeHeaderMenu();
+
+
+        showToast(
+            "New conversation started."
+        );
+
+    }
+
+
+    if ($("newChatButton")) {
+
+        $("newChatButton").onclick =
+            startNewChat;
+
+    }
+
+
+    if ($("sidebarNewChat")) {
+
+        $("sidebarNewChat").onclick =
+            startNewChat;
+
+    }
+
+
+    /* =========================================================
+       CLEAR CONVERSATION
+    ========================================================= */
+
+    function clearCurrentConversation() {
+
+        if (!messages.length) {
+
+            showToast(
+                "There is no conversation to clear."
+            );
+
+            return;
+
+        }
+
+
+        if (
+            !confirm(
+                "Clear this conversation?"
+            )
+        ) {
+
+            return;
+
+        }
+
+
+        messages = [];
+
+        saveMessages();
+
+
+        chatContainer
+            ?.querySelectorAll(
+                ".message"
+            )
+            .forEach(
+                element =>
+                    element.remove()
+            );
+
+
+        if (welcome) {
+
+            welcome.style.display =
+                "flex";
+
+        }
+
+
+        closeHeaderMenu();
+
+
+        showToast(
+            "Conversation cleared."
+        );
+
+    }
+
+
+    if ($("clearHistoryButton")) {
+
+        $("clearHistoryButton").onclick =
+            clearCurrentConversation;
+
+    }
+
+
+    /* =========================================================
+       EXPORT CHAT
+    ========================================================= */
+
+    if ($("exportChatButton")) {
+
+        $("exportChatButton").onclick =
+            () => {
+
+                copyText(
+
+                    messages
+                        .map(
+                            message =>
+                                (
+                                    message.role === "user"
+                                        ? "You"
+                                        : "ChronicAI"
+                                ) +
+                                ": " +
+                                message.content
+                        )
+                        .join("\n\n")
+
+                );
+
+            };
+
+    }
+
+
+    /* =========================================================
+       SAVE CHAT
+    ========================================================= */
+
+    if ($("saveChatButton")) {
+
+        $("saveChatButton").onclick =
+            () => {
+
+                showToast(
+                    "Conversation is already stored in this browser."
+                );
+
+            };
+
+    }
+
+
+    /* =========================================================
+       MOBILE MENU
+    ========================================================= */
+
+    if ($("mobileMenu")) {
+
+        $("mobileMenu").onclick =
+            () => {
+
+                sidebar?.classList.toggle(
+                    "open"
+                );
+
+            };
+
+    }
+
+
+    if (chatMessages) {
+
+        chatMessages.onclick =
+            () => {
+
+                sidebar?.classList.remove(
+                    "open"
+                );
+
+            };
+
+    }
+
+
+    /* =========================================================
+       SEARCH
+    ========================================================= */
+
+    if (chatSearch) {
+
+        chatSearch.oninput =
+            () => {
+
+                const query =
+                    chatSearch.value
+                        .toLowerCase();
+
+
+                document
+                    .querySelectorAll(
+                        ".recent-item"
+                    )
+                    .forEach(item => {
+
+                        item.style.display =
+                            item.textContent
+                                .toLowerCase()
+                                .includes(query)
+                                ? "flex"
+                                : "none";
+
+                    });
+
+            };
+
+    }
+
+
+    /* =========================================================
+       THEME
+    ========================================================= */
+
+    function updateThemeIcon() {
+
+        const light =
+            document.body.classList.contains(
+                "light-mode"
+            );
+
+
+        const themeButton =
+            $("themeButton");
+
+
+        if (!themeButton) return;
+
+
+        themeButton.innerHTML =
+            light
+
+                ? '<i class="fa-solid fa-sun"></i>'
+
+                : '<i class="fa-solid fa-moon"></i>';
+
+    }
+
+
+    if ($("themeButton")) {
+
+        $("themeButton").onclick =
+            () => {
+
+                document.body.classList.toggle(
+                    "light-mode"
+                );
+
+
+                localStorage.setItem(
+                    STORAGE_THEME,
+
+                    document.body.classList.contains(
+                        "light-mode"
+                    )
+                        ? "light"
+                        : "dark"
+                );
+
+
+                updateThemeIcon();
+
+            };
+
+    }
+
+
+    /* =========================================================
+       HEADER MENU
+    ========================================================= */
+
+    function closeHeaderMenu() {
+
+        headerMenu?.classList.remove(
+            "show"
+        );
+
+    }
+
+
+    if (headerMenuButton) {
+
+        headerMenuButton.onclick =
+            event => {
+
+                event.stopPropagation();
+
+
+                headerMenu?.classList.toggle(
+                    "show"
+                );
+
+            };
+
+    }
+
+
+    if (headerSaveButton) {
+
+        headerSaveButton.onclick =
+            () => {
+
+                closeHeaderMenu();
+
+                $("saveChatButton")?.click();
+
+            };
+
+    }
+
+
+    if (headerCopyButton) {
+
+        headerCopyButton.onclick =
+            () => {
+
+                closeHeaderMenu();
+
+                $("exportChatButton")?.click();
+
+            };
+
+    }
+
+
+    if (headerClearButton) {
+
+        headerClearButton.onclick =
+            () => {
+
+                closeHeaderMenu();
+
+                clearCurrentConversation();
+
+            };
+
+    }
+
+
+    document.addEventListener(
+        "click",
+        event => {
+
+            if (
+                headerMenu &&
+                !headerMenu.contains(
+                    event.target
+                ) &&
+                event.target !==
+                    headerMenuButton
+            ) {
+
+                closeHeaderMenu();
+
+            }
+
+        }
+    );
+
+
+    /* =========================================================
+       THEME RESTORE
+    ========================================================= */
+
+    if (
+        localStorage.getItem(
+            STORAGE_THEME
+        ) === "light"
+    ) {
+
+        document.body.classList.add(
+            "light-mode"
+        );
+
+    }
+
+
+    updateThemeIcon();
+
+
+    /* =========================================================
+       INITIALIZE
+    ========================================================= */
+
+    loadStorage();
+
+    resize();
+
+
+    console.log(
+        "ChronicAI Life Helper initialized."
+    );
+
+
+    console.log(
+        "Chat API:",
+        CHAT_API_ENDPOINT
+    );
+
+
+    console.log(
+        "Analyze API:",
+        ANALYZE_API_ENDPOINT
+    );
+
+
+    console.log(
+        "Transcription API:",
+        TRANSCRIBE_API_ENDPOINT
+    );
+
+
+    console.log(
+        "Voice input: MediaRecorder → /api/transcribe → Whisper"
+    );
+
+
+    console.log(
+        "Voice output: Browser SpeechSynthesis"
+    );
+
+});
+
+
+/* =============================================================
+   CHRONICAI ASSISTANT — DRAG ANYWHERE
+   ============================================================= */
+
+(function setupAssistantDrag() {
+
+    const assistant =
+        document.querySelector(
+            ".assistant-dock"
+        );
+
+
+    if (!assistant) return;
+
+
+    const STORAGE_KEY =
+        "chronicai_assistant_position_v4";
+
+
+    let dragging = false;
+
+    let offsetX = 0;
+    let offsetY = 0;
+
+
+    function clampPosition(
+        x,
+        y
+    ) {
+
+        const rect =
+            assistant.getBoundingClientRect();
+
+
+        const margin = 8;
+
+
+        const maxX =
+            Math.max(
+                margin,
+                window.innerWidth -
+                rect.width -
+                margin
+            );
+
+
+        const maxY =
+            Math.max(
+                margin,
+                window.innerHeight -
+                rect.height -
+                margin
+            );
+
+
+        return {
+
+            x:
+                Math.max(
+                    margin,
+                    Math.min(
+                        x,
+                        maxX
+                    )
+                ),
+
+
+            y:
+                Math.max(
+                    margin,
+                    Math.min(
+                        y,
+                        maxY
+                    )
+                )
+
+        };
+
+    }
+
+
+    function setPosition(
+        x,
+        y,
+        save = true
+    ) {
+
+        const position =
+            clampPosition(
+                x,
+                y
+            );
+
+
+        assistant.style.left =
+            position.x + "px";
+
+
+        assistant.style.top =
+            position.y + "px";
+
+
+        assistant.style.right =
+            "auto";
+
+
+        assistant.style.bottom =
+            "auto";
+
+
+        assistant.style.transform =
+            "none";
+
+
+        if (save) {
+
+            localStorage.setItem(
+                STORAGE_KEY,
+                JSON.stringify(
+                    position
+                )
+            );
+
+        }
+
+    }
+
+
+    function defaultPosition() {
+
+        const rect =
+            assistant.getBoundingClientRect();
+
+
+        const mobile =
+            window.innerWidth <= 850;
+
+
+        const x =
+            window.innerWidth -
+            rect.width -
+            (
+                mobile
+                    ? 10
+                    : 24
+            );
+
+
+        const y =
+            window.innerHeight -
+            rect.height -
+            (
+                mobile
+                    ? 145
+                    : 132
+            );
+
+
+        setPosition(
+            x,
+            y,
+            false
+        );
+
+    }
+
+
+    function restore() {
+
+        try {
+
+            const saved =
+                JSON.parse(
+                    localStorage.getItem(
+                        STORAGE_KEY
+                    ) || "null"
+                );
+
+
+            if (
+                saved &&
+                Number.isFinite(saved.x) &&
+                Number.isFinite(saved.y)
+            ) {
+
+                setPosition(
+                    saved.x,
+                    saved.y,
+                    false
+                );
+
+                return;
+
+            }
+
+        } catch (error) {
+
+            console.warn(
+                "Assistant position restore failed:",
+                error
+            );
+
+        }
+
+
+        defaultPosition();
+
+    }
+
+
+    function startDrag(event) {
+
+        if (
+            event.pointerType === "mouse" &&
+            event.button !== 0
+        ) {
+
+            return;
+
+        }
+
+
+        /*
+           Do NOT drag when clicking voice button.
+        */
+
+        if (
+            event.target.closest(
+                ".voice-toggle"
+            ) ||
+            event.target.closest(
+                "#voiceButton"
+            )
+        ) {
+
+            return;
+
+        }
+
+
+        /*
+           Do not drag buttons,
+           inputs or interactive elements.
+        */
+
+        if (
+            event.target.closest(
+                "button, input, textarea, select, a"
+            )
+        ) {
+
+            return;
+
+        }
+
+
+        const rect =
+            assistant.getBoundingClientRect();
+
+
+        offsetX =
+            event.clientX -
+            rect.left;
+
+
+        offsetY =
+            event.clientY -
+            rect.top;
+
+
+        dragging = true;
+
+
+        assistant.classList.add(
+            "dragging"
+        );
+
+
+        try {
+
+            assistant.setPointerCapture(
+                event.pointerId
+            );
+
+        } catch {}
+
+
+        event.preventDefault();
+
+    }
+
+
+    function moveDrag(event) {
+
+        if (!dragging) return;
+
+
+        setPosition(
+            event.clientX -
+                offsetX,
+
+            event.clientY -
+                offsetY,
+
+            true
+        );
+
+
+        event.preventDefault();
+
+    }
+
+
+    function stopDrag(event) {
+
+        if (!dragging) return;
+
+
+        dragging = false;
+
+
+        assistant.classList.remove(
+            "dragging"
+        );
+
+
+        try {
+
+            assistant.releasePointerCapture(
+                event.pointerId
+            );
+
+        } catch {}
+
+
+        event.preventDefault();
+
+    }
+
+
+    assistant.addEventListener(
+        "pointerdown",
+        startDrag,
+        {
+            passive: false
+        }
+    );
+
+
+    assistant.addEventListener(
+        "pointermove",
+        moveDrag,
+        {
+            passive: false
+        }
+    );
+
+
+    assistant.addEventListener(
+        "pointerup",
+        stopDrag,
+        {
+            passive: false
+        }
+    );
+
+
+    assistant.addEventListener(
+        "pointercancel",
+        stopDrag,
+        {
+            passive: false
+        }
+    );
+
+
+    window.addEventListener(
+        "resize",
+        () => {
+
+            const rect =
+                assistant.getBoundingClientRect();
+
+
+            setPosition(
+                rect.left,
+                rect.top,
+                true
+            );
+
+        }
+    );
+
+
+    requestAnimationFrame(
+        () => {
+
+            requestAnimationFrame(
+                restore
+            );
+
+        }
+    );
+
+
+})();
+</script>
+
+</body>
+</html>

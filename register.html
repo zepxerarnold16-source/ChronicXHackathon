@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="ChronicAI - Create your citizen account"
+    >
+
+    <title>ChronicAI — Create Citizen Account</title>
+
+
+    <!-- Google Fonts -->
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+
+    <link
+        rel="preconnect"
+        href="https://fonts.gstatic.com"
+        crossorigin
+    >
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+        rel="stylesheet"
+    >
+
+
+    <!-- Font Awesome -->
+
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    >
+
+
+    <!-- Global CSS -->
+
+    <link
+        rel="stylesheet"
+        href="global.css"
+    >
+
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+
+        body {
+
+            min-height: 100vh;
+
+            margin: 0;
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            padding: 30px 20px;
+
+            background:
+                radial-gradient(
+                    circle at top left,
+                    rgba(0, 180, 255, 0.16),
+                    transparent 35%
+                ),
+                radial-gradient(
+                    circle at bottom right,
+                    rgba(99, 91, 255, 0.16),
+                    transparent 35%
+                ),
+                #07111f;
+
+            font-family: "Inter", sans-serif;
+
+        }
+
+
+        .register-wrapper {
+
+            width: 100%;
+
+            max-width: 480px;
+
+        }
+
+
+        .register-card {
+
+            width: 100%;
+
+            padding: 40px;
+
+            border-radius: 26px;
+
+            background:
+                rgba(12, 25, 43, 0.94);
+
+            border:
+                1px solid rgba(255,255,255,0.09);
+
+            box-shadow:
+                0 30px 90px rgba(0,0,0,0.45);
+
+            backdrop-filter:
+                blur(20px);
+
+        }
+
+
+        /* LOGO */
+
+        .register-logo {
+
+            text-align: center;
+
+            margin-bottom: 30px;
+
+        }
+
+
+        .register-logo-icon {
+
+            width: 72px;
+
+            height: 72px;
+
+            margin: 0 auto;
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            border-radius: 20px;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    #00b4ff,
+                    #635bff
+                );
+
+            color: white;
+
+            font-size: 28px;
+
+            box-shadow:
+                0 15px 40px
+                rgba(0,180,255,0.25);
+
+        }
+
+
+        .register-logo h1 {
+
+            margin:
+                18px 0 5px;
+
+            color: white;
+
+            font-family:
+                "Space Grotesk",
+                sans-serif;
+
+            font-size: 30px;
+
+            font-weight: 700;
+
+        }
+
+
+        .register-logo p {
+
+            margin: 0;
+
+            color: #91a4ba;
+
+            font-size: 14px;
+
+        }
+
+
+        /* FORM */
+
+        .form-group {
+
+            margin-bottom: 18px;
+
+        }
+
+
+        .form-group label {
+
+            display: block;
+
+            margin-bottom: 8px;
+
+            color: #dce8f5;
+
+            font-size: 14px;
+
+            font-weight: 600;
+
+        }
+
+
+        .input-wrapper {
+
+            position: relative;
+
+        }
+
+
+        .input-wrapper > i {
+
+            position: absolute;
+
+            left: 15px;
+
+            top: 50%;
+
+            transform:
+                translateY(-50%);
+
+            color: #71869e;
+
+            pointer-events: none;
+
+        }
+
+
+        .input-wrapper input {
+
+            width: 100%;
+
+            height: 50px;
+
+            padding:
+                0 45px;
+
+            border:
+                1px solid
+                rgba(255,255,255,0.10);
+
+            border-radius: 12px;
+
+            outline: none;
+
+            background:
+                rgba(255,255,255,0.05);
+
+            color: white;
+
+            font-family: inherit;
+
+            font-size: 14px;
+
+            transition:
+                0.2s ease;
+
+        }
+
+
+        .input-wrapper input::placeholder {
+
+            color: #64788f;
+
+        }
+
+
+        .input-wrapper input:focus {
+
+            border-color:
+                #00b4ff;
+
+            background:
+                rgba(255,255,255,0.07);
+
+            box-shadow:
+                0 0 0 3px
+                rgba(0,180,255,0.10);
+
+        }
+
+
+        /* PASSWORD TOGGLE */
+
+        .password-toggle {
+
+            position: absolute;
+
+            right: 14px;
+
+            top: 50%;
+
+            transform:
+                translateY(-50%);
+
+            border: none;
+
+            background: transparent;
+
+            color: #71869e;
+
+            cursor: pointer;
+
+            font-size: 15px;
+
+        }
+
+
+        .password-toggle:hover {
+
+            color: #00b4ff;
+
+        }
+
+
+        /* TERMS */
+
+        .terms {
+
+            display: flex;
+
+            align-items: flex-start;
+
+            gap: 10px;
+
+            margin:
+                20px 0;
+
+            color: #8296ac;
+
+            font-size: 12px;
+
+            line-height: 1.6;
+
+        }
+
+
+        .terms input {
+
+            margin-top: 3px;
+
+            accent-color: #00b4ff;
+
+        }
+
+
+        .terms a {
+
+            color: #00b4ff;
+
+            text-decoration: none;
+
+        }
+
+
+        /* BUTTON */
+
+        .register-button {
+
+            width: 100%;
+
+            height: 52px;
+
+            border: none;
+
+            border-radius: 13px;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    #00b4ff,
+                    #635bff
+                );
+
+            color: white;
+
+            font-family: inherit;
+
+            font-size: 15px;
+
+            font-weight: 700;
+
+            cursor: pointer;
+
+            transition:
+                0.2s ease;
+
+            box-shadow:
+                0 12px 30px
+                rgba(0,180,255,0.18);
+
+        }
+
+
+        .register-button:hover {
+
+            transform:
+                translateY(-2px);
+
+            box-shadow:
+                0 16px 35px
+                rgba(0,180,255,0.25);
+
+        }
+
+
+        .register-button:disabled {
+
+            opacity: 0.6;
+
+            cursor: not-allowed;
+
+            transform: none;
+
+        }
+
+
+        /* MESSAGE */
+
+        .message {
+
+            min-height: 22px;
+
+            margin-top: 16px;
+
+            text-align: center;
+
+            font-size: 13px;
+
+            line-height: 1.5;
+
+        }
+
+
+        /* LOGIN */
+
+        .login-text {
+
+            margin-top: 24px;
+
+            text-align: center;
+
+            color: #91a4ba;
+
+            font-size: 14px;
+
+        }
+
+
+        .login-text a {
+
+            color: #00b4ff;
+
+            font-weight: 700;
+
+            text-decoration: none;
+
+        }
+
+
+        .login-text a:hover {
+
+            text-decoration: underline;
+
+        }
+
+
+        /* HOME */
+
+        .back-home {
+
+            display: block;
+
+            margin-top: 18px;
+
+            color: #71869e;
+
+            text-align: center;
+
+            text-decoration: none;
+
+            font-size: 13px;
+
+        }
+
+
+        .back-home:hover {
+
+            color: white;
+
+        }
+
+
+        /* MOBILE */
+
+        @media (max-width: 520px) {
+
+            body {
+
+                padding:
+                    20px 14px;
+
+            }
+
+
+            .register-card {
+
+                padding:
+                    28px 22px;
+
+                border-radius:
+                    22px;
+
+            }
+
+
+            .register-logo h1 {
+
+                font-size: 27px;
+
+            }
+
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+    <div class="register-wrapper">
+
+
+        <div class="register-card">
+
+
+            <!-- LOGO -->
+
+            <div class="register-logo">
+
+                <div class="register-logo-icon">
+
+                    <i class="fa-solid fa-shield-halved"></i>
+
+                </div>
+
+
+                <h1>
+                    Create Account
+                </h1>
+
+
+                <p>
+                    Join ChronicAI as a citizen
+                </p>
+
+            </div>
+
+
+            <!-- REGISTER FORM -->
+
+            <form id="registerForm">
+
+
+                <!-- NAME -->
+
+                <div class="form-group">
+
+                    <label for="name">
+                        Full Name
+                    </label>
+
+
+                    <div class="input-wrapper">
+
+                        <i class="fa-solid fa-user"></i>
+
+
+                        <input
+                            type="text"
+                            id="name"
+                            placeholder="Enter your full name"
+                            autocomplete="name"
+                            required
+                        >
+
+                    </div>
+
+                </div>
+
+
+                <!-- EMAIL -->
+
+                <div class="form-group">
+
+                    <label for="email">
+                        Email Address
+                    </label>
+
+
+                    <div class="input-wrapper">
+
+                        <i class="fa-solid fa-envelope"></i>
+
+
+                        <input
+                            type="email"
+                            id="email"
+                            placeholder="Enter your email"
+                            autocomplete="email"
+                            required
+                        >
+
+                    </div>
+
+                </div>
+
+
+                <!-- PASSWORD -->
+
+                <div class="form-group">
+
+                    <label for="password">
+                        Password
+                    </label>
+
+
+                    <div class="input-wrapper">
+
+                        <i class="fa-solid fa-lock"></i>
+
+
+                        <input
+                            type="password"
+                            id="password"
+                            placeholder="Create a password"
+                            autocomplete="new-password"
+                            minlength="6"
+                            required
+                        >
+
+
+                        <button
+                            type="button"
+                            class="password-toggle"
+                            id="passwordToggle"
+                            aria-label="Show password"
+                        >
+
+                            <i
+                                class="fa-solid fa-eye"
+                            ></i>
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <!-- CONFIRM PASSWORD -->
+
+                <div class="form-group">
+
+                    <label for="confirmPassword">
+                        Confirm Password
+                    </label>
+
+
+                    <div class="input-wrapper">
+
+                        <i class="fa-solid fa-lock"></i>
+
+
+                        <input
+                            type="password"
+                            id="confirmPassword"
+                            placeholder="Confirm your password"
+                            autocomplete="new-password"
+                            minlength="6"
+                            required
+                        >
+
+
+                        <button
+                            type="button"
+                            class="password-toggle"
+                            id="confirmPasswordToggle"
+                            aria-label="Show password"
+                        >
+
+                            <i
+                                class="fa-solid fa-eye"
+                            ></i>
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <!-- TERMS -->
+
+                <label class="terms">
+
+                    <input
+                        type="checkbox"
+                        id="terms"
+                        required
+                    >
+
+
+                    <span>
+
+                        I agree to the ChronicAI
+                        <a href="#">
+                            Terms of Service
+                        </a>
+                        and
+                        <a href="#">
+                            Privacy Policy
+                        </a>.
+
+                    </span>
+
+                </label>
+
+
+                <!-- BUTTON -->
+
+                <button
+                    type="submit"
+                    class="register-button"
+                    id="registerButton"
+                >
+
+                    <i class="fa-solid fa-user-plus"></i>
+
+                    Create Citizen Account
+
+                </button>
+
+
+            </form>
+
+
+            <!-- MESSAGE -->
+
+            <div
+                class="message"
+                id="registerMessage"
+            ></div>
+
+
+            <!-- LOGIN -->
+
+            <div class="login-text">
+
+                Already have an account?
+
+                <a href="login.html">
+                    Login
+                </a>
+
+            </div>
+
+
+            <!-- HOME -->
+
+            <a
+                href="index.html"
+                class="back-home"
+            >
+
+                ← Back to ChronicAI
+
+            </a>
+
+
+        </div>
+
+    </div>
+
+
+
+    <!-- =====================================================
+         FIREBASE REGISTER
+    ====================================================== -->
+
+    <script type="module" src="register.js"></script>
+
+</body>
+
+</html>

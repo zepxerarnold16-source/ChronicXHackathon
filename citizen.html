@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="ChronicAI Citizen Dashboard — Track and manage your civic reports."
+    >
+
+    <title>ChronicAI — Citizen Dashboard</title>
+
+
+    <!-- Google Fonts -->
+
+    <link
+        rel="preconnect"
+        href="https://fonts.googleapis.com"
+    >
+
+    <link
+        rel="preconnect"
+        href="https://fonts.gstatic.com"
+        crossorigin
+    >
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap"
+        rel="stylesheet"
+    >
+
+
+    <!-- Font Awesome -->
+
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+    >
+
+
+    <!-- Global CSS -->
+
+    <link
+        rel="stylesheet"
+        href="global.css"
+    >
+
+
+    <!-- Citizen CSS -->
+
+    <link
+        rel="stylesheet"
+        href="citizen.css"
+    >
+
+</head>
+
+
+<body>
+
+
+<!-- =====================================================
+     BACKGROUND
+===================================================== -->
+
+<div class="background-system">
+
+    <div class="grid-background"></div>
+
+    <div class="ambient-glow glow-one"></div>
+
+    <div class="ambient-glow glow-two"></div>
+
+    <div class="ambient-glow glow-three"></div>
+
+    <div class="floating-orb orb-one"></div>
+
+    <div class="floating-orb orb-two"></div>
+
+    <div class="floating-orb orb-three"></div>
+
+</div>
+
+
+
+<!-- =====================================================
+     PAGE LOADER
+===================================================== -->
+
+<div
+    class="page-loader"
+    id="pageLoader"
+>
+
+    <div class="loader-content">
+
+        <div class="loader-logo">
+
+            <div class="loader-logo-icon">
+
+                <i class="fa-solid fa-shield-halved"></i>
+
+            </div>
+
+            <span>ChronicAI</span>
+
+        </div>
+
+        <div class="loader-line">
+            <span></span>
+        </div>
+
+        <p>
+            Loading your civic dashboard...
+        </p>
+
+    </div>
+
+</div>
+
+
+
+<!-- =====================================================
+     HEADER
+===================================================== -->
+
+<header
+    class="main-header"
+    id="mainHeader"
+>
+
+    <div class="container nav-container">
+
+
+        <!-- BRAND -->
+
+        <a
+            href="index.html"
+            class="brand"
+        >
+
+            <div class="brand-icon">
+
+                <i class="fa-solid fa-shield-halved"></i>
+
+                <span class="brand-pulse"></span>
+
+            </div>
+
+
+            <div class="brand-text">
+
+                <strong>ChronicAI</strong>
+
+                <span>SMART CIVIC REPORTING</span>
+
+            </div>
+
+        </a>
+
+
+
+        <!-- DESKTOP NAV -->
+
+        <nav class="desktop-nav">
+
+            <a
+                href="index.html"
+                class="nav-link"
+            >
+                Home
+            </a>
+
+            <a
+                href="report.html"
+                class="nav-link"
+            >
+                Report Problem
+            </a>
+
+            <a
+                href="citizen.html"
+                class="nav-link active"
+            >
+                Dashboard
+            </a>
+
+        </nav>
+
+
+
+        <!-- NAV ACTIONS -->
+
+        <div class="nav-actions">
+
+            <button
+                type="button"
+                class="theme-toggle"
+                id="themeToggle"
+                aria-label="Switch to light theme"
+            >
+
+                <i class="fa-solid fa-moon"></i>
+
+            </button>
+
+
+            <button
+                type="button"
+                class="logout-button"
+                id="logoutButton"
+            >
+
+                <i class="fa-solid fa-right-from-bracket"></i>
+
+                Logout
+
+            </button>
+
+        </div>
+
+
+
+        <!-- MOBILE MENU -->
+
+        <button
+            type="button"
+            class="mobile-menu-button"
+            id="mobileMenuButton"
+            aria-label="Open menu"
+            aria-expanded="false"
+        >
+
+            <span></span>
+            <span></span>
+            <span></span>
+
+        </button>
+
+    </div>
+
+
+
+    <!-- MOBILE NAVIGATION -->
+
+    <nav
+        class="mobile-navigation"
+        id="mobileNavigation"
+    >
+
+        <a href="index.html">
+            Home
+        </a>
+
+        <a href="report.html">
+            Report Problem
+        </a>
+
+        <a href="citizen.html">
+            Dashboard
+        </a>
+
+        <button
+            type="button"
+            id="mobileLogoutButton"
+        >
+            Logout
+        </button>
+
+    </nav>
+
+</header>
+
+
+
+<!-- =====================================================
+     MAIN
+===================================================== -->
+
+<main>
+
+
+<!-- =====================================================
+     DASHBOARD HERO
+===================================================== -->
+
+<section class="citizen-hero">
+
+    <div class="container">
+
+        <div class="citizen-welcome">
+
+            <div>
+
+                <span class="section-label">
+                    CITIZEN DASHBOARD
+                </span>
+
+                <h1>
+
+                    Welcome back,
+                    <span
+                        class="gradient-text"
+                        id="citizenName"
+                    >
+                        Citizen
+                    </span>
+
+                </h1>
+
+                <p>
+                    Track your civic reports, monitor
+                    their progress, and stay informed
+                    about the problems you reported.
+                </p>
+
+            </div>
+
+
+            <a
+                href="report.html"
+                class="primary-button"
+            >
+
+                <i class="fa-solid fa-plus"></i>
+
+                Report a Problem
+
+            </a>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<!-- =====================================================
+     STATISTICS
+===================================================== -->
+
+<section class="citizen-stats">
+
+    <div class="container">
+
+        <div class="stats-grid">
+
+
+            <!-- TOTAL -->
+
+            <div class="stat-card">
+
+                <div class="stat-icon blue">
+
+                    <i class="fa-solid fa-file-lines"></i>
+
+                </div>
+
+                <div>
+
+                    <span>
+                        Total Reports
+                    </span>
+
+                    <strong id="totalReports">
+                        0
+                    </strong>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- PENDING -->
+
+            <div class="stat-card">
+
+                <div class="stat-icon orange">
+
+                    <i class="fa-solid fa-clock"></i>
+
+                </div>
+
+                <div>
+
+                    <span>
+                        Pending
+                    </span>
+
+                    <strong id="pendingReports">
+                        0
+                    </strong>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- PROCESSING -->
+
+            <div class="stat-card">
+
+                <div class="stat-icon purple">
+
+                    <i class="fa-solid fa-spinner"></i>
+
+                </div>
+
+                <div>
+
+                    <span>
+                        In Progress
+                    </span>
+
+                    <strong id="progressReports">
+                        0
+                    </strong>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- RESOLVED -->
+
+            <div class="stat-card">
+
+                <div class="stat-icon green">
+
+                    <i class="fa-solid fa-circle-check"></i>
+
+                </div>
+
+                <div>
+
+                    <span>
+                        Resolved
+                    </span>
+
+                    <strong id="resolvedReports">
+                        0
+                    </strong>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<!-- =====================================================
+     REPORT DASHBOARD
+===================================================== -->
+
+<section class="reports-section">
+
+    <div class="container">
+
+
+        <!-- SECTION HEADER -->
+
+        <div class="reports-header">
+
+            <div>
+
+                <span class="section-label">
+                    MY CIVIC REPORTS
+                </span>
+
+                <h2>
+                    Your reported problems
+                </h2>
+
+                <p>
+                    View the current status and AI
+                    analysis of your submitted reports.
+                </p>
+
+            </div>
+
+
+            <!-- FILTER -->
+
+            <div class="report-filter">
+
+                <label for="reportFilter">
+                    Filter
+                </label>
+
+                <select id="reportFilter">
+
+                    <option value="all">
+                        All Reports
+                    </option>
+
+                    <option value="pending">
+                        Pending
+                    </option>
+
+                    <option value="processing">
+                        In Progress
+                    </option>
+
+                    <option value="resolved">
+                        Resolved
+                    </option>
+
+                </select>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- REPORT LIST -->
+
+        <div
+            class="reports-list"
+            id="reportsList"
+        >
+
+
+            <!-- DEFAULT EMPTY STATE -->
+
+            <div
+                class="reports-empty"
+                id="reportsEmpty"
+            >
+
+                <div class="empty-icon">
+
+                    <i class="fa-solid fa-file-circle-plus"></i>
+
+                </div>
+
+                <h3>
+                    No reports yet
+                </h3>
+
+                <p>
+                    You haven't submitted any civic
+                    problems yet.
+                </p>
+
+                <a
+                    href="report.html"
+                    class="primary-button"
+                >
+
+                    <i class="fa-solid fa-camera"></i>
+
+                    Report Your First Problem
+
+                </a>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<!-- =====================================================
+     HOW STATUS WORKS
+===================================================== -->
+
+<section class="status-section">
+
+    <div class="container">
+
+        <div class="section-heading center">
+
+            <span class="section-label">
+                REPORT TRACKING
+            </span>
+
+            <h2>
+
+                Understand your
+                <span class="gradient-text">
+                    report status
+                </span>
+
+            </h2>
+
+            <p>
+                ChronicAI keeps you informed from submission
+                to resolution.
+            </p>
+
+        </div>
+
+
+
+        <div class="status-timeline">
+
+
+            <div class="status-step">
+
+                <div class="status-step-icon pending">
+
+                    <i class="fa-solid fa-paper-plane"></i>
+
+                </div>
+
+                <div>
+
+                    <strong>
+                        Submitted
+                    </strong>
+
+                    <p>
+                        Your civic report has been received.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+
+            <div class="status-line"></div>
+
+
+
+            <div class="status-step">
+
+                <div class="status-step-icon processing">
+
+                    <i class="fa-solid fa-gears"></i>
+
+                </div>
+
+                <div>
+
+                    <strong>
+                        In Progress
+                    </strong>
+
+                    <p>
+                        The report is being reviewed or processed.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+
+            <div class="status-line"></div>
+
+
+
+            <div class="status-step">
+
+                <div class="status-step-icon resolved">
+
+                    <i class="fa-solid fa-check"></i>
+
+                </div>
+
+                <div>
+
+                    <strong>
+                        Resolved
+                    </strong>
+
+                    <p>
+                        The reported civic problem has been resolved.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+</main>
+
+
+
+<!-- =====================================================
+     FLOATING HELP
+===================================================== -->
+
+<button
+    type="button"
+    class="floating-help"
+    id="floatingHelp"
+    aria-label="Open ChronicAI help"
+>
+
+    <span class="help-pulse"></span>
+
+    <i class="fa-solid fa-headset"></i>
+
+</button>
+
+
+
+<!-- =====================================================
+     JAVASCRIPT
+===================================================== -->
+
+<script src="app.js"></script>
+
+<script src="citizen.js"></script>
+
+
+</body>
+
+</html>

@@ -1,0 +1,3592 @@
+/* =========================================================
+   CHRONICAI RESOURCE CENTER
+========================================================= */
+
+:root {
+
+    --rc-bg: #050b18;
+    --rc-bg2: #081225;
+
+    --rc-card: rgba(13,22,42,.84);
+
+    --rc-border:
+        rgba(255,255,255,.08);
+
+    --rc-text: #f5f8ff;
+    --rc-muted: #96a5bb;
+
+    --rc-blue: #4da3ff;
+    --rc-purple: #8b5cf6;
+
+    --rc-green: #22c55e;
+    --rc-yellow: #eab308;
+    --rc-orange: #f97316;
+    --rc-red: #ef4444;
+
+    --rc-shadow:
+        0 25px 70px rgba(0,0,0,.30);
+}
+
+
+/* =========================================================
+   RESET
+========================================================= */
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+
+    margin: 0;
+
+    min-height: 100vh;
+
+    font-family:
+        Inter,
+        system-ui,
+        -apple-system,
+        "Segoe UI",
+        sans-serif;
+
+    color: var(--rc-text);
+
+    background:
+        radial-gradient(
+            circle at 15% 5%,
+            rgba(59,130,246,.12),
+            transparent 30%
+        ),
+        radial-gradient(
+            circle at 90% 80%,
+            rgba(139,92,246,.10),
+            transparent 34%
+        ),
+        linear-gradient(
+            180deg,
+            var(--rc-bg),
+            var(--rc-bg2)
+        );
+}
+
+
+/* =========================================================
+   HEADER
+========================================================= */
+
+.rc-header {
+
+    position: sticky;
+
+    top: 0;
+
+    z-index: 5000;
+
+    background:
+        rgba(5,11,24,.88);
+
+    border-bottom:
+        1px solid var(--rc-border);
+
+    backdrop-filter:
+        blur(20px);
+}
+
+
+.rc-header-inner {
+
+    width:
+        min(1400px, calc(100% - 40px));
+
+    min-height: 72px;
+
+    margin: 0 auto;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    gap: 20px;
+}
+
+
+.rc-brand {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 12px;
+
+    color: white;
+
+    text-decoration: none;
+}
+
+
+.rc-brand-icon {
+
+    width: 42px;
+
+    height: 42px;
+
+    display: grid;
+
+    place-items: center;
+
+    border-radius: 13px;
+
+    background:
+        linear-gradient(
+            135deg,
+            var(--rc-blue),
+            var(--rc-purple)
+        );
+
+    box-shadow:
+        0 10px 30px
+        rgba(77,163,255,.24);
+}
+
+
+.rc-brand-text {
+
+    display: flex;
+
+    flex-direction: column;
+}
+
+
+.rc-brand-text strong {
+
+    font-size: 18px;
+}
+
+
+.rc-brand-text span {
+
+    margin-top: 2px;
+
+    color: #71839a;
+
+    font-size: 8px;
+
+    letter-spacing: 1.4px;
+}
+
+
+.rc-nav {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 6px;
+}
+
+
+.rc-nav a {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 7px;
+
+    padding: 9px 12px;
+
+    border-radius: 10px;
+
+    color: var(--rc-muted);
+
+    text-decoration: none;
+
+    font-size: 12px;
+
+    transition: .22s;
+}
+
+
+.rc-nav a:hover,
+.rc-nav a.active {
+
+    color: white;
+
+    background:
+        rgba(77,163,255,.09);
+}
+
+
+/* =========================================================
+   CONTAINER
+========================================================= */
+
+.resource-container {
+
+    width:
+        min(1400px, calc(100% - 40px));
+
+    margin: 0 auto;
+}
+
+
+/* =========================================================
+   HERO
+========================================================= */
+
+.resource-hero {
+
+    padding:
+        85px 0 45px;
+}
+
+
+.resource-hero-content {
+
+    max-width: 850px;
+}
+
+
+.resource-status {
+
+    display: inline-flex;
+
+    align-items: center;
+
+    gap: 8px;
+
+    padding: 8px 13px;
+
+    border:
+        1px solid
+        rgba(34,197,94,.18);
+
+    border-radius: 999px;
+
+    background:
+        rgba(34,197,94,.055);
+
+    color: #8be5bc;
+
+    font-size: 10px;
+
+    font-weight: 800;
+
+    letter-spacing: 1.3px;
+}
+
+
+.status-dot {
+
+    width: 7px;
+
+    height: 7px;
+
+    border-radius: 50%;
+
+    background:
+        var(--rc-green);
+
+    box-shadow:
+        0 0 13px
+        rgba(34,197,94,.75);
+}
+
+
+.resource-hero h1 {
+
+    margin:
+        22px 0 13px;
+
+    font-family:
+        "Space Grotesk",
+        sans-serif;
+
+    font-size:
+        clamp(42px, 7vw, 75px);
+
+    line-height: 1;
+
+    letter-spacing: -2.8px;
+}
+
+
+.gradient-text {
+
+    background:
+        linear-gradient(
+            90deg,
+            #4db7ff,
+            #8a7bff,
+            #bd6dff
+        );
+
+    -webkit-background-clip: text;
+
+    background-clip: text;
+
+    color: transparent;
+}
+
+
+.resource-hero p {
+
+    max-width: 730px;
+
+    margin: 0;
+
+    color: var(--rc-muted);
+
+    font-size: 15px;
+
+    line-height: 1.75;
+}
+
+
+.hero-actions {
+
+    display: flex;
+
+    flex-wrap: wrap;
+
+    gap: 10px;
+
+    margin-top: 28px;
+}
+
+
+/* =========================================================
+   BUTTONS
+========================================================= */
+
+.primary-resource-btn,
+.secondary-resource-btn {
+
+    display: inline-flex;
+
+    align-items: center;
+
+    gap: 8px;
+
+    padding: 12px 17px;
+
+    border-radius: 11px;
+
+    font-family: inherit;
+
+    font-size: 12px;
+
+    font-weight: 800;
+
+    cursor: pointer;
+
+    transition: .22s;
+}
+
+
+.primary-resource-btn {
+
+    border: 0;
+
+    color: white;
+
+    background:
+        linear-gradient(
+            135deg,
+            #2563eb,
+            #7c3aed
+        );
+}
+
+
+.secondary-resource-btn {
+
+    color: #dbe7f5;
+
+    border:
+        1px solid var(--rc-border);
+
+    background:
+        rgba(255,255,255,.04);
+}
+
+
+.primary-resource-btn:hover,
+.secondary-resource-btn:hover {
+
+    transform: translateY(-2px);
+}
+
+
+.primary-resource-btn:disabled {
+
+    opacity: .55;
+
+    cursor: not-allowed;
+
+    transform: none;
+}
+
+
+/* =========================================================
+   LOCATION STATUS
+========================================================= */
+
+.location-status {
+
+    min-height: 22px;
+
+    margin-top: 14px;
+
+    color:
+        var(--rc-muted);
+
+    font-size: 11px;
+}
+
+
+.location-status.success {
+    color: #86efac;
+}
+
+
+.location-status.error {
+    color: #fda4af;
+}
+
+
+/* =========================================================
+   RESOURCE CONTROLS
+========================================================= */
+
+.resource-controls {
+
+    padding:
+        8px 0 22px;
+}
+
+
+.control-card {
+
+    padding: 23px;
+
+    border:
+        1px solid var(--rc-border);
+
+    border-radius: 20px;
+
+    background:
+        var(--rc-card);
+
+    box-shadow:
+        var(--rc-shadow);
+
+    backdrop-filter:
+        blur(20px);
+}
+
+
+.control-heading {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    gap: 20px;
+
+    margin-bottom: 18px;
+}
+
+
+.section-label {
+
+    color:
+        var(--rc-blue);
+
+    font-size: 9px;
+
+    font-weight: 800;
+
+    letter-spacing: 1.4px;
+}
+
+
+.control-heading h2 {
+
+    margin:
+        5px 0 0;
+
+    font-family:
+        "Space Grotesk",
+        sans-serif;
+
+    font-size: 24px;
+}
+
+
+.resource-count {
+
+    color: #71839a;
+
+    font-size: 11px;
+}
+
+
+.resource-count span {
+
+    color: white;
+
+    font-size: 22px;
+
+    font-weight: 800;
+}
+
+
+.filter-grid {
+
+    display: flex;
+
+    flex-wrap: wrap;
+
+    gap: 8px;
+}
+
+
+.filter-btn {
+
+    display: inline-flex;
+
+    align-items: center;
+
+    gap: 7px;
+
+    padding: 9px 13px;
+
+    border:
+        1px solid var(--rc-border);
+
+    border-radius: 9px;
+
+    color: var(--rc-muted);
+
+    background:
+        rgba(255,255,255,.035);
+
+    cursor: pointer;
+
+    font-family: inherit;
+
+    font-size: 11px;
+}
+
+
+.filter-btn:hover,
+.filter-btn.active {
+
+    color: white;
+
+    background:
+        rgba(77,163,255,.10);
+
+    border-color:
+        rgba(77,163,255,.28);
+}
+
+
+/* =========================================================
+   MAP
+========================================================= */
+
+.resource-main {
+
+    padding:
+        14px 0 45px;
+}
+
+
+.resource-layout {
+
+    display: grid;
+
+    grid-template-columns:
+        minmax(0,1.3fr)
+        minmax(300px,.85fr);
+
+    gap: 16px;
+
+    align-items: start;
+}
+
+
+.map-card {
+
+    position: relative;
+
+    overflow: hidden;
+
+    border:
+        1px solid var(--rc-border);
+
+    border-radius: 20px;
+
+    background:
+        var(--rc-card);
+
+    box-shadow:
+        var(--rc-shadow);
+}
+
+
+.map-header {
+
+    min-height: 62px;
+
+    padding: 0 15px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    gap: 10px;
+
+    border-bottom:
+        1px solid var(--rc-border);
+}
+
+
+.map-title-area {
+
+    min-width: 0;
+}
+
+
+.map-title {
+
+    display: block;
+
+    color: white;
+
+    font-size: 13px;
+
+    font-weight: 800;
+}
+
+
+.map-status {
+
+    display: block;
+
+    margin-top: 2px;
+
+    color: #6f8097;
+
+    font-size: 9px;
+}
+
+
+.map-header-actions {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 7px;
+
+    flex-shrink: 0;
+}
+
+
+.map-icon-btn {
+
+    width: 34px;
+
+    height: 34px;
+
+    display: grid;
+
+    place-items: center;
+
+    border:
+        1px solid var(--rc-border);
+
+    border-radius: 9px;
+
+    color: #dbe7f5;
+
+    background:
+        rgba(255,255,255,.04);
+
+    cursor: pointer;
+}
+
+
+#resourceMap {
+
+    width: 100%;
+
+    height: 420px;
+}
+
+
+/* =========================================================
+   POLLUTION TRACKER
+========================================================= */
+
+.pollution-tracker-btn {
+
+    display: inline-flex;
+
+    align-items: center;
+
+    gap: 7px;
+
+    padding: 8px 11px;
+
+    border:
+        1px solid
+        rgba(255,255,255,.10);
+
+    border-radius: 9px;
+
+    color: #cbd5e1;
+
+    background:
+        rgba(255,255,255,.035);
+
+    font-family: inherit;
+
+    font-size: 9px;
+
+    font-weight: 800;
+
+    cursor: pointer;
+}
+
+
+.pollution-tracker-btn:hover {
+
+    color: white;
+
+    background:
+        rgba(77,163,255,.08);
+}
+
+
+.pollution-tracker-btn.active {
+
+    color: white;
+
+    border-color:
+        rgba(34,197,94,.25);
+
+    background:
+        rgba(34,197,94,.08);
+}
+
+
+.pollution-tracker-btn i {
+
+    color: #60a5fa;
+}
+
+
+.pollution-tracker-btn.active i {
+
+    color: #4ade80;
+}
+
+
+.pollution-map-legend {
+
+    position: absolute;
+
+    top: 72px;
+
+    right: 12px;
+
+    z-index: 1200;
+
+    display: none;
+
+    width: 205px;
+
+    padding: 12px;
+
+    border:
+        1px solid
+        rgba(255,255,255,.10);
+
+    border-radius: 12px;
+
+    background:
+        rgba(6,14,28,.96);
+
+    backdrop-filter:
+        blur(18px);
+
+    box-shadow:
+        0 18px 45px
+        rgba(0,0,0,.32);
+}
+
+
+.pollution-map-legend.show {
+
+    display: block;
+}
+
+
+.pollution-legend-title {
+
+    margin-bottom: 8px;
+
+    color: #60a5fa;
+
+    font-size: 8px;
+
+    font-weight: 800;
+
+    letter-spacing: 1px;
+}
+
+
+.pollution-range-title {
+
+    margin-bottom: 6px;
+
+    color: #64748b;
+
+    font-size: 8px;
+}
+
+
+.pollution-range-buttons {
+
+    display: flex;
+
+    gap: 5px;
+
+    margin-bottom: 8px;
+}
+
+
+.pollution-range-btn {
+
+    flex: 1;
+
+    padding: 6px;
+
+    color: #94a3b8;
+
+    background:
+        rgba(255,255,255,.035);
+
+    border:
+        1px solid
+        rgba(255,255,255,.08);
+
+    border-radius: 7px;
+
+    cursor: pointer;
+
+    font-family: inherit;
+
+    font-size: 8px;
+
+    font-weight: 800;
+}
+
+
+.pollution-range-btn.active {
+
+    color: white;
+
+    border-color:
+        rgba(77,163,255,.25);
+
+    background:
+        rgba(77,163,255,.10);
+}
+
+
+.pollution-legend-row {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
+
+    padding: 4px 0;
+
+    color: #cbd5e1;
+
+    font-size: 9px;
+}
+
+
+.pollution-legend-dot {
+
+    width: 9px;
+
+    height: 9px;
+
+    flex: 0 0 9px;
+
+    border-radius: 50%;
+}
+
+
+.pollution-legend-dot.green {
+
+    background: #22c55e;
+
+    box-shadow:
+        0 0 9px
+        rgba(34,197,94,.65);
+}
+
+
+.pollution-legend-dot.yellow {
+
+    background: #eab308;
+
+    box-shadow:
+        0 0 9px
+        rgba(234,179,8,.55);
+}
+
+
+.pollution-legend-dot.red {
+
+    background: #ef4444;
+
+    box-shadow:
+        0 0 9px
+        rgba(239,68,68,.55);
+}
+
+
+.pollution-legend-note {
+
+    margin-top: 8px;
+
+    padding-top: 8px;
+
+    border-top:
+        1px solid
+        rgba(255,255,255,.06);
+
+    color: #64748b;
+
+    font-size: 7px;
+
+    line-height: 1.45;
+}
+
+
+/* =========================================================
+   RESOURCE LIST
+========================================================= */
+
+.resource-list-card {
+
+    min-height: 500px;
+
+    display: flex;
+
+    flex-direction: column;
+
+    overflow: hidden;
+
+    border:
+        1px solid var(--rc-border);
+
+    border-radius: 20px;
+
+    background:
+        var(--rc-card);
+
+    box-shadow:
+        var(--rc-shadow);
+}
+
+
+.list-header {
+
+    min-height: 70px;
+
+    padding: 15px;
+
+    display: flex;
+
+    align-items: flex-start;
+
+    justify-content: space-between;
+
+    gap: 12px;
+
+    border-bottom:
+        1px solid var(--rc-border);
+}
+
+
+.list-header h3 {
+
+    margin:
+        4px 0 0;
+
+    font-family:
+        "Space Grotesk",
+        sans-serif;
+
+    font-size: 21px;
+}
+
+
+.distance-select {
+
+    color: white;
+
+    background:
+        #101c31;
+
+    border:
+        1px solid var(--rc-border);
+
+    border-radius: 9px;
+
+    padding: 8px;
+
+    font-family: inherit;
+
+    font-size: 10px;
+}
+
+
+.resource-list {
+
+    max-height: 450px;
+
+    overflow-y: auto;
+
+    padding: 11px;
+}
+
+
+.resource-item {
+
+    padding: 13px;
+
+    margin-bottom: 8px;
+
+    border:
+        1px solid var(--rc-border);
+
+    border-radius: 13px;
+
+    background:
+        rgba(255,255,255,.025);
+}
+
+
+.resource-item-top {
+
+    display: flex;
+
+    align-items: flex-start;
+
+    gap: 10px;
+}
+
+
+.resource-type-icon {
+
+    width: 38px;
+
+    height: 38px;
+
+    flex: 0 0 38px;
+
+    display: grid;
+
+    place-items: center;
+
+    border-radius: 10px;
+
+    color:
+        var(--rc-blue);
+
+    background:
+        rgba(77,163,255,.09);
+}
+
+
+.resource-item h4 {
+
+    margin:
+        0 0 3px;
+
+    color: white;
+
+    font-size: 13px;
+}
+
+
+.resource-type {
+
+    color: #71839a;
+
+    font-size: 9px;
+}
+
+
+.resource-distance {
+
+    margin-left: auto;
+
+    white-space: nowrap;
+
+    color: #86efac;
+
+    font-size: 9px;
+
+    font-weight: 800;
+}
+
+
+.resource-address {
+
+    margin:
+        10px 0;
+
+    color: var(--rc-muted);
+
+    font-size: 10px;
+
+    line-height: 1.45;
+}
+
+
+.resource-actions {
+
+    display: flex;
+
+    gap: 5px;
+}
+
+
+.resource-action {
+
+    flex: 1;
+
+    padding: 7px;
+
+    color: #dbe7f5;
+
+    background:
+        rgba(255,255,255,.04);
+
+    border:
+        1px solid var(--rc-border);
+
+    border-radius: 7px;
+
+    text-align: center;
+
+    text-decoration: none;
+
+    font-size: 9px;
+}
+
+
+.resource-action.primary {
+
+    color: white;
+
+    background:
+        rgba(77,163,255,.09);
+}
+
+
+/* =========================================================
+   EMPTY
+========================================================= */
+
+.empty-state {
+
+    padding:
+        55px 15px;
+
+    text-align: center;
+
+    color:
+        var(--rc-muted);
+}
+
+
+.empty-icon {
+
+    width: 55px;
+
+    height: 55px;
+
+    margin:
+        0 auto 13px;
+
+    display:
+        grid;
+
+    place-items:
+        center;
+
+    border-radius: 50%;
+
+    background:
+        rgba(77,163,255,.07);
+
+    color:
+        var(--rc-blue);
+
+    font-size: 20px;
+}
+
+
+.empty-state h4 {
+
+    margin:
+        0 0 6px;
+
+    color: white;
+
+    font-size: 13px;
+}
+
+
+.empty-state p {
+
+    margin: 0;
+
+    font-size: 10px;
+
+    line-height: 1.55;
+}
+
+
+/* =========================================================
+   POLLUTION LOCATION SEARCH
+========================================================= */
+
+.pollution-location-section {
+
+    padding:
+        5px 0 35px;
+}
+
+
+.pollution-location-card {
+
+    padding: 24px;
+
+    border:
+        1px solid var(--rc-border);
+
+    border-radius: 22px;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(13,22,42,.92),
+            rgba(8,16,30,.88)
+        );
+
+    box-shadow:
+        var(--rc-shadow);
+}
+
+
+.pollution-location-header h2 {
+
+    margin:
+        6px 0 7px;
+
+    font-family:
+        "Space Grotesk",
+        sans-serif;
+
+    font-size:
+        24px;
+}
+
+
+.pollution-location-header p {
+
+    margin: 0;
+
+    color:
+        var(--rc-muted);
+
+    font-size:
+        10px;
+
+    line-height:
+        1.6;
+}
+
+
+.pollution-location-search {
+
+    display: flex;
+
+    gap: 8px;
+
+    margin-top: 20px;
+}
+
+
+.pollution-search-input {
+
+    position: relative;
+
+    flex: 1;
+}
+
+
+.pollution-search-input i {
+
+    position: absolute;
+
+    left: 13px;
+
+    top: 50%;
+
+    transform:
+        translateY(-50%);
+
+    color: #64748b;
+
+    font-size: 11px;
+}
+
+
+.pollution-search-input input {
+
+    width: 100%;
+
+    padding:
+        12px
+        13px
+        12px
+        36px;
+
+    border:
+        1px solid var(--rc-border);
+
+    border-radius:
+        10px;
+
+    outline: none;
+
+    color: white;
+
+    background:
+        rgba(255,255,255,.035);
+
+    font-family:
+        inherit;
+
+    font-size: 11px;
+}
+
+
+.pollution-search-input input:focus {
+
+    border-color:
+        rgba(77,163,255,.35);
+}
+
+
+.pollution-place-search-btn {
+
+    display: inline-flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    gap: 7px;
+
+    padding:
+        11px 18px;
+
+    border: 0;
+
+    border-radius:
+        10px;
+
+    color: white;
+
+    background:
+        linear-gradient(
+            135deg,
+            #2563eb,
+            #7c3aed
+        );
+
+    font-family: inherit;
+
+    font-size: 10px;
+
+    font-weight: 800;
+
+    cursor: pointer;
+}
+
+
+.pollution-place-search-btn:disabled {
+
+    opacity: .55;
+
+    cursor: not-allowed;
+}
+
+
+.pollution-location-status {
+
+    margin-top: 8px;
+
+    color:
+        #64748b;
+
+    font-size:
+        8px;
+}
+
+
+.pollution-location-status.error {
+
+    color:
+        #fca5a5;
+}
+
+
+.pollution-location-status.success {
+
+    color:
+        #86efac;
+}
+
+
+.pollution-location-result {
+
+    margin-top:
+        18px;
+}
+
+
+.pollution-location-empty {
+
+    padding:
+        38px 15px;
+
+    border:
+        1px dashed
+        rgba(255,255,255,.08);
+
+    border-radius:
+        14px;
+
+    text-align:
+        center;
+}
+
+
+.pollution-location-empty-icon {
+
+    width:
+        52px;
+
+    height:
+        52px;
+
+    margin:
+        0 auto 12px;
+
+    display:
+        grid;
+
+    place-items:
+        center;
+
+    border-radius:
+        50%;
+
+    color:
+        var(--rc-blue);
+
+    background:
+        rgba(77,163,255,.08);
+
+    font-size:
+        20px;
+}
+
+
+.pollution-location-empty h3 {
+
+    margin:
+        0 0 6px;
+
+    color:
+        white;
+
+    font-size:
+        14px;
+}
+
+
+.pollution-location-empty p {
+
+    max-width:
+        520px;
+
+    margin:
+        auto;
+
+    color:
+        var(--rc-muted);
+
+    font-size:
+        9px;
+
+    line-height:
+        1.55;
+}
+
+
+.pollution-place-result {
+
+    display:
+        grid;
+
+    grid-template-columns:
+        .8fr 1.2fr;
+
+    gap:
+        10px;
+}
+
+
+.pollution-place-summary,
+.pollution-place-values {
+
+    padding:
+        17px;
+
+    border:
+        1px solid var(--rc-border);
+
+    border-radius:
+        15px;
+
+    background:
+        rgba(255,255,255,.024);
+}
+
+
+.pollution-place-name {
+
+    margin: 0;
+
+    color: white;
+
+    font-family:
+        "Space Grotesk",
+        sans-serif;
+
+    font-size:
+        21px;
+}
+
+
+.pollution-place-address {
+
+    margin-top:
+        4px;
+
+    color:
+        #71839a;
+
+    font-size:
+        8px;
+
+    line-height:
+        1.5;
+}
+
+
+.pollution-place-condition {
+
+    display:
+        inline-flex;
+
+    margin-top:
+        15px;
+
+    padding:
+        7px 10px;
+
+    border-radius:
+        999px;
+
+    font-size:
+        8px;
+
+    font-weight:
+        900;
+}
+
+
+.pollution-place-condition.good {
+
+    color:
+        #86efac;
+
+    background:
+        rgba(34,197,94,.08);
+}
+
+
+.pollution-place-condition.moderate {
+
+    color:
+        #fde68a;
+
+    background:
+        rgba(234,179,8,.08);
+}
+
+
+.pollution-place-condition.caution {
+
+    color:
+        #fdba74;
+
+    background:
+        rgba(249,115,22,.09);
+}
+
+
+.pollution-place-condition.poor,
+.pollution-place-condition.high-risk {
+
+    color:
+        #fca5a5;
+
+    background:
+        rgba(239,68,68,.09);
+}
+
+
+.pollution-place-aqi {
+
+    margin-top:
+        18px;
+
+    color:
+        #64748b;
+
+    font-size:
+        8px;
+}
+
+
+.pollution-place-aqi strong {
+
+    display:
+        block;
+
+    margin-top:
+        4px;
+
+    color:
+        white;
+
+    font-family:
+        "Space Grotesk",
+        sans-serif;
+
+    font-size:
+        30px;
+}
+
+
+.pollution-map-place-btn {
+
+    margin-top:
+        14px;
+
+    display:
+        inline-flex;
+
+    align-items:
+        center;
+
+    gap:
+        7px;
+
+    padding:
+        9px 12px;
+
+    border:
+        1px solid
+        rgba(77,163,255,.18);
+
+    border-radius:
+        8px;
+
+    color:
+        #dbe7f5;
+
+    background:
+        rgba(77,163,255,.07);
+
+    cursor:
+        pointer;
+
+    font-family:
+        inherit;
+
+    font-size:
+        8px;
+
+    font-weight:
+        800;
+}
+
+
+.pollution-place-values-grid {
+
+    display:
+        grid;
+
+    grid-template-columns:
+        repeat(3,1fr);
+
+    gap:
+        7px;
+}
+
+
+.pollution-place-value {
+
+    padding:
+        12px;
+
+    border:
+        1px solid var(--rc-border);
+
+    border-radius:
+        10px;
+
+    background:
+        rgba(255,255,255,.022);
+}
+
+
+.pollution-place-value span {
+
+    display:
+        block;
+
+    color:
+        #64748b;
+
+    font-size:
+        7px;
+
+    font-weight:
+        800;
+}
+
+
+.pollution-place-value strong {
+
+    display:
+        block;
+
+    margin-top:
+        5px;
+
+    color:
+        white;
+
+    font-size:
+        16px;
+}
+
+
+.pollution-place-value small {
+
+    color:
+        #64748b;
+
+    font-size:
+        7px;
+}
+
+
+/* =========================================================
+   AIR QUALITY
+========================================================= */
+
+.air-quality-section {
+
+    padding:
+        10px 0 45px;
+}
+
+
+.air-quality-card {
+
+    padding:
+        24px;
+
+    border:
+        1px solid var(--rc-border);
+
+    border-radius:
+        22px;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(13,22,42,.92),
+            rgba(8,16,30,.88)
+        );
+
+    box-shadow:
+        var(--rc-shadow);
+}
+
+
+.air-quality-header {
+
+    display:
+        flex;
+
+    align-items:
+        flex-start;
+
+    justify-content:
+        space-between;
+
+    gap:
+        20px;
+
+    margin-bottom:
+        20px;
+}
+
+
+.air-quality-header h2 {
+
+    margin:
+        6px 0 7px;
+
+    font-family:
+        "Space Grotesk",
+        sans-serif;
+
+    font-size:
+        24px;
+}
+
+
+.air-quality-header p {
+
+    margin: 0;
+
+    color:
+        var(--rc-muted);
+
+    font-size:
+        10px;
+
+    line-height:
+        1.6;
+}
+
+
+.air-quality-status {
+
+    display:
+        inline-flex;
+
+    align-items:
+        center;
+
+    gap:
+        7px;
+
+    padding:
+        8px 12px;
+
+    border-radius:
+        999px;
+
+    font-size:
+        9px;
+
+    font-weight:
+        800;
+
+    white-space:
+        nowrap;
+}
+
+
+.air-quality-status.loading {
+
+    color:
+        #94a3b8;
+
+    background:
+        rgba(148,163,184,.08);
+}
+
+
+.air-quality-status.good {
+
+    color:
+        #86efac;
+
+    background:
+        rgba(34,197,94,.08);
+}
+
+
+.air-quality-status.moderate {
+
+    color:
+        #fde68a;
+
+    background:
+        rgba(234,179,8,.08);
+}
+
+
+.air-quality-status.caution {
+
+    color:
+        #fdba74;
+
+    background:
+        rgba(249,115,22,.08);
+}
+
+
+.air-quality-status.poor,
+.air-quality-status.high-risk {
+
+    color:
+        #fca5a5;
+
+    background:
+        rgba(239,68,68,.08);
+}
+
+
+.air-status-dot {
+
+    width:
+        6px;
+
+    height:
+        6px;
+
+    border-radius:
+        50%;
+
+    background:
+        currentColor;
+}
+
+
+.air-main-grid {
+
+    display:
+        grid;
+
+    grid-template-columns:
+        1fr 1fr;
+
+    gap:
+        12px;
+}
+
+
+.air-summary-card,
+.oxygen-safety-card {
+
+    min-height:
+        145px;
+
+    padding:
+        18px;
+
+    border:
+        1px solid var(--rc-border);
+
+    border-radius:
+        16px;
+
+    background:
+        rgba(255,255,255,.025);
+}
+
+
+.air-summary-card {
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        17px;
+}
+
+
+.aqi-circle {
+
+    width:
+        92px;
+
+    height:
+        92px;
+
+    flex:
+        0 0 92px;
+
+    display:
+        flex;
+
+    flex-direction:
+        column;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    border-radius:
+        50%;
+
+    border:
+        8px solid
+        rgba(34,197,94,.18);
+
+    background:
+        rgba(34,197,94,.045);
+}
+
+
+.aqi-circle.good {
+    border-color:
+        rgba(34,197,94,.22);
+}
+
+
+.aqi-circle.moderate {
+    border-color:
+        rgba(234,179,8,.25);
+}
+
+
+.aqi-circle.caution {
+    border-color:
+        rgba(249,115,22,.25);
+}
+
+
+.aqi-circle.poor,
+.aqi-circle.high-risk {
+    border-color:
+        rgba(239,68,68,.30);
+}
+
+
+.aqi-circle strong {
+
+    color: white;
+
+    font-family:
+        "Space Grotesk",
+        sans-serif;
+
+    font-size:
+        27px;
+}
+
+
+.aqi-circle span {
+
+    margin-top:
+        4px;
+
+    color:
+        #64748b;
+
+    font-size:
+        8px;
+
+    font-weight:
+        800;
+}
+
+
+.air-small-title {
+
+    display:
+        block;
+
+    color:
+        #64748b;
+
+    font-size:
+        8px;
+
+    font-weight:
+        800;
+
+    letter-spacing:
+        1.2px;
+}
+
+
+.air-summary-info h3 {
+
+    margin:
+        6px 0 5px;
+
+    color:
+        white;
+
+    font-family:
+        "Space Grotesk",
+        sans-serif;
+
+    font-size:
+        17px;
+}
+
+
+.air-summary-info p {
+
+    margin:
+        0;
+
+    color:
+        var(--rc-muted);
+
+    font-size:
+        10px;
+
+    line-height:
+        1.55;
+}
+
+
+.oxygen-safety-card {
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        15px;
+}
+
+
+.oxygen-safety-icon {
+
+    width:
+        54px;
+
+    height:
+        54px;
+
+    flex:
+        0 0 54px;
+
+    display:
+        grid;
+
+    place-items:
+        center;
+
+    border-radius:
+        15px;
+
+    font-size:
+        22px;
+}
+
+
+.oxygen-safety-icon.good {
+
+    color:
+        #4ade80;
+
+    background:
+        rgba(34,197,94,.08);
+}
+
+
+.oxygen-safety-icon.moderate {
+
+    color:
+        #facc15;
+
+    background:
+        rgba(234,179,8,.08);
+}
+
+
+.oxygen-safety-icon.caution {
+
+    color:
+        #fb923c;
+
+    background:
+        rgba(249,115,22,.08);
+}
+
+
+.oxygen-safety-icon.poor,
+.oxygen-safety-icon.high-risk {
+
+    color:
+        #f87171;
+
+    background:
+        rgba(239,68,68,.08);
+}
+
+
+.oxygen-safety-content h3 {
+
+    margin:
+        6px 0 5px;
+
+    color:
+        white;
+
+    font-family:
+        "Space Grotesk",
+        sans-serif;
+
+    font-size:
+        19px;
+}
+
+
+.oxygen-safety-content p {
+
+    margin: 0;
+
+    color:
+        var(--rc-muted);
+
+    font-size:
+        9px;
+
+    line-height:
+        1.6;
+}
+
+
+.pollution-values-grid {
+
+    display:
+        grid;
+
+    grid-template-columns:
+        repeat(5,1fr);
+
+    gap:
+        9px;
+
+    margin-top:
+        12px;
+}
+
+
+.pollution-value-card {
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        10px;
+
+    padding:
+        13px;
+
+    border:
+        1px solid var(--rc-border);
+
+    border-radius:
+        13px;
+
+    background:
+        rgba(255,255,255,.022);
+}
+
+
+.pollution-icon {
+
+    width:
+        34px;
+
+    height:
+        34px;
+
+    flex:
+        0 0 34px;
+
+    display:
+        grid;
+
+    place-items:
+        center;
+
+    border-radius:
+        9px;
+}
+
+
+.pollution-icon.blue {
+
+    color:
+        #60a5fa;
+
+    background:
+        rgba(59,130,246,.10);
+}
+
+
+.pollution-icon.purple {
+
+    color:
+        #a78bfa;
+
+    background:
+        rgba(139,92,246,.10);
+}
+
+
+.pollution-icon.orange {
+
+    color:
+        #fb923c;
+
+    background:
+        rgba(249,115,22,.10);
+}
+
+
+.pollution-icon.cyan {
+
+    color:
+        #67e8f9;
+
+    background:
+        rgba(6,182,212,.10);
+}
+
+
+.pollution-icon.red {
+
+    color:
+        #f87171;
+
+    background:
+        rgba(239,68,68,.10);
+}
+
+
+.pollution-value-card span {
+
+    display:
+        block;
+
+    color:
+        #64748b;
+
+    font-size:
+        8px;
+
+    font-weight:
+        800;
+}
+
+
+.pollution-value-card strong {
+
+    display:
+        inline-block;
+
+    margin-top:
+        4px;
+
+    color:
+        white;
+
+    font-size:
+        16px;
+}
+
+
+.pollution-value-card small {
+
+    margin-left:
+        3px;
+
+    color:
+        #64748b;
+
+    font-size:
+        7px;
+}
+
+
+.air-condition-grid {
+
+    display:
+        grid;
+
+    grid-template-columns:
+        repeat(5,1fr);
+
+    gap:
+        8px;
+
+    margin-top:
+        12px;
+}
+
+
+.air-condition {
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        8px;
+
+    padding:
+        11px;
+
+    border:
+        1px solid var(--rc-border);
+
+    border-radius:
+        11px;
+
+    background:
+        rgba(255,255,255,.022);
+}
+
+
+.condition-dot {
+
+    width:
+        9px;
+
+    height:
+        9px;
+
+    flex:
+        0 0 9px;
+
+    border-radius:
+        50%;
+}
+
+
+.air-condition.good .condition-dot {
+
+    background:
+        var(--rc-green);
+}
+
+
+.air-condition.moderate .condition-dot {
+
+    background:
+        var(--rc-yellow);
+}
+
+
+.air-condition.caution .condition-dot {
+
+    background:
+        var(--rc-orange);
+}
+
+
+.air-condition.poor .condition-dot {
+
+    background:
+        var(--rc-red);
+}
+
+
+.air-condition.high-risk .condition-dot {
+
+    background:
+        #991b1b;
+}
+
+
+.air-condition strong {
+
+    display:
+        block;
+
+    color:
+        #e5edf8;
+
+    font-size:
+        9px;
+}
+
+
+.air-condition small {
+
+    display:
+        block;
+
+    margin-top:
+        2px;
+
+    color:
+        #64748b;
+
+    font-size:
+        7px;
+}
+
+
+.air-quality-footer {
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        space-between;
+
+    gap:
+        12px;
+
+    margin-top:
+        14px;
+
+    color:
+        #64748b;
+
+    font-size:
+        8px;
+}
+
+
+.air-refresh-btn {
+
+    display:
+        inline-flex;
+
+    align-items:
+        center;
+
+    gap:
+        6px;
+
+    padding:
+        8px 11px;
+
+    border:
+        1px solid var(--rc-border);
+
+    border-radius:
+        8px;
+
+    color:
+        #cbd5e1;
+
+    background:
+        rgba(255,255,255,.04);
+
+    cursor:
+        pointer;
+}
+
+
+/* =========================================================
+   QUICK HELP
+========================================================= */
+
+.quick-help-section {
+
+    padding:
+        10px 0 45px;
+}
+
+
+.quick-help-card {
+
+    position:
+        relative;
+
+    padding:
+        22px;
+
+    border:
+        1px solid
+        rgba(239,68,68,.14);
+
+    border-radius:
+        20px;
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(239,68,68,.065),
+            rgba(139,92,246,.055)
+        );
+}
+
+
+.quick-help-icon {
+
+    width:
+        52px;
+
+    height:
+        52px;
+
+    display:
+        grid;
+
+    place-items:
+        center;
+
+    border-radius:
+        14px;
+
+    color:
+        #ff8991;
+
+    background:
+        rgba(239,68,68,.09);
+
+    font-size:
+        21px;
+}
+
+
+.quick-help-content {
+
+    margin-top:
+        13px;
+}
+
+
+.quick-help-content h2 {
+
+    margin:
+        5px 0;
+
+    font-family:
+        "Space Grotesk",
+        sans-serif;
+
+    font-size:
+        21px;
+}
+
+
+.quick-help-content p {
+
+    margin:
+        0;
+
+    color:
+        var(--rc-muted);
+
+    font-size:
+        10px;
+}
+
+
+/* =========================================================
+   STANDARD EMERGENCY BUTTONS
+========================================================= */
+
+.emergency-buttons {
+
+    width:
+        100%;
+
+    display:
+        grid;
+
+    grid-template-columns:
+        repeat(4, minmax(0,1fr));
+
+    gap:
+        8px;
+
+    margin-top:
+        18px;
+}
+
+
+.emergency-btn {
+
+    min-height:
+        72px;
+
+    padding:
+        10px;
+
+    display:
+        flex;
+
+    flex-direction:
+        column;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    gap:
+        4px;
+
+    color:
+        white;
+
+    text-decoration:
+        none;
+
+    border:
+        1px solid var(--rc-border);
+
+    border-radius:
+        11px;
+
+    background:
+        rgba(255,255,255,.035);
+
+    font-size:
+        13px;
+
+    font-weight:
+        800;
+
+    transition:
+        .2s;
+}
+
+
+.emergency-btn:hover {
+
+    transform:
+        translateY(-2px);
+
+    background:
+        rgba(255,255,255,.06);
+}
+
+
+.emergency-btn i {
+
+    font-size:
+        13px;
+}
+
+
+.emergency-btn strong {
+
+    color:
+        inherit;
+
+    font-size:
+        13px;
+}
+
+
+.emergency-btn span {
+
+    color:
+        #71839a;
+
+    font-size:
+        7px;
+
+    font-weight:
+        500;
+}
+
+
+.emergency-red {
+
+    color:
+        #ff8991;
+
+    border-color:
+        rgba(239,68,68,.20);
+}
+
+
+/* =========================================================
+   CHRONICAI QUICK HELP CARD
+   THIS IS THE IMPORTANT NUMBER SECTION
+========================================================= */
+
+.chronicai-quick-help-card {
+
+    width:
+        100%;
+
+    min-height:
+        88px;
+
+    margin-top:
+        12px;
+
+    padding:
+        14px 16px;
+
+    display:
+        flex !important;
+
+    align-items:
+        center;
+
+    gap:
+        13px;
+
+    color:
+        white !important;
+
+    text-decoration:
+        none !important;
+
+    border:
+        1px solid
+        rgba(77,163,255,.30) !important;
+
+    border-radius:
+        14px;
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(37,99,235,.14),
+            rgba(139,92,246,.12)
+        );
+
+    box-shadow:
+        0 12px 35px
+        rgba(37,99,235,.10);
+
+    visibility:
+        visible !important;
+
+    opacity:
+        1 !important;
+
+    position:
+        relative;
+
+    z-index:
+        2;
+
+    transition:
+        .22s ease;
+}
+
+
+.chronicai-quick-help-card:hover {
+
+    transform:
+        translateY(-2px);
+
+    border-color:
+        rgba(77,163,255,.45) !important;
+
+    box-shadow:
+        0 16px 40px
+        rgba(37,99,235,.16);
+}
+
+
+.chronicai-quick-help-icon {
+
+    width:
+        48px;
+
+    height:
+        48px;
+
+    flex:
+        0 0 48px;
+
+    display:
+        grid;
+
+    place-items:
+        center;
+
+    border-radius:
+        12px;
+
+    color:
+        #60a5fa;
+
+    background:
+        rgba(77,163,255,.12);
+
+    font-size:
+        19px;
+}
+
+
+.chronicai-quick-help-content {
+
+    min-width:
+        0;
+
+    flex:
+        1;
+}
+
+
+.chronicai-quick-help-content span {
+
+    display:
+        block;
+
+    color:
+        #60a5fa;
+
+    font-size:
+        8px;
+
+    font-weight:
+        900;
+
+    letter-spacing:
+        1.1px;
+}
+
+
+.chronicai-quick-help-content strong {
+
+    display:
+        block;
+
+    margin-top:
+        3px;
+
+    color:
+        #ffffff;
+
+    font-family:
+        "Space Grotesk",
+        sans-serif;
+
+    font-size:
+        22px;
+
+    line-height:
+        1.1;
+
+    letter-spacing:
+        .4px;
+}
+
+
+.chronicai-quick-help-content small {
+
+    display:
+        block;
+
+    margin-top:
+        3px;
+
+    color:
+        #a8b8cb;
+
+    font-size:
+        8px;
+}
+
+
+.chronicai-quick-help-call {
+
+    min-width:
+        60px;
+
+    min-height:
+        52px;
+
+    display:
+        flex;
+
+    flex-direction:
+        column;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    gap:
+        4px;
+
+    border:
+        1px solid
+        rgba(34,197,94,.18);
+
+    border-radius:
+        10px;
+
+    color:
+        #4ade80;
+
+    background:
+        rgba(34,197,94,.06);
+
+    font-size:
+        8px;
+
+    font-weight:
+        800;
+}
+
+
+.chronicai-quick-help-call i {
+
+    font-size:
+        14px;
+}
+
+
+/* =========================================================
+   INFO
+========================================================= */
+
+.resource-info {
+
+    padding:
+        10px 0 65px;
+}
+
+
+.info-grid {
+
+    display:
+        grid;
+
+    grid-template-columns:
+        repeat(4,1fr);
+
+    gap:
+        10px;
+}
+
+
+.info-card {
+
+    padding:
+        18px;
+
+    border:
+        1px solid var(--rc-border);
+
+    border-radius:
+        16px;
+
+    background:
+        rgba(255,255,255,.023);
+}
+
+
+.info-card > i {
+
+    color:
+        var(--rc-blue);
+
+    font-size:
+        18px;
+}
+
+
+.info-card h3 {
+
+    margin:
+        12px 0 6px;
+
+    font-size:
+        14px;
+}
+
+
+.info-card p {
+
+    margin:
+        0;
+
+    color:
+        var(--rc-muted);
+
+    font-size:
+        9px;
+
+    line-height:
+        1.55;
+}
+
+
+/* =========================================================
+   FOOTER
+========================================================= */
+
+.rc-footer {
+
+    border-top:
+        1px solid var(--rc-border);
+
+    background:
+        rgba(0,0,0,.12);
+}
+
+
+.footer-inner {
+
+    min-height:
+        90px;
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        space-between;
+
+    gap:
+        20px;
+}
+
+
+.footer-inner div {
+
+    display:
+        flex;
+
+    flex-direction:
+        column;
+
+    gap:
+        4px;
+}
+
+
+.footer-inner strong {
+
+    font-size:
+        15px;
+}
+
+
+.footer-inner span {
+
+    color:
+        #71839a;
+
+    font-size:
+        9px;
+}
+
+
+.footer-inner a {
+
+    color:
+        var(--rc-blue);
+
+    text-decoration:
+        none;
+
+    font-size:
+        10px;
+}
+
+
+/* =========================================================
+   LEAFLET POPUP
+========================================================= */
+
+.pollution-zone-popup {
+
+    min-width:
+        175px;
+}
+
+
+.pollution-zone-popup h4 {
+
+    margin:
+        0 0 6px;
+
+    color:
+        white;
+
+    font-size:
+        12px;
+}
+
+
+.pollution-condition {
+
+    margin-bottom:
+        7px;
+
+    font-size:
+        10px;
+
+    font-weight:
+        800;
+}
+
+
+.pollution-popup-details {
+
+    color:
+        #64748b;
+
+    font-size:
+        8px;
+
+    line-height:
+        1.55;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 1000px) {
+
+    .rc-nav {
+
+        display:
+            none;
+    }
+
+
+    .resource-layout {
+
+        grid-template-columns:
+            1fr;
+    }
+
+
+    #resourceMap {
+
+        height:
+            400px;
+    }
+
+
+    .info-grid {
+
+        grid-template-columns:
+            repeat(2,1fr);
+    }
+
+
+    .pollution-values-grid {
+
+        grid-template-columns:
+            repeat(3,1fr);
+    }
+
+
+    .air-condition-grid {
+
+        grid-template-columns:
+            repeat(3,1fr);
+    }
+
+}
+
+
+@media (max-width: 850px) {
+
+    .air-main-grid {
+
+        grid-template-columns:
+            1fr;
+    }
+
+
+    .pollution-place-result {
+
+        grid-template-columns:
+            1fr;
+    }
+
+
+    .emergency-buttons {
+
+        grid-template-columns:
+            repeat(2,1fr);
+    }
+
+}
+
+
+@media (max-width: 650px) {
+
+    .resource-container,
+    .rc-header-inner {
+
+        width:
+            calc(100% - 24px);
+    }
+
+
+    .resource-hero {
+
+        padding:
+            55px 0 35px;
+    }
+
+
+    .resource-hero h1 {
+
+        font-size:
+            46px;
+
+        letter-spacing:
+            -2px;
+    }
+
+
+    .control-heading {
+
+        align-items:
+            flex-start;
+
+        flex-direction:
+            column;
+    }
+
+
+    #resourceMap {
+
+        height:
+            340px;
+    }
+
+
+    .pollution-tracker-btn span {
+
+        display:
+            none;
+    }
+
+
+    .pollution-map-legend {
+
+        top:
+            63px;
+
+        right:
+            8px;
+
+        width:
+            170px;
+    }
+
+
+    .pollution-location-search {
+
+        flex-direction:
+            column;
+    }
+
+
+    .pollution-place-search-btn {
+
+        width:
+            100%;
+    }
+
+
+    .pollution-place-values-grid {
+
+        grid-template-columns:
+            repeat(2,1fr);
+    }
+
+
+    .pollution-values-grid {
+
+        grid-template-columns:
+            repeat(2,1fr);
+    }
+
+
+    .air-condition-grid {
+
+        grid-template-columns:
+            repeat(2,1fr);
+    }
+
+
+    .air-quality-header {
+
+        flex-direction:
+            column;
+    }
+
+
+    .air-summary-card {
+
+        align-items:
+            flex-start;
+    }
+
+
+    .air-quality-footer {
+
+        align-items:
+            flex-start;
+
+        flex-direction:
+            column;
+    }
+
+
+    .emergency-buttons {
+
+        grid-template-columns:
+            repeat(2,minmax(0,1fr));
+    }
+
+
+    .chronicai-quick-help-card {
+
+        min-height:
+            84px;
+
+        padding:
+            12px;
+    }
+
+
+    .chronicai-quick-help-icon {
+
+        width:
+            42px;
+
+        height:
+            42px;
+
+        flex-basis:
+            42px;
+    }
+
+
+    .chronicai-quick-help-content strong {
+
+        font-size:
+            17px;
+    }
+
+
+    .chronicai-quick-help-call {
+
+        min-width:
+            48px;
+
+        min-height:
+            44px;
+    }
+
+}
+
+
+@media (max-width: 400px) {
+
+    .chronicai-quick-help-card {
+
+        gap:
+            9px;
+    }
+
+
+    .chronicai-quick-help-call {
+
+        min-width:
+            42px;
+    }
+
+
+    .chronicai-quick-help-call span {
+
+        display:
+            none;
+    }
+
+
+    .chronicai-quick-help-content strong {
+
+        font-size:
+            15px;
+    }
+
+}

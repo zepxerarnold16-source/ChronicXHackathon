@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>ChronicAI — Citizen Login</title>
+
+    <link
+        rel="stylesheet"
+        href="global.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    >
+
+    <style>
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background:
+                radial-gradient(
+                    circle at top right,
+                    rgba(0, 180, 255, 0.15),
+                    transparent 35%
+                ),
+                #07111f;
+            padding: 20px;
+        }
+
+        .login-wrapper {
+            width: 100%;
+            max-width: 460px;
+        }
+
+        .login-card {
+            background: rgba(12, 25, 43, 0.92);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 25px 80px rgba(0,0,0,0.4);
+            backdrop-filter: blur(20px);
+        }
+
+        .login-logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-logo-icon {
+            width: 70px;
+            height: 70px;
+            margin: auto;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #00b4ff, #635bff);
+            color: white;
+            font-size: 28px;
+            box-shadow: 0 15px 40px rgba(0,180,255,0.25);
+        }
+
+        .login-logo h1 {
+            color: white;
+            margin: 18px 0 5px;
+            font-size: 30px;
+        }
+
+        .login-logo p {
+            color: #91a4ba;
+            margin: 0;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            color: #dce8f5;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-wrapper i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #71869e;
+        }
+
+        .input-wrapper input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 14px 15px 14px 45px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.05);
+            color: white;
+            outline: none;
+            font-size: 15px;
+        }
+
+        .input-wrapper input:focus {
+            border-color: #00b4ff;
+            box-shadow: 0 0 0 3px rgba(0,180,255,0.1);
+        }
+
+        .login-button {
+            width: 100%;
+            border: none;
+            border-radius: 12px;
+            padding: 15px;
+            background: linear-gradient(135deg, #00b4ff, #635bff);
+            color: white;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .login-button:hover {
+            transform: translateY(-1px);
+        }
+
+        .login-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .message {
+            margin-top: 18px;
+            text-align: center;
+            min-height: 22px;
+            font-size: 14px;
+        }
+
+        .register-text {
+            text-align: center;
+            margin-top: 25px;
+            color: #91a4ba;
+        }
+
+        .register-text a {
+            color: #00b4ff;
+            text-decoration: none;
+            font-weight: 700;
+        }
+
+        .back-home {
+            display: block;
+            text-align: center;
+            margin-top: 18px;
+            color: #71869e;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<div class="login-wrapper">
+
+    <div class="login-card">
+
+        <div class="login-logo">
+
+            <div class="login-logo-icon">
+                <i class="fa-solid fa-shield-halved"></i>
+            </div>
+
+            <h1>ChronicAI</h1>
+
+            <p>Citizen Login</p>
+
+        </div>
+
+
+        <form id="loginForm">
+
+            <div class="form-group">
+
+                <label for="email">
+                    Email Address
+                </label>
+
+                <div class="input-wrapper">
+
+                    <i class="fa-solid fa-envelope"></i>
+
+                    <input
+                        type="email"
+                        id="email"
+                        placeholder="Enter your email"
+                        required
+                    >
+
+                </div>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="password">
+                    Password
+                </label>
+
+                <div class="input-wrapper">
+
+                    <i class="fa-solid fa-lock"></i>
+
+                    <input
+                        type="password"
+                        id="password"
+                        placeholder="Enter your password"
+                        required
+                    >
+
+                </div>
+
+            </div>
+
+
+            <button
+                type="submit"
+                class="login-button"
+                id="loginButton"
+            >
+
+                <i class="fa-solid fa-right-to-bracket"></i>
+
+                Login to ChronicAI
+
+            </button>
+
+        </form>
+
+
+        <div
+            class="message"
+            id="loginMessage"
+        ></div>
+
+
+        <div class="register-text">
+
+            Don't have an account?
+
+            <a href="register.html">
+                Create Account
+            </a>
+
+        </div>
+
+
+        <a
+            href="index.html"
+            class="back-home"
+        >
+
+            ← Back to ChronicAI
+
+        </a>
+
+    </div>
+
+</div>
+
+<script type="module" src="./login.js"></script>
+
+</body>
+
+</html>

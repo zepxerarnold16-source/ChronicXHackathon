@@ -1,0 +1,1626 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="ChronicAI Offline Resource Center"
+    >
+
+    <meta
+        name="theme-color"
+        content="#07111f"
+    >
+
+    <title>
+        ChronicAI — Offline Resource Center
+    </title>
+
+
+    <!-- =====================================================
+         GLOBAL CSS
+    ====================================================== -->
+
+    <link
+        rel="stylesheet"
+        href="global.css"
+    >
+
+
+    <!-- =====================================================
+         RESOURCE CENTER CSS
+    ====================================================== -->
+
+    <link
+        rel="stylesheet"
+        href="resource-center.css"
+    >
+
+
+    <!-- =====================================================
+         FONT AWESOME
+    ====================================================== -->
+
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    >
+
+
+    <!-- =====================================================
+         LEAFLET CSS
+    ====================================================== -->
+
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        crossorigin=""
+    >
+
+</head>
+
+
+<body>
+
+
+    <!-- =====================================================
+         HEADER
+    ====================================================== -->
+
+    <header class="rc-header">
+
+        <div class="rc-header-inner">
+
+
+            <!-- BRAND -->
+
+            <a
+                href="index.html"
+                class="rc-brand"
+            >
+
+                <div class="rc-brand-icon">
+
+                    <i class="fa-solid fa-shield-halved"></i>
+
+                </div>
+
+
+                <div class="rc-brand-text">
+
+                    <strong>
+                        ChronicAI
+                    </strong>
+
+                    <span>
+                        SMART CITIZEN PLATFORM
+                    </span>
+
+                </div>
+
+            </a>
+
+
+            <!-- NAV -->
+
+            <nav class="rc-nav">
+
+                <a href="index.html">
+
+                    <i class="fa-solid fa-house"></i>
+
+                    Home
+
+                </a>
+
+
+                <a href="report-problem.html">
+
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+
+                    Report
+
+                </a>
+
+
+                <a href="track.html">
+
+                    <i class="fa-solid fa-location-crosshairs"></i>
+
+                    Track
+
+                </a>
+
+
+                <a
+                    href="resource-center.html"
+                    class="active"
+                >
+
+                    <i class="fa-solid fa-map-location-dot"></i>
+
+                    Resources
+
+                </a>
+
+            </nav>
+
+        </div>
+
+    </header>
+
+
+
+    <!-- =====================================================
+         MAIN
+    ====================================================== -->
+
+    <main class="resource-page">
+
+
+        <!-- =================================================
+             HERO
+        ================================================== -->
+
+        <section class="resource-hero">
+
+            <div class="resource-container">
+
+                <div class="resource-hero-content">
+
+
+                    <div class="resource-status">
+
+                        <span class="status-dot"></span>
+
+                        CHRONICAI RESOURCE NETWORK
+
+                    </div>
+
+
+                    <h1>
+
+                        Find Help
+
+                        <span class="gradient-text">
+                            Near You.
+                        </span>
+
+                    </h1>
+
+
+                    <p>
+
+                        Find nearby hospitals, police stations,
+                        fire stations, government offices,
+                        relief centers and other public resources.
+
+                    </p>
+
+
+                    <div class="hero-actions">
+
+                        <button
+                            id="locateBtn"
+                            class="primary-resource-btn"
+                            type="button"
+                        >
+
+                            <i class="fa-solid fa-location-crosshairs"></i>
+
+                            Use My Location
+
+                        </button>
+
+
+                        <button
+                            id="refreshBtn"
+                            class="secondary-resource-btn"
+                            type="button"
+                        >
+
+                            <i class="fa-solid fa-rotate"></i>
+
+                            Refresh
+
+                        </button>
+
+                    </div>
+
+
+                    <div
+                        id="locationStatus"
+                        class="location-status"
+                    >
+
+                        <i class="fa-solid fa-location-dot"></i>
+
+                        Waiting for your location...
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+
+        <!-- =================================================
+             RESOURCE FILTERS
+        ================================================== -->
+
+        <section class="resource-controls">
+
+            <div class="resource-container">
+
+                <div class="control-card">
+
+
+                    <div class="control-heading">
+
+                        <div>
+
+                            <span class="section-label">
+                                FIND SERVICES
+                            </span>
+
+
+                            <h2>
+                                Nearby Resources
+                            </h2>
+
+                        </div>
+
+
+                        <div class="resource-count">
+
+                            <span id="resourceCount">
+                                0
+                            </span>
+
+                            resources
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="filter-grid">
+
+
+                        <button
+                            class="filter-btn active"
+                            data-type="all"
+                            type="button"
+                        >
+
+                            <i class="fa-solid fa-layer-group"></i>
+
+                            All
+
+                        </button>
+
+
+                        <button
+                            class="filter-btn"
+                            data-type="hospital"
+                            type="button"
+                        >
+
+                            <i class="fa-solid fa-hospital"></i>
+
+                            Hospitals
+
+                        </button>
+
+
+                        <button
+                            class="filter-btn"
+                            data-type="police"
+                            type="button"
+                        >
+
+                            <i class="fa-solid fa-shield-halved"></i>
+
+                            Police
+
+                        </button>
+
+
+                        <button
+                            class="filter-btn"
+                            data-type="fire"
+                            type="button"
+                        >
+
+                            <i class="fa-solid fa-fire-extinguisher"></i>
+
+                            Fire
+
+                        </button>
+
+
+                        <button
+                            class="filter-btn"
+                            data-type="government"
+                            type="button"
+                        >
+
+                            <i class="fa-solid fa-building-columns"></i>
+
+                            Government
+
+                        </button>
+
+
+                        <button
+                            class="filter-btn"
+                            data-type="relief"
+                            type="button"
+                        >
+
+                            <i class="fa-solid fa-hand-holding-heart"></i>
+
+                            Relief
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+
+        <!-- =================================================
+             MAP + RESOURCE LIST
+        ================================================== -->
+
+        <section class="resource-main">
+
+            <div class="resource-container">
+
+                <div class="resource-layout">
+
+
+                    <!-- =================================================
+                         MAP
+                    ================================================== -->
+
+                    <div class="map-card">
+
+
+                        <div class="map-header">
+
+
+                            <div class="map-title-area">
+
+                                <span class="map-title">
+                                    Live Resource Map
+                                </span>
+
+
+                                <span
+                                    id="mapStatus"
+                                    class="map-status"
+                                >
+                                    Ready
+                                </span>
+
+                            </div>
+
+
+                            <div class="map-header-actions">
+
+
+                                <!-- POLLUTION TRACKER -->
+
+                                <button
+                                    id="pollutionTrackerBtn"
+                                    class="pollution-tracker-btn"
+                                    type="button"
+                                    aria-pressed="false"
+                                    title="Show pollution zones"
+                                >
+
+                                    <i class="fa-solid fa-wind"></i>
+
+                                    <span>
+                                        Pollution Tracker
+                                    </span>
+
+                                </button>
+
+
+                                <!-- CENTER -->
+
+                                <button
+                                    id="centerMapBtn"
+                                    class="map-icon-btn"
+                                    type="button"
+                                    title="Center on my location"
+                                >
+
+                                    <i class="fa-solid fa-crosshairs"></i>
+
+                                </button>
+
+                            </div>
+
+                        </div>
+
+
+
+                        <!-- =================================================
+                             POLLUTION LEGEND
+                        ================================================== -->
+
+                        <div
+                            id="pollutionMapLegend"
+                            class="pollution-map-legend"
+                        >
+
+                            <div class="pollution-legend-title">
+                                POLLUTION ZONES
+                            </div>
+
+
+                            <div class="pollution-range-title">
+                                Zone Range
+                            </div>
+
+
+                            <div class="pollution-range-buttons">
+
+                                <button
+                                    type="button"
+                                    class="pollution-range-btn active"
+                                    data-range="1"
+                                >
+                                    1 km
+                                </button>
+
+
+                                <button
+                                    type="button"
+                                    class="pollution-range-btn"
+                                    data-range="5"
+                                >
+                                    5 km
+                                </button>
+
+                            </div>
+
+
+                            <div class="pollution-legend-row">
+
+                                <span
+                                    class="pollution-legend-dot green"
+                                ></span>
+
+                                <span>
+                                    Low pollution
+                                </span>
+
+                            </div>
+
+
+                            <div class="pollution-legend-row">
+
+                                <span
+                                    class="pollution-legend-dot yellow"
+                                ></span>
+
+                                <span>
+                                    Moderate pollution
+                                </span>
+
+                            </div>
+
+
+                            <div class="pollution-legend-row">
+
+                                <span
+                                    class="pollution-legend-dot red"
+                                ></span>
+
+                                <span>
+                                    High pollution
+                                </span>
+
+                            </div>
+
+
+                            <div class="pollution-legend-note">
+
+                                Model-estimated zones.
+                                Not direct street-level sensor readings.
+
+                            </div>
+
+                        </div>
+
+
+
+                        <!-- MAP -->
+
+                        <div id="resourceMap"></div>
+
+                    </div>
+
+
+
+                    <!-- =================================================
+                         RESOURCE LIST
+                    ================================================== -->
+
+                    <aside class="resource-list-card">
+
+
+                        <div class="list-header">
+
+                            <div>
+
+                                <span class="section-label">
+                                    NEARBY
+                                </span>
+
+
+                                <h3>
+                                    Help Centers
+                                </h3>
+
+                            </div>
+
+
+                            <select
+                                id="distanceFilter"
+                                class="distance-select"
+                            >
+
+                                <option value="5">
+                                    Within 5 km
+                                </option>
+
+                                <option value="10">
+                                    Within 10 km
+                                </option>
+
+                                <option value="25">
+                                    Within 25 km
+                                </option>
+
+                                <option value="50">
+                                    Within 50 km
+                                </option>
+
+                            </select>
+
+                        </div>
+
+
+
+                        <div
+                            id="resourceList"
+                            class="resource-list"
+                        >
+
+                            <div class="empty-state">
+
+                                <div class="empty-icon">
+
+                                    <i class="fa-solid fa-location-dot"></i>
+
+                                </div>
+
+
+                                <h4>
+                                    Location Required
+                                </h4>
+
+
+                                <p>
+
+                                    Click "Use My Location"
+                                    to find nearby civic resources.
+
+                                </p>
+
+                            </div>
+
+                        </div>
+
+                    </aside>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+
+        <!-- =================================================
+             EXPLORE POLLUTION BY LOCATION
+        ================================================== -->
+
+        <section class="pollution-location-section">
+
+            <div class="resource-container">
+
+                <div class="pollution-location-card">
+
+
+                    <div class="pollution-location-header">
+
+                        <div>
+
+                            <span class="section-label">
+                                LOCATION ANALYZER
+                            </span>
+
+
+                            <h2>
+                                Explore Pollution by Location
+                            </h2>
+
+
+                            <p>
+
+                                Search another city or area to
+                                see its current modeled
+                                air-quality condition.
+
+                            </p>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- SEARCH -->
+
+                    <div class="pollution-location-search">
+
+
+                        <div class="pollution-search-input">
+
+                            <i class="fa-solid fa-location-dot"></i>
+
+
+                            <input
+                                type="text"
+                                id="pollutionPlaceInput"
+                                placeholder="Enter a city or area..."
+                                autocomplete="off"
+                            >
+
+                        </div>
+
+
+                        <button
+                            type="button"
+                            id="pollutionPlaceSearchBtn"
+                            class="pollution-place-search-btn"
+                        >
+
+                            <i class="fa-solid fa-magnifying-glass"></i>
+
+                            Search
+
+                        </button>
+
+                    </div>
+
+
+                    <div
+                        id="pollutionLocationStatus"
+                        class="pollution-location-status"
+                    >
+
+                        Example:
+                        Kolkata, Mumbai, Delhi
+
+                    </div>
+
+
+                    <div
+                        id="pollutionLocationResult"
+                        class="pollution-location-result"
+                    >
+
+                        <div
+                            class="pollution-location-empty"
+                        >
+
+                            <div
+                                class="pollution-location-empty-icon"
+                            >
+
+                                <i class="fa-solid fa-wind"></i>
+
+                            </div>
+
+
+                            <h3>
+                                Search for a location
+                            </h3>
+
+
+                            <p>
+
+                                Enter another location to
+                                analyze its pollution.
+
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+
+        <!-- =================================================
+             AIR QUALITY
+        ================================================== -->
+
+        <section class="air-quality-section">
+
+            <div class="resource-container">
+
+                <div class="air-quality-card">
+
+
+                    <div class="air-quality-header">
+
+                        <div>
+
+                            <span class="section-label">
+                                ENVIRONMENT MONITOR
+                            </span>
+
+
+                            <h2>
+                                Air Quality & Oxygen Safety
+                            </h2>
+
+
+                            <p>
+
+                                Monitor pollution levels around
+                                the selected location.
+
+                            </p>
+
+                        </div>
+
+
+                        <div
+                            id="airQualityStatus"
+                            class="air-quality-status loading"
+                        >
+
+                            <span class="air-status-dot"></span>
+
+                            Waiting
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- MAIN -->
+
+                    <div class="air-main-grid">
+
+
+                        <div class="air-summary-card">
+
+                            <div
+                                id="aqiCircle"
+                                class="aqi-circle good"
+                            >
+
+                                <strong
+                                    id="aqiValue"
+                                >
+                                    —
+                                </strong>
+
+
+                                <span>
+                                    AQI
+                                </span>
+
+                            </div>
+
+
+                            <div class="air-summary-info">
+
+                                <span class="air-small-title">
+                                    AIR QUALITY
+                                </span>
+
+
+                                <h3
+                                    id="aqiCondition"
+                                >
+                                    Waiting for location
+                                </h3>
+
+
+                                <p
+                                    id="aqiDescription"
+                                >
+
+                                    Turn on your location
+                                    to check air quality.
+
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+
+                        <!-- OXYGEN SAFETY -->
+
+                        <div class="oxygen-safety-card">
+
+                            <div
+                                id="oxygenSafetyIcon"
+                                class="oxygen-safety-icon good"
+                            >
+
+                                <i class="fa-solid fa-lungs"></i>
+
+                            </div>
+
+
+                            <div class="oxygen-safety-content">
+
+                                <span class="air-small-title">
+
+                                    OXYGEN SAFETY INDICATOR
+
+                                </span>
+
+
+                                <h3
+                                    id="oxygenSafetyLevel"
+                                >
+                                    —
+                                </h3>
+
+
+                                <p
+                                    id="oxygenSafetyDescription"
+                                >
+
+                                    Pollution-based safety
+                                    indicator. Not direct
+                                    oxygen concentration.
+
+                                </p>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- POLLUTANTS -->
+
+                    <div
+                        class="pollution-values-grid"
+                    >
+
+
+                        <div class="pollution-value-card">
+
+                            <div class="pollution-icon blue">
+
+                                <i class="fa-solid fa-smog"></i>
+
+                            </div>
+
+
+                            <div>
+
+                                <span>
+                                    PM2.5
+                                </span>
+
+
+                                <strong id="pm25Value">
+                                    —
+                                </strong>
+
+
+                                <small>
+                                    µg/m³
+                                </small>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="pollution-value-card">
+
+                            <div class="pollution-icon purple">
+
+                                <i class="fa-solid fa-cloud"></i>
+
+                            </div>
+
+
+                            <div>
+
+                                <span>
+                                    PM10
+                                </span>
+
+
+                                <strong id="pm10Value">
+                                    —
+                                </strong>
+
+
+                                <small>
+                                    µg/m³
+                                </small>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="pollution-value-card">
+
+                            <div class="pollution-icon orange">
+
+                                <i class="fa-solid fa-wind"></i>
+
+                            </div>
+
+
+                            <div>
+
+                                <span>
+                                    NO₂
+                                </span>
+
+
+                                <strong id="no2Value">
+                                    —
+                                </strong>
+
+
+                                <small>
+                                    µg/m³
+                                </small>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="pollution-value-card">
+
+                            <div class="pollution-icon cyan">
+
+                                <i class="fa-solid fa-sun"></i>
+
+                            </div>
+
+
+                            <div>
+
+                                <span>
+                                    O₃
+                                </span>
+
+
+                                <strong id="o3Value">
+                                    —
+                                </strong>
+
+
+                                <small>
+                                    µg/m³
+                                </small>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="pollution-value-card">
+
+                            <div class="pollution-icon red">
+
+                                <i class="fa-solid fa-industry"></i>
+
+                            </div>
+
+
+                            <div>
+
+                                <span>
+                                    CO
+                                </span>
+
+
+                                <strong id="coValue">
+                                    —
+                                </strong>
+
+
+                                <small>
+                                    µg/m³
+                                </small>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- CONDITIONS -->
+
+                    <div class="air-condition-grid">
+
+
+                        <div class="air-condition good">
+
+                            <span class="condition-dot"></span>
+
+
+                            <div>
+
+                                <strong>
+                                    Good
+                                </strong>
+
+
+                                <small>
+                                    AQI 0–50
+                                </small>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="air-condition moderate">
+
+                            <span class="condition-dot"></span>
+
+
+                            <div>
+
+                                <strong>
+                                    Moderate
+                                </strong>
+
+
+                                <small>
+                                    AQI 51–100
+                                </small>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="air-condition caution">
+
+                            <span class="condition-dot"></span>
+
+
+                            <div>
+
+                                <strong>
+                                    Caution
+                                </strong>
+
+
+                                <small>
+                                    AQI 101–150
+                                </small>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="air-condition poor">
+
+                            <span class="condition-dot"></span>
+
+
+                            <div>
+
+                                <strong>
+                                    Poor
+                                </strong>
+
+
+                                <small>
+                                    AQI 151–200
+                                </small>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="air-condition high-risk">
+
+                            <span class="condition-dot"></span>
+
+
+                            <div>
+
+                                <strong>
+                                    High Risk
+                                </strong>
+
+
+                                <small>
+                                    AQI 201+
+                                </small>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <div class="air-quality-footer">
+
+                        <span id="airQualityUpdated">
+
+                            Air quality data not loaded yet.
+
+                        </span>
+
+
+                        <button
+                            type="button"
+                            id="refreshAirQuality"
+                            class="air-refresh-btn"
+                        >
+
+                            <i class="fa-solid fa-rotate"></i>
+
+                            Refresh
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+
+        <!-- =================================================
+             EMERGENCY HELP
+        ================================================== -->
+
+        <section class="quick-help-section">
+
+            <div class="resource-container">
+
+                <div class="quick-help-card">
+
+
+                    <div class="quick-help-icon">
+
+                        <i
+                            class="fa-solid fa-hand-holding-heart"
+                        ></i>
+
+                    </div>
+
+
+                    <div class="quick-help-content">
+
+                        <span class="section-label">
+                            NEED IMMEDIATE HELP?
+                        </span>
+
+
+                        <h2>
+                            Quick Emergency Access
+                        </h2>
+
+
+                        <p>
+
+                            Use the appropriate emergency service
+                            when immediate assistance is required.
+
+                        </p>
+
+                    </div>
+
+
+
+                    <!-- =================================================
+                         STANDARD EMERGENCY NUMBERS
+                    ================================================== -->
+
+                    <div class="emergency-buttons">
+
+
+                        <!-- 112 -->
+
+                        <a
+                            href="tel:112"
+                            class="emergency-btn emergency-red"
+                        >
+
+                            <i
+                                class="fa-solid fa-phone"
+                            ></i>
+
+
+                            <strong>
+                                112
+                            </strong>
+
+
+                            <span>
+                                Emergency
+                            </span>
+
+                        </a>
+
+
+
+                        <!-- 100 -->
+
+                        <a
+                            href="tel:100"
+                            class="emergency-btn"
+                        >
+
+                            <i
+                                class="fa-solid fa-shield-halved"
+                            ></i>
+
+
+                            <strong>
+                                100
+                            </strong>
+
+
+                            <span>
+                                Police
+                            </span>
+
+                        </a>
+
+
+
+                        <!-- 101 -->
+
+                        <a
+                            href="tel:101"
+                            class="emergency-btn"
+                        >
+
+                            <i
+                                class="fa-solid fa-fire"
+                            ></i>
+
+
+                            <strong>
+                                101
+                            </strong>
+
+
+                            <span>
+                                Fire
+                            </span>
+
+                        </a>
+
+
+
+                        <!-- 108 -->
+
+                        <a
+                            href="tel:108"
+                            class="emergency-btn"
+                        >
+
+                            <i
+                                class="fa-solid fa-truck-medical"
+                            ></i>
+
+
+                            <strong>
+                                108
+                            </strong>
+
+
+                            <span>
+                                Ambulance
+                            </span>
+
+                        </a>
+
+                    </div>
+
+
+
+                    <!-- =================================================
+                         CHRONICAI QUICK HELP
+                         SEPARATE CARD
+                    ================================================== -->
+
+                    <a
+                        href="tel:8013593509"
+                        class="chronicai-quick-help-card"
+                        aria-label="Call ChronicAI Quick Help 8013593509"
+                    >
+
+                        <div
+                            class="chronicai-quick-help-icon"
+                        >
+
+                            <i
+                                class="fa-solid fa-headset"
+                            ></i>
+
+                        </div>
+
+
+                        <div
+                            class="chronicai-quick-help-content"
+                        >
+
+                            <span>
+                                CHRONICAI QUICK HELP
+                            </span>
+
+
+                            <strong>
+                                8013593509
+                            </strong>
+
+
+                            <small>
+                                For Quick Help
+                            </small>
+
+                        </div>
+
+
+                        <div
+                            class="chronicai-quick-help-call"
+                        >
+
+                            <i
+                                class="fa-solid fa-phone"
+                            ></i>
+
+                            <span>
+                                Call
+                            </span>
+
+                        </div>
+
+                    </a>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+
+        <!-- =================================================
+             INFO
+        ================================================== -->
+
+        <section class="resource-info">
+
+            <div class="resource-container">
+
+                <div class="info-grid">
+
+
+                    <div class="info-card">
+
+                        <i
+                            class="fa-solid fa-map-location-dot"
+                        ></i>
+
+
+                        <h3>
+                            Live Location
+                        </h3>
+
+
+                        <p>
+
+                            ChronicAI uses your device location
+                            to search for nearby resources.
+
+                        </p>
+
+                    </div>
+
+
+
+                    <div class="info-card">
+
+                        <i
+                            class="fa-solid fa-route"
+                        ></i>
+
+
+                        <h3>
+                            Directions
+                        </h3>
+
+
+                        <p>
+
+                            Open directions to a selected
+                            resource using your map application.
+
+                        </p>
+
+                    </div>
+
+
+
+                    <div class="info-card">
+
+                        <i
+                            class="fa-solid fa-phone-volume"
+                        ></i>
+
+
+                        <h3>
+                            Direct Contact
+                        </h3>
+
+
+                        <p>
+
+                            Call available resource centers
+                            directly from your device.
+
+                        </p>
+
+                    </div>
+
+
+
+                    <div class="info-card">
+
+                        <i
+                            class="fa-solid fa-wifi"
+                        ></i>
+
+
+                        <h3>
+                            Local Fallback
+                        </h3>
+
+
+                        <p>
+
+                            Cached resource information can remain
+                            available when live data is unavailable.
+
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+
+    <!-- =====================================================
+         FOOTER
+    ====================================================== -->
+
+    <footer class="rc-footer">
+
+        <div class="resource-container">
+
+            <div class="footer-inner">
+
+                <div>
+
+                    <strong>
+                        ChronicAI
+                    </strong>
+
+
+                    <span>
+                        AI-powered citizen-government connection
+                    </span>
+
+                </div>
+
+
+                <a href="index.html">
+                    Back to ChronicAI
+                </a>
+
+            </div>
+
+        </div>
+
+    </footer>
+
+
+
+    <!-- =====================================================
+         LEAFLET JS
+    ====================================================== -->
+
+    <script
+        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        crossorigin=""
+    ></script>
+
+
+    <!-- =====================================================
+         RESOURCE CENTER JS
+    ====================================================== -->
+
+    <script
+        src="resource-center.js"
+    ></script>
+
+
+</body>
+
+</html>

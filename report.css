@@ -1,0 +1,2006 @@
+/* =========================================================
+   CHRONICAI — REPORT PAGE STYLES
+========================================================= */
+
+
+/* =========================================================
+   REPORT HERO
+========================================================= */
+
+.report-hero-section {
+
+    min-height: 100vh;
+
+    padding-top: 145px;
+    padding-bottom: 90px;
+
+}
+
+
+.report-heading {
+
+    max-width: 760px;
+
+    margin-inline: auto;
+
+    text-align: center;
+
+}
+
+
+.report-heading h1 {
+
+    margin-top: 20px;
+
+    font-family:
+        "Space Grotesk",
+        sans-serif;
+
+    font-size:
+        clamp(42px, 6vw, 68px);
+
+    line-height: 1.05;
+
+    letter-spacing: -3px;
+
+}
+
+
+.report-heading p {
+
+    max-width: 650px;
+
+    margin:
+        20px auto 0;
+
+    color:
+        var(--text-secondary);
+
+    font-size: 14px;
+
+    line-height: 1.8;
+
+}
+
+
+/* =========================================================
+   WORKSPACE
+========================================================= */
+
+.report-workspace {
+
+    display: grid;
+
+    grid-template-columns:
+        minmax(0, 0.95fr)
+        minmax(0, 1.05fr);
+
+    gap: 22px;
+
+    margin-top: 55px;
+
+}
+
+
+/* =========================================================
+   MAIN CARDS
+========================================================= */
+
+.report-input-card,
+.ai-result-card {
+
+    position: relative;
+
+    padding: 28px;
+
+    border-radius:
+        var(--radius-xl);
+
+    background:
+        var(--surface);
+
+    border:
+        1px solid var(--border);
+
+    backdrop-filter:
+        blur(24px);
+
+    box-shadow:
+        var(--shadow-soft);
+
+}
+
+
+.report-input-card {
+
+    overflow: hidden;
+
+}
+
+
+.report-input-card::before,
+.ai-result-card::before {
+
+    content: "";
+
+    position: absolute;
+
+    width: 250px;
+    height: 250px;
+
+    top: -150px;
+    right: -100px;
+
+    border-radius: 50%;
+
+    background:
+        rgba(77,166,255,0.09);
+
+    filter:
+        blur(60px);
+
+    pointer-events: none;
+
+}
+
+
+/* =========================================================
+   CARD HEADER
+========================================================= */
+
+.report-card-header {
+
+    display: flex;
+
+    align-items: flex-start;
+
+    justify-content: space-between;
+
+    gap: 20px;
+
+    margin-bottom: 28px;
+
+}
+
+
+.report-card-header h2 {
+
+    margin-top: 7px;
+
+    font-family:
+        "Space Grotesk",
+        sans-serif;
+
+    font-size: 22px;
+
+    line-height: 1.2;
+
+}
+
+
+.report-step-icon {
+
+    width: 48px;
+    height: 48px;
+
+    display: grid;
+
+    place-items: center;
+
+    flex-shrink: 0;
+
+    border-radius: 15px;
+
+    color: var(--blue);
+
+    background:
+        rgba(77,166,255,0.09);
+
+    border:
+        1px solid
+        rgba(77,166,255,0.12);
+
+}
+
+
+/* =========================================================
+   PHOTO UPLOAD
+========================================================= */
+
+.photo-upload-area {
+
+    position: relative;
+
+    width: 100%;
+
+}
+
+
+.photo-upload-box {
+
+    min-height: 215px;
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: center;
+
+    justify-content: center;
+
+    gap: 7px;
+
+    padding: 25px;
+
+    text-align: center;
+
+    border-radius: 20px;
+
+    border:
+        1px dashed
+        rgba(100,180,255,0.28);
+
+    background:
+        rgba(77,166,255,0.035);
+
+    cursor: pointer;
+
+    transition:
+        all var(--transition);
+
+}
+
+
+.photo-upload-box:hover {
+
+    border-color:
+        var(--blue);
+
+    background:
+        rgba(77,166,255,0.07);
+
+    transform:
+        translateY(-2px);
+
+}
+
+
+.upload-icon {
+
+    width: 58px;
+    height: 58px;
+
+    display: grid;
+
+    place-items: center;
+
+    margin-bottom: 5px;
+
+    border-radius: 18px;
+
+    color: white;
+
+    background:
+        var(--gradient-main);
+
+    box-shadow:
+        0 12px 35px
+        rgba(77,166,255,0.22);
+
+    font-size: 20px;
+
+}
+
+
+.photo-upload-box strong {
+
+    font-family:
+        "Space Grotesk",
+        sans-serif;
+
+    font-size: 14px;
+
+}
+
+
+.photo-upload-box span {
+
+    color:
+        var(--text-secondary);
+
+    font-size: 10px;
+
+}
+
+
+.photo-upload-box small {
+
+    margin-top: 5px;
+
+    color:
+        var(--text-muted);
+
+    font-size: 9px;
+
+}
+
+
+/* =========================================================
+   PHOTO PREVIEW
+========================================================= */
+
+.photo-preview {
+
+    position: relative;
+
+    min-height: 215px;
+
+    overflow: hidden;
+
+    border-radius: 20px;
+
+    border:
+        1px solid var(--border);
+
+    background:
+        var(--bg-secondary);
+
+}
+
+
+.photo-preview img {
+
+    width: 100%;
+    height: 215px;
+
+    object-fit: cover;
+
+}
+
+
+.photo-preview-overlay {
+
+    position: absolute;
+
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    padding: 9px 10px;
+
+    border-radius: 11px;
+
+    background:
+        rgba(0,0,0,0.62);
+
+    backdrop-filter:
+        blur(15px);
+
+}
+
+
+.photo-preview-overlay span {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 7px;
+
+    color: white;
+
+    font-size: 10px;
+
+}
+
+
+.photo-preview-overlay button {
+
+    width: 30px;
+    height: 30px;
+
+    display: grid;
+
+    place-items: center;
+
+    border-radius: 8px;
+
+    color: white;
+
+    background:
+        rgba(255,80,100,0.18);
+
+    transition:
+        all var(--transition);
+
+}
+
+
+.photo-preview-overlay button:hover {
+
+    background:
+        rgba(255,80,100,0.35);
+
+    transform:
+        scale(1.05);
+
+}
+
+
+/* =========================================================
+   FORM
+========================================================= */
+
+.form-group {
+
+    margin-top: 22px;
+
+}
+
+
+.form-group label {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    gap: 15px;
+
+    margin-bottom: 8px;
+
+}
+
+
+.form-group label span {
+
+    font-size: 11px;
+
+    font-weight: 700;
+
+}
+
+
+.form-group label small {
+
+    color:
+        var(--text-muted);
+
+    font-size: 8px;
+
+}
+
+
+.form-group input,
+.form-group textarea {
+
+    width: 100%;
+
+    color:
+        var(--text-primary);
+
+    background:
+        rgba(255,255,255,0.035);
+
+    border:
+        1px solid var(--border);
+
+    border-radius: 13px;
+
+    outline: none;
+
+    transition:
+        all var(--transition);
+
+}
+
+
+.form-group input {
+
+    height: 48px;
+
+    padding:
+        0 14px;
+
+}
+
+
+.form-group textarea {
+
+    min-height: 145px;
+
+    padding:
+        13px 14px;
+
+    resize: vertical;
+
+    line-height: 1.6;
+
+}
+
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+
+    color:
+        var(--text-muted);
+
+}
+
+
+.form-group input:focus,
+.form-group textarea:focus {
+
+    border-color:
+        var(--border-bright);
+
+    background:
+        rgba(77,166,255,0.045);
+
+    box-shadow:
+        0 0 0 3px
+        rgba(77,166,255,0.055);
+
+}
+
+
+/* =========================================================
+   TEXTAREA FOOTER
+========================================================= */
+
+.textarea-footer {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    margin-top: 6px;
+
+    color:
+        var(--text-muted);
+
+    font-size: 8px;
+
+}
+
+
+.textarea-footer b {
+
+    color:
+        var(--blue);
+
+}
+
+
+/* =========================================================
+   LOCATION
+========================================================= */
+
+.location-input {
+
+    position: relative;
+
+    display: flex;
+
+    align-items: center;
+
+}
+
+
+.location-input > i {
+
+    position: absolute;
+
+    left: 14px;
+
+    color:
+        var(--blue);
+
+    font-size: 12px;
+
+    pointer-events: none;
+
+}
+
+
+.location-input input {
+
+    padding-left: 39px;
+
+    padding-right: 48px;
+
+}
+
+
+.location-input button {
+
+    position: absolute;
+
+    right: 7px;
+
+    width: 35px;
+    height: 35px;
+
+    display: grid;
+
+    place-items: center;
+
+    border-radius: 9px;
+
+    color:
+        var(--blue);
+
+    background:
+        rgba(77,166,255,0.08);
+
+    transition:
+        all var(--transition);
+
+}
+
+
+.location-input button:hover {
+
+    color: white;
+
+    background:
+        var(--gradient-main);
+
+    transform:
+        rotate(15deg);
+
+}
+
+
+/* =========================================================
+   ANALYZE BUTTON
+========================================================= */
+
+.analyze-button {
+
+    width: 100%;
+
+    margin-top: 25px;
+
+}
+
+
+.privacy-note {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    gap: 7px;
+
+    margin-top: 12px;
+
+    color:
+        var(--text-muted);
+
+    font-size: 8px;
+
+}
+
+
+.privacy-note i {
+
+    color:
+        var(--green);
+
+}
+
+
+/* =========================================================
+   AI RESULT
+========================================================= */
+
+.ai-result-card {
+
+    min-height: 650px;
+
+    overflow: hidden;
+
+}
+
+
+.ai-empty-state,
+.ai-loading-state,
+.ai-analysis-result,
+.generated-report {
+
+    position: relative;
+
+    z-index: 2;
+
+}
+
+
+/* =========================================================
+   EMPTY STATE
+========================================================= */
+
+.ai-empty-state {
+
+    min-height: 590px;
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: center;
+
+    justify-content: center;
+
+    text-align: center;
+
+    padding: 30px;
+
+}
+
+
+.ai-result-orb {
+
+    width: 88px;
+    height: 88px;
+
+    display: grid;
+
+    place-items: center;
+
+    margin-bottom: 22px;
+
+    border-radius: 50%;
+
+    color: white;
+
+    background:
+        var(--gradient-main);
+
+    box-shadow:
+        0 0 55px
+        rgba(77,166,255,0.24);
+
+    font-size: 28px;
+
+    animation:
+        reportOrbFloat 4s
+        ease-in-out infinite;
+
+}
+
+
+@keyframes reportOrbFloat {
+
+    0%,
+    100% {
+        transform:
+            translateY(0)
+            scale(1);
+    }
+
+    50% {
+        transform:
+            translateY(-8px)
+            scale(1.04);
+    }
+
+}
+
+
+.ai-empty-state h2 {
+
+    margin-top: 12px;
+
+    font-family:
+        "Space Grotesk",
+        sans-serif;
+
+    font-size: 24px;
+
+}
+
+
+.ai-empty-state p {
+
+    max-width: 440px;
+
+    margin-top: 10px;
+
+    color:
+        var(--text-secondary);
+
+    font-size: 11px;
+
+    line-height: 1.7;
+
+}
+
+
+/* =========================================================
+   ANALYSIS FEATURES
+========================================================= */
+
+.analysis-features {
+
+    display: grid;
+
+    grid-template-columns:
+        1fr 1fr;
+
+    gap: 8px;
+
+    width: 100%;
+
+    max-width: 430px;
+
+    margin-top: 25px;
+
+}
+
+
+.analysis-features span {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 7px;
+
+    padding: 9px;
+
+    text-align: left;
+
+    border-radius: 9px;
+
+    color:
+        var(--text-secondary);
+
+    background:
+        rgba(255,255,255,0.035);
+
+    border:
+        1px solid
+        rgba(255,255,255,0.04);
+
+    font-size: 8px;
+
+}
+
+
+.analysis-features i {
+
+    color:
+        var(--green);
+
+}
+
+
+/* =========================================================
+   LOADING
+========================================================= */
+
+.ai-loading-state {
+
+    min-height: 590px;
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: center;
+
+    justify-content: center;
+
+    text-align: center;
+
+}
+
+
+.ai-loader-ring {
+
+    width: 90px;
+    height: 90px;
+
+    display: grid;
+
+    place-items: center;
+
+    margin-bottom: 25px;
+
+    border-radius: 50%;
+
+    border:
+        1px solid
+        rgba(77,166,255,0.16);
+
+    animation:
+        reportRingRotate 5s
+        linear infinite;
+
+}
+
+
+.ai-loader-ring div {
+
+    width: 60px;
+    height: 60px;
+
+    border-radius: 50%;
+
+    border:
+        2px solid
+        rgba(77,166,255,0.15);
+
+    border-top-color:
+        var(--blue);
+
+    border-right-color:
+        var(--purple);
+
+    animation:
+        reportRingRotate 1.1s
+        linear infinite reverse;
+
+}
+
+
+@keyframes reportRingRotate {
+
+    from {
+        transform:
+            rotate(0deg);
+    }
+
+    to {
+        transform:
+            rotate(360deg);
+    }
+
+}
+
+
+.ai-loading-state h2 {
+
+    margin-top: 12px;
+
+    font-family:
+        "Space Grotesk",
+        sans-serif;
+
+    font-size: 23px;
+
+}
+
+
+.ai-loading-state p {
+
+    max-width: 390px;
+
+    margin-top: 10px;
+
+    color:
+        var(--text-secondary);
+
+    font-size: 10px;
+
+}
+
+
+.analysis-progress {
+
+    width: min(
+        100%,
+        300px
+    );
+
+    height: 4px;
+
+    margin-top: 25px;
+
+    overflow: hidden;
+
+    border-radius: 20px;
+
+    background:
+        rgba(255,255,255,0.06);
+
+}
+
+
+.analysis-progress span {
+
+    display: block;
+
+    width: 35%;
+
+    height: 100%;
+
+    border-radius: inherit;
+
+    background:
+        var(--gradient-main);
+
+    animation:
+        analysisProgress 1.8s
+        ease-in-out infinite;
+
+}
+
+
+@keyframes analysisProgress {
+
+    0% {
+        transform:
+            translateX(-120%);
+    }
+
+    100% {
+        transform:
+            translateX(400%);
+    }
+
+}
+
+
+/* =========================================================
+   RESULT
+========================================================= */
+
+.ai-analysis-result {
+
+    padding: 5px;
+
+}
+
+
+.result-top {
+
+    display: flex;
+
+    align-items: flex-start;
+
+    justify-content: space-between;
+
+    gap: 20px;
+
+}
+
+
+.result-top h2 {
+
+    margin-top: 6px;
+
+    font-family:
+        "Space Grotesk",
+        sans-serif;
+
+    font-size: 25px;
+
+}
+
+
+.confidence-badge {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 6px;
+
+    padding: 8px 10px;
+
+    border-radius: 9px;
+
+    color:
+        var(--green);
+
+    background:
+        rgba(53,230,161,0.08);
+
+    border:
+        1px solid
+        rgba(53,230,161,0.12);
+
+    font-size: 9px;
+
+    font-weight: 800;
+
+}
+
+
+.detected-problem {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 13px;
+
+    margin-top: 25px;
+
+    padding: 15px;
+
+    border-radius: 15px;
+
+    background:
+        rgba(77,166,255,0.055);
+
+    border:
+        1px solid
+        rgba(77,166,255,0.10);
+
+}
+
+
+.detected-icon {
+
+    width: 43px;
+    height: 43px;
+
+    display: grid;
+
+    place-items: center;
+
+    flex-shrink: 0;
+
+    border-radius: 12px;
+
+    color:
+        var(--orange);
+
+    background:
+        rgba(255,173,92,0.09);
+
+}
+
+
+.detected-problem span {
+
+    display: block;
+
+    color:
+        var(--text-muted);
+
+    font-size: 7px;
+
+    font-weight: 800;
+
+    letter-spacing: 1px;
+
+}
+
+
+.detected-problem strong {
+
+    display: block;
+
+    margin-top: 3px;
+
+    font-family:
+        "Space Grotesk",
+        sans-serif;
+
+    font-size: 15px;
+
+}
+
+
+/* =========================================================
+   RESULT GRID
+========================================================= */
+
+.result-grid {
+
+    display: grid;
+
+    grid-template-columns:
+        1fr 1fr;
+
+    gap: 8px;
+
+    margin-top: 10px;
+
+}
+
+
+.result-item {
+
+    min-height: 76px;
+
+    padding: 12px;
+
+    border-radius: 12px;
+
+    background:
+        rgba(255,255,255,0.035);
+
+    border:
+        1px solid
+        rgba(255,255,255,0.045);
+
+}
+
+
+.result-item span {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 6px;
+
+    color:
+        var(--text-muted);
+
+    font-size: 8px;
+
+}
+
+
+.result-item span i {
+
+    color:
+        var(--blue);
+
+}
+
+
+.result-item strong {
+
+    display: block;
+
+    margin-top: 8px;
+
+    font-family:
+        "Space Grotesk",
+        sans-serif;
+
+    font-size: 12px;
+
+}
+
+
+/* =========================================================
+   SUMMARY
+========================================================= */
+
+.ai-summary-box {
+
+    margin-top: 10px;
+
+    padding: 14px;
+
+    border-radius: 13px;
+
+    background:
+        rgba(155,124,255,0.045);
+
+    border:
+        1px solid
+        rgba(155,124,255,0.10);
+
+}
+
+
+.summary-title {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 7px;
+
+    color:
+        var(--purple);
+
+    font-size: 9px;
+
+    font-weight: 800;
+
+}
+
+
+.ai-summary-box p {
+
+    margin-top: 8px;
+
+    color:
+        var(--text-secondary);
+
+    font-size: 10px;
+
+    line-height: 1.7;
+
+}
+
+
+/* =========================================================
+   RECOMMENDATION
+========================================================= */
+
+.recommendation-box {
+
+    display: flex;
+
+    align-items: flex-start;
+
+    gap: 10px;
+
+    margin-top: 10px;
+
+    padding: 13px;
+
+    border-radius: 12px;
+
+    background:
+        rgba(53,230,161,0.045);
+
+    border:
+        1px solid
+        rgba(53,230,161,0.09);
+
+}
+
+
+.recommendation-icon {
+
+    width: 30px;
+    height: 30px;
+
+    display: grid;
+
+    place-items: center;
+
+    flex-shrink: 0;
+
+    border-radius: 9px;
+
+    color:
+        var(--green);
+
+    background:
+        rgba(53,230,161,0.08);
+
+}
+
+
+.recommendation-box span {
+
+    display: block;
+
+    color:
+        var(--text-muted);
+
+    font-size: 7px;
+
+    font-weight: 800;
+
+    letter-spacing: 0.8px;
+
+}
+
+
+.recommendation-box p {
+
+    margin-top: 3px;
+
+    color:
+        var(--text-secondary);
+
+    font-size: 9px;
+
+    line-height: 1.6;
+
+}
+
+
+/* =========================================================
+   RESULT ACTIONS
+========================================================= */
+
+.report-result-actions {
+
+    display: flex;
+
+    justify-content: flex-end;
+
+    gap: 9px;
+
+    margin-top: 18px;
+
+}
+
+
+.report-result-actions button {
+
+    min-height: 42px;
+
+    padding-inline: 14px;
+
+    font-size: 10px;
+
+}
+
+
+/* =========================================================
+   GENERATED REPORT
+========================================================= */
+
+.generated-report {
+
+    padding: 5px;
+
+}
+
+
+.generated-report-header {
+
+    display: flex;
+
+    align-items: flex-start;
+
+    justify-content: space-between;
+
+    gap: 20px;
+
+}
+
+
+.generated-report-header h2 {
+
+    margin-top: 6px;
+
+    font-family:
+        "Space Grotesk",
+        sans-serif;
+
+    font-size: 25px;
+
+}
+
+
+.report-ready-icon {
+
+    width: 43px;
+    height: 43px;
+
+    display: grid;
+
+    place-items: center;
+
+    border-radius: 12px;
+
+    color:
+        var(--green);
+
+    background:
+        rgba(53,230,161,0.09);
+
+    border:
+        1px solid
+        rgba(53,230,161,0.12);
+
+}
+
+
+.official-report {
+
+    margin-top: 25px;
+
+    border-radius: 15px;
+
+    overflow: hidden;
+
+    border:
+        1px solid var(--border);
+
+}
+
+
+.official-report-row {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    gap: 20px;
+
+    padding: 12px 14px;
+
+    border-bottom:
+        1px solid var(--border);
+
+}
+
+
+.official-report-row span {
+
+    color:
+        var(--text-muted);
+
+    font-size: 8px;
+
+}
+
+
+.official-report-row strong {
+
+    max-width: 65%;
+
+    text-align: right;
+
+    font-size: 9px;
+
+}
+
+
+.official-report-description {
+
+    padding: 14px;
+
+}
+
+
+.official-report-description > span {
+
+    color:
+        var(--text-muted);
+
+    font-size: 8px;
+
+}
+
+
+.official-report-description p {
+
+    margin-top: 8px;
+
+    color:
+        var(--text-secondary);
+
+    font-size: 10px;
+
+    line-height: 1.7;
+
+}
+
+
+.submit-report-area {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    gap: 15px;
+
+    margin-top: 18px;
+
+    padding: 13px;
+
+    border-radius: 12px;
+
+    background:
+        rgba(77,166,255,0.045);
+
+    border:
+        1px solid
+        rgba(77,166,255,0.09);
+
+}
+
+
+.submit-report-area > div {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 7px;
+
+    color:
+        var(--text-muted);
+
+    font-size: 8px;
+
+}
+
+
+.submit-report-area > div i {
+
+    color:
+        var(--blue);
+
+}
+
+
+.submit-report-area button {
+
+    white-space: nowrap;
+
+    min-height: 42px;
+
+    padding-inline: 14px;
+
+    font-size: 10px;
+
+}
+
+
+/* =========================================================
+   GUIDANCE SECTION
+========================================================= */
+
+.report-guidance {
+
+    padding:
+        80px 0 110px;
+
+}
+
+
+.guidance-grid {
+
+    display: grid;
+
+    grid-template-columns:
+        repeat(4, 1fr);
+
+    gap: 14px;
+
+}
+
+
+.guidance-card {
+
+    padding: 22px;
+
+    border-radius:
+        var(--radius-large);
+
+    background:
+        var(--surface);
+
+    border:
+        1px solid var(--border);
+
+    transition:
+        all var(--transition);
+
+}
+
+
+.guidance-card:hover {
+
+    transform:
+        translateY(-7px);
+
+    border-color:
+        var(--border-bright);
+
+    box-shadow:
+        var(--shadow-soft);
+
+}
+
+
+.guidance-icon {
+
+    width: 45px;
+    height: 45px;
+
+    display: grid;
+
+    place-items: center;
+
+    border-radius: 13px;
+
+    font-size: 16px;
+
+}
+
+
+.guidance-icon.blue {
+
+    color:
+        var(--blue);
+
+    background:
+        rgba(77,166,255,0.09);
+
+}
+
+
+.guidance-icon.purple {
+
+    color:
+        var(--purple);
+
+    background:
+        rgba(155,124,255,0.09);
+
+}
+
+
+.guidance-icon.green {
+
+    color:
+        var(--green);
+
+    background:
+        rgba(53,230,161,0.09);
+
+}
+
+
+.guidance-icon.orange {
+
+    color:
+        var(--orange);
+
+    background:
+        rgba(255,173,92,0.09);
+
+}
+
+
+.guidance-card h3 {
+
+    margin-top: 22px;
+
+    font-family:
+        "Space Grotesk",
+        sans-serif;
+
+    font-size: 15px;
+
+}
+
+
+.guidance-card p {
+
+    margin-top: 8px;
+
+    color:
+        var(--text-secondary);
+
+    font-size: 10px;
+
+    line-height: 1.7;
+
+}
+
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media (max-width: 950px) {
+
+    .report-workspace {
+
+        grid-template-columns:
+            1fr;
+
+    }
+
+
+    .guidance-grid {
+
+        grid-template-columns:
+            repeat(2, 1fr);
+
+    }
+
+}
+
+
+@media (max-width: 600px) {
+
+    .report-hero-section {
+
+        padding-top: 120px;
+
+        padding-bottom: 60px;
+
+    }
+
+
+    .report-heading h1 {
+
+        font-size: 39px;
+
+        letter-spacing: -2px;
+
+    }
+
+
+    .report-heading p {
+
+        font-size: 12px;
+
+    }
+
+
+    .report-workspace {
+
+        margin-top: 35px;
+
+    }
+
+
+    .report-input-card,
+    .ai-result-card {
+
+        padding: 18px;
+
+        border-radius: 23px;
+
+    }
+
+
+    .report-card-header h2 {
+
+        font-size: 19px;
+
+    }
+
+
+    .photo-upload-box {
+
+        min-height: 190px;
+
+    }
+
+
+    .photo-preview,
+    .photo-preview img {
+
+        height: 190px;
+
+        min-height: 190px;
+
+    }
+
+
+    .ai-result-card {
+
+        min-height: 560px;
+
+    }
+
+
+    .ai-empty-state {
+
+        min-height: 500px;
+
+        padding: 15px;
+
+    }
+
+
+    .analysis-features {
+
+        grid-template-columns:
+            1fr;
+
+    }
+
+
+    .result-grid {
+
+        grid-template-columns:
+            1fr;
+
+    }
+
+
+    .result-top h2,
+    .generated-report-header h2 {
+
+        font-size: 21px;
+
+    }
+
+
+    .report-result-actions {
+
+        flex-direction: column;
+
+    }
+
+
+    .report-result-actions button {
+
+        width: 100%;
+
+    }
+
+
+    .submit-report-area {
+
+        align-items: stretch;
+
+        flex-direction: column;
+
+    }
+
+
+    .submit-report-area > div {
+
+        justify-content: center;
+
+        text-align: center;
+
+    }
+
+
+    .submit-report-area button {
+
+        width: 100%;
+
+    }
+
+
+    .guidance-grid {
+
+        grid-template-columns:
+            1fr;
+
+    }
+
+}
+
+
+@media (max-width: 400px) {
+
+    .report-heading h1 {
+
+        font-size: 34px;
+
+    }
+
+
+    .report-input-card,
+    .ai-result-card {
+
+        padding: 15px;
+
+    }
+
+
+    .official-report-row {
+
+        align-items: flex-start;
+
+        flex-direction: column;
+
+        gap: 4px;
+
+    }
+
+
+    .official-report-row strong {
+
+        max-width: 100%;
+
+        text-align: left;
+
+    }
+
+}
