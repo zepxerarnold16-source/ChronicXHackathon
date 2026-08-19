@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+
 <title>ChronicAI — AI Life Helper</title>
 
 <link
@@ -37,6 +39,7 @@ html,
 body{
     width:100%;
     height:100%;
+    min-height:100%;
 }
 
 body{
@@ -71,6 +74,7 @@ button{
 
 .app{
     height:100vh;
+    min-height:100dvh;
     display:flex;
 }
 
@@ -1313,6 +1317,17 @@ button{
 
 @media(max-width:850px){
 
+    html,
+    body{
+        height:100%;
+        overflow:hidden;
+    }
+
+    .app{
+        height:100dvh;
+        min-height:100dvh;
+    }
+
     .sidebar{
 
         position:fixed;
@@ -1358,6 +1373,9 @@ button{
             15px
             10px
             18px;
+
+        padding-bottom:
+            max(18px, env(safe-area-inset-bottom));
     }
 
     .message-body{
@@ -1375,6 +1393,33 @@ button{
 }
 
 @media(max-width:600px){
+
+    .chat-area{
+        padding-bottom:190px;
+    }
+
+    .input-row{
+        gap:4px;
+        padding:8px;
+    }
+
+    .input-actions{
+        gap:0;
+    }
+
+    .tool-btn{
+        width:34px;
+        height:38px;
+    }
+
+    .chat-input{
+        font-size:16px;
+    }
+
+    .send-btn{
+        flex:0 0 40px;
+        width:40px;
+    }
 
     .assistant-dock{
 
@@ -3386,6 +3431,13 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!clean) return;
 
 
+        /*
+           Release the microphone before speaking so the recorder
+           cannot submit the assistant's own voice as user input.
+        */
+        stopAllMicrophone();
+
+
         speechGeneration++;
 
         const generation =
@@ -3409,6 +3461,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const finalLanguage =
             normalizeLanguage(language) ||
             detectLanguageFromText(clean);
+
+
+        isSpeaking = true;
 
 
         speakNext(
@@ -3448,6 +3503,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!speechQueue.length) {
 
             stopSpeakingUI();
+
+            restartMicrophone();
 
             /*
                IMPORTANT:
@@ -3699,6 +3756,7 @@ document.addEventListener("DOMContentLoaded", () => {
             microphoneStarting ||
             recordingActive ||
             processingVoice ||
+            isSpeaking ||
             !voiceMode
         ) {
 
@@ -4627,7 +4685,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 voiceMode &&
                 !microphoneStarting &&
                 !recordingActive &&
-                !processingVoice
+                !processingVoice &&
+                !isSpeaking
             ) {
 
                 startMicrophone();

@@ -292,29 +292,6 @@ function initializeApp() {
 
     restoreJourneyState();
 
-    if (journeyActive) {
-
-        updateJourneyUI();
-
-        startJourneyTimer();
-
-        if (currentPosition) {
-
-            updateLocation(
-                currentPosition
-            );
-
-        }
-
-        startWatchingLocation();
-
-        showToast(
-            "Journey resumed after refresh.",
-            "↻"
-        );
-
-    }
-
     updateReadyTime();
 
 
@@ -3237,46 +3214,16 @@ function restoreJourneyState() {
         }
 
 
-        if (
-            state.location &&
-            Number.isFinite(
-                Number(state.location.latitude)
-            ) &&
-            Number.isFinite(
-                Number(state.location.longitude)
-            )
-        ) {
-
-            currentPosition = {
-                coords: {
-                    latitude:
-                        Number(
-                            state.location.latitude
-                        ),
-                    longitude:
-                        Number(
-                            state.location.longitude
-                        ),
-                    accuracy:
-                        Number(
-                            state.location.accuracy
-                        ) || 20
-                }
-            };
-
-        }
-
+        /*
+         * Don't automatically resume GPS after reload.
+         * Browser permission and active tracking should
+         * start from a fresh user action.
+         */
 
         if (
             state.journeyActive &&
-            state.journeyId &&
-            state.journeyStartTime
+            state.journeyId
         ) {
-
-            journeyActive = true;
-            lastLocationTime =
-                state.lastLocationTime ||
-                state.journeyStartTime;
 
             if (journeyIdElement) {
 
@@ -3289,9 +3236,9 @@ function restoreJourneyState() {
             if (journeyStatusBadge) {
 
                 journeyStatusBadge.innerHTML =
-                    "<span></span> Active";
+                    "<span></span> Previous";
 
-                journeyStatusBadge.classList.add(
+                journeyStatusBadge.classList.remove(
                     "active"
                 );
 
@@ -3536,15 +3483,6 @@ window.addEventListener(
     }
 );
 
-window.addEventListener(
-    "pagehide",
-    () => {
-
-        saveJourneyState();
-
-    }
-);
-
 
 /* ============================================================
    VISIBILITY CHANGE
@@ -3553,25 +3491,6 @@ window.addEventListener(
 document.addEventListener(
     "visibilitychange",
     () => {
-
-        if (
-            journeyActive &&
-            !document.hidden
-        ) {
-
-            startJourneyTimer();
-
-            if (currentPosition) {
-
-                updateLocation(
-                    currentPosition
-                );
-
-            }
-
-            startWatchingLocation();
-
-        }
 
         if (
             !document.hidden &&

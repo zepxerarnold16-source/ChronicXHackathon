@@ -58,6 +58,8 @@ let resources = [];
 
 let userLocation = null;
 
+let locationWatchId = null;
+
 let searchedPollutionLocation = null;
 
 let currentFilter = "all";
@@ -709,7 +711,7 @@ function getUserLocation() {
                     userLocation.lat,
                     userLocation.lng
                 ],
-                14,
+                16,
                 {
                     animate:
                         true
@@ -749,6 +751,8 @@ function getUserLocation() {
 
             }
 
+            startLocationWatch();
+
         },
 
         error => {
@@ -772,11 +776,138 @@ function getUserLocation() {
                 15000,
 
             maximumAge:
-                30000
+                0
 
         }
 
     );
+
+}
+
+
+function startLocationWatch() {
+
+    if (
+        !navigator.geolocation
+    ) {
+        return;
+    }
+
+
+    if (
+        locationWatchId !== null
+    ) {
+        navigator.geolocation.clearWatch(
+            locationWatchId
+        );
+    }
+
+
+    locationWatchId =
+        navigator.geolocation.watchPosition(
+
+            position => {
+
+                const nextLocation = {
+
+                    lat:
+                        Number(
+                            position.coords.latitude
+                        ),
+
+                    lng:
+                        Number(
+                            position.coords.longitude
+                        ),
+
+                    accuracy:
+                        Number(
+                            position.coords.accuracy || 0
+                        )
+
+                };
+
+                const movedMeters =
+                    userLocation
+                        ? calculateDistance(
+                            userLocation.lat,
+                            userLocation.lng,
+                            nextLocation.lat,
+                            nextLocation.lng
+                        ) * 1000
+                        : Infinity;
+
+                userLocation =
+                    nextLocation;
+
+                saveLocation(
+                    userLocation
+                );
+
+                clearSearchedMarker();
+
+                updateUserMarker(
+                    userLocation.lat,
+                    userLocation.lng,
+                    userLocation.accuracy
+                );
+
+                setLocationStatus(
+                    `Live location ±${Math.round(
+                        userLocation.accuracy
+                    )}m`,
+                    "success"
+                );
+
+                if (
+                    movedMeters >= 100
+                ) {
+
+                    loadNearbyResources();
+
+                    loadAirQuality(
+                        userLocation.lat,
+                        userLocation.lng
+                    );
+
+                    if (
+                        pollutionTrackerEnabled
+                    ) {
+
+                        loadPollutionZones(
+                            userLocation.lat,
+                            userLocation.lng
+                        );
+
+                    }
+
+                }
+
+            },
+
+            error => {
+
+                console.warn(
+                    "Live location update failed:",
+                    error?.message || error
+                );
+
+            },
+
+            {
+
+                enableHighAccuracy:
+                    true,
+
+                timeout:
+                    20000,
+
+                maximumAge:
+                    0
+
+            }
+
+        );
 
 }
 
