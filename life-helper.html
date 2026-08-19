@@ -3737,6 +3737,35 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 }
 
+
+                if (
+                    !event.results[index].isFinal ||
+                    !transcript
+                ) {
+
+                    continue;
+
+                }
+
+
+                stopStopCommandListener();
+                interruptNarration(false);
+
+
+                if (chatInput) {
+
+                    chatInput.value =
+                        transcript;
+
+                    resize();
+
+                }
+
+
+                sendMessage();
+
+                return;
+
             }
 
         };
@@ -3805,7 +3834,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
 
-    function interruptNarration() {
+    function interruptNarration(
+        resumeListening = true
+    ) {
 
         if (
             !isSpeaking &&
@@ -3840,7 +3871,10 @@ document.addEventListener("DOMContentLoaded", () => {
         stopSpeakingUI();
 
 
-        if (voiceMode) {
+        if (
+            resumeListening &&
+            voiceMode
+        ) {
 
             restartMicrophone();
 
