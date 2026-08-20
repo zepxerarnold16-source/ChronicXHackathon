@@ -1963,6 +1963,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let stopCommandRecognition = null;
     let stopCommandRequested = false;
+    let activeNarrationText = "";
 
 
     /* =========================================================
@@ -2493,6 +2494,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
             }
         );
+
+    }
+
+
+    if (sendButton) {
+
+        sendButton.onclick =
+            () => {
+
+                sendMessage();
+
+            };
 
     }
 
@@ -3538,6 +3551,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const sentence =
             speechQueue.shift();
 
+        activeNarrationText =
+            cleanForSpeech(sentence)
+                .toLowerCase();
+
 
         const utterance =
             new SpeechSynthesisUtterance(
@@ -3600,6 +3617,7 @@ document.addEventListener("DOMContentLoaded", () => {
         utterance.onend = () => {
 
             isSpeaking = false;
+            activeNarrationText = "";
 
             try {
 
@@ -3629,6 +3647,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
             isSpeaking = false;
+            activeNarrationText = "";
 
 
             setTimeout(() => {
@@ -3668,6 +3687,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function stopSpeakingUI() {
 
         isSpeaking = false;
+        activeNarrationText = "";
 
         aiOrb?.classList.remove(
             "speaking"
@@ -3720,12 +3740,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
                 if (
-                    /\b(?:stop|stop it|please stop|shut up|pause)\b/.test(
-                        transcript
-                    ) ||
-                    /(?:थामो|रुको|बंद करो|থামো|থামুন)/.test(
-                        transcript
-                    )
+                    isLikelyNarrationEcho(transcript)
+                ) {
+
+                    continue;
+
+                }
+
+
+                if (
+                    isStopCommand(transcript)
                 ) {
 
                     stopStopCommandListener();
@@ -3805,6 +3829,69 @@ document.addEventListener("DOMContentLoaded", () => {
             stopCommandRecognition = null;
 
         }
+
+    }
+
+
+    function isStopCommand(transcript) {
+
+        return (
+            /^(?:please\s+)?(?:stop|stop it|shut up|pause)[.!?]*$/i.test(
+                transcript
+            ) ||
+            /^(?:थामो|रुको|बंद करो|থামো|থামুন)[.!?]*$/i.test(
+                transcript
+            )
+        );
+
+    }
+
+
+    function isLikelyNarrationEcho(transcript) {
+
+        if (
+            !activeNarrationText ||
+            !transcript
+        ) {
+
+            return false;
+
+        }
+
+
+        const narrationWords =
+            activeNarrationText
+                .match(/[a-z0-9]+/g) || [];
+
+        const transcriptWords =
+            transcript
+                .match(/[a-z0-9]+/g) || [];
+
+
+        if (
+            transcriptWords.length < 3 ||
+            transcript.length < 14
+        ) {
+
+            return false;
+
+        }
+
+
+        const narrationWordSet =
+            new Set(narrationWords);
+
+        const matchingWords =
+            transcriptWords.filter(
+                word => narrationWordSet.has(word)
+            ).length;
+
+
+        return (
+            matchingWords /
+                transcriptWords.length >=
+            0.75
+        );
 
     }
 
