@@ -1300,6 +1300,41 @@ button{
    MOBILE
 ========================================================= */
 
+/* =========================================================
+   LIGHT THEME
+   The original JavaScript toggled .light-mode, but no CSS rules
+   existed for it, so the theme button changed state without changing
+   the visual theme.
+========================================================= */
+body.light-mode{
+    --bg:#f5f7fb;
+    --panel:#ffffff;
+    --panel2:#eef2f8;
+    --text:#111827;
+    --text2:#536176;
+    --muted:#718096;
+    --border:rgba(15,23,42,.10);
+    --border2:rgba(15,23,42,.16);
+}
+body.light-mode .sidebar{background:rgba(255,255,255,.94);}
+body.light-mode .header{background:rgba(245,247,251,.82);}
+body.light-mode .message-bubble{background:rgba(15,23,42,.045);color:#1f2937;}
+body.light-mode .message.user .message-bubble{background:linear-gradient(135deg,rgba(91,124,255,.15),rgba(124,92,255,.12));}
+body.light-mode .input-container{background:rgba(255,255,255,.94);}
+body.light-mode .search-box input,
+body.light-mode .new-chat,
+body.light-mode .chat-input{color:#111827;}
+body.light-mode .chat-input::placeholder{color:#8a94a6;}
+body.light-mode .sidebar-btn,
+body.light-mode .icon-btn,
+body.light-mode .tool-btn{color:#536176;}
+body.light-mode .sidebar-btn:hover,
+body.light-mode .icon-btn:hover,
+body.light-mode .tool-btn:hover,
+body.light-mode .tool-btn.active{color:#111827;}
+body.light-mode .message-bubble pre{background:#eef2f7;color:#111827;}
+body.light-mode .input-wrapper{background:linear-gradient(to top,var(--bg) 65%,transparent);}
+
 @media(max-width:1120px){
 
     .assistant-dock{
@@ -1906,6 +1941,25 @@ document.addEventListener("DOMContentLoaded", () => {
     */
     const TRANSCRIBE_API_ENDPOINT = "/api/transcribe";
 
+    async function fetchWithTimeout(url, options = {}, timeoutMs = 60000) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+        try {
+            return await fetch(url, {
+                ...options,
+                signal: controller.signal
+            });
+        } catch (error) {
+            if (error?.name === "AbortError") {
+                throw new Error("The request timed out. Please try again.");
+            }
+            throw error;
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
 
     /* =========================================================
        STORAGE
@@ -2012,10 +2066,31 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (!Array.isArray(messages)) {
                 messages = [];
+            } else {
+                messages = messages
+                    .filter(message =>
+                        message &&
+                        (message.role === "user" || message.role === "ai") &&
+                        typeof message.content === "string" &&
+                        message.content.trim()
+                    )
+                    .slice(-100)
+                    .map(message => ({
+                        role: message.role,
+                        content: message.content,
+                        time: Number.isFinite(message.time)
+                            ? message.time
+                            : Date.now()
+                    }));
             }
 
             if (!Array.isArray(recentSearches)) {
                 recentSearches = [];
+            } else {
+                recentSearches = recentSearches
+                    .filter(item => typeof item === "string" && item.trim())
+                    .map(item => item.trim())
+                    .slice(0, 8);
             }
 
         } catch {
@@ -2636,7 +2711,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
             const response =
-                await fetch(
+                await fetchWithTimeout(
                     ANALYZE_API_ENDPOINT,
                     {
                         method: "POST",
@@ -2696,7 +2771,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
         const response =
-            await fetch(
+            await fetchWithTimeout(
                 CHAT_API_ENDPOINT,
                 {
                     method: "POST",
@@ -3601,6 +3676,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
         utterance.onstart = () => {
 
+            if (
+                generation !== speechGeneration ||
+                !voiceMode
+            ) {
+                return;
+            }
+
             isSpeaking = true;
 
             aiOrb?.classList.add(
@@ -3610,55 +3692,72 @@ document.addEventListener("DOMContentLoaded", () => {
             voiceWave?.classList.add(
                 "show"
             );
-
         };
 
 
         utterance.onend = () => {
 
+            if (
+                generation !== speechGeneration ||
+                !voiceMode
+            ) {
+                return;
+            }
+
             isSpeaking = false;
             activeNarrationText = "";
 
             try {
-
                 speechSynthesis.resume();
-
             } catch {}
-
 
             setTimeout(() => {
 
-                speakNext(
-                    generation,
-                    finalLanguage
-                );
+                if (generation === speechGeneration) {
+                    speakNext(
+                        generation,
+                        finalLanguage
+                    );
+                }
 
             }, 50);
-
         };
 
 
         utterance.onerror = error => {
+
+            if (
+                generation !== speechGeneration ||
+                !voiceMode
+            ) {
+                return;
+            }
 
             console.warn(
                 "TTS error:",
                 error
             );
 
-
             isSpeaking = false;
             activeNarrationText = "";
 
+            if (
+                error?.error === "canceled" ||
+                error?.error === "interrupted"
+            ) {
+                return;
+            }
 
             setTimeout(() => {
 
-                speakNext(
-                    generation,
-                    finalLanguage
-                );
+                if (generation === speechGeneration) {
+                    speakNext(
+                        generation,
+                        finalLanguage
+                    );
+                }
 
             }, 50);
-
         };
 
 
@@ -4780,7 +4879,7 @@ document.addEventListener("DOMContentLoaded", () => {
             */
 
             const response =
-                await fetch(
+                await fetchWithTimeout(
                     TRANSCRIBE_API_ENDPOINT,
                     {
                         method: "POST",
@@ -5013,44 +5112,55 @@ document.addEventListener("DOMContentLoaded", () => {
 
         stopVoiceActivityDetection();
 
-
         if (mediaRecorder) {
 
             try {
-
+                mediaRecorder.ondataavailable = null;
                 mediaRecorder.onstop = null;
                 mediaRecorder.onerror = null;
-
             } catch {}
-
 
             try {
-
-                if (
-                    mediaRecorder.state !==
-                    "inactive"
-                ) {
-
+                if (mediaRecorder.state !== "inactive") {
                     mediaRecorder.stop();
-
                 }
-
             } catch {}
-
         }
 
+        mediaRecorder = null;
+        recordingActive = false;
+        audioChunks = [];
 
-        mediaRecorder =
-            null;
+        /*
+           IMPORTANT:
+           Restarting voice mode must release the previous MediaStream
+           and AudioContext. Otherwise every voice turn can leak a
+           microphone stream and create another analyser.
+        */
+        if (microphoneStream) {
 
+            microphoneStream
+                .getTracks()
+                .forEach(track => {
+                    try { track.stop(); } catch {}
+                });
+        }
 
-        recordingActive =
-            false;
+        microphoneStream = null;
 
+        if (microphoneSource) {
+            try { microphoneSource.disconnect(); } catch {}
+        }
 
-        audioChunks =
-            [];
+        microphoneSource = null;
+        analyser = null;
+        audioData = null;
 
+        if (audioContext) {
+            try { audioContext.close(); } catch {}
+        }
+
+        audioContext = null;
     }
 
 
@@ -5864,6 +5974,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     /* =========================================================
+       PAGE LIFECYCLE CLEANUP
+    ========================================================= */
+
+    window.addEventListener("pagehide", () => {
+
+        voiceMode = false;
+        speechGeneration++;
+        speechQueue = [];
+
+        stopStopCommandListener();
+
+        if ("speechSynthesis" in window) {
+            try { speechSynthesis.cancel(); } catch {}
+        }
+
+        stopSpeakingUI();
+        stopAllMicrophone();
+    });
+
+
+    /* =========================================================
        INITIALIZE
     ========================================================= */
 
@@ -6294,8 +6425,25 @@ document.addEventListener("DOMContentLoaded", () => {
             setPosition(
                 rect.left,
                 rect.top,
-                true
+                false
             );
+
+            try {
+                const position = {
+                    x: parseFloat(assistant.style.left),
+                    y: parseFloat(assistant.style.top)
+                };
+
+                if (
+                    Number.isFinite(position.x) &&
+                    Number.isFinite(position.y)
+                ) {
+                    localStorage.setItem(
+                        STORAGE_KEY,
+                        JSON.stringify(position)
+                    );
+                }
+            } catch {}
 
         }
     );
