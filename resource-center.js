@@ -12,14 +12,11 @@
 
 const RESOURCE_CONFIG = {
 
-    defaultLat:
-        22.5726,
-
-    defaultLng:
-        88.3639,
-
     defaultZoom:
-        13,
+        2,
+
+    savedLocationMaxAgeMs:
+        5 * 60 * 1000,
 
     overpassEndpoints: [
 
@@ -356,8 +353,8 @@ function initializeMap() {
         )
         .setView(
             [
-                RESOURCE_CONFIG.defaultLat,
-                RESOURCE_CONFIG.defaultLng
+                20,
+                0
             ],
             RESOURCE_CONFIG.defaultZoom
         );
@@ -2029,7 +2026,10 @@ function saveLocation(
         localStorage.setItem(
             "chronicai_resource_location",
             JSON.stringify(
-                location
+                {
+                    ...location,
+                    savedAt: Date.now()
+                }
             )
         );
 
@@ -2043,64 +2043,8 @@ function loadSavedLocation() {
 
     try {
 
-        const raw =
-            localStorage.getItem(
-                "chronicai_resource_location"
-            );
-
-
-        if (!raw) {
-
-            return;
-
-        }
-
-
-        const saved =
-            JSON.parse(
-                raw
-            );
-
-
-        if (
-            typeof saved.lat !== "number" ||
-            typeof saved.lng !== "number"
-        ) {
-
-            return;
-
-        }
-
-
-        userLocation =
-            saved;
-
-
-        updateUserMarker(
-            saved.lat,
-            saved.lng,
-            saved.accuracy || 50
-        );
-
-
-        map.setView(
-            [
-                saved.lat,
-                saved.lng
-            ],
-            13
-        );
-
-
-        setLocationStatus(
-            "Using saved location. Tap Use My Location to update.",
-            "success"
-        );
-
-
-        loadAirQuality(
-            saved.lat,
-            saved.lng
+        localStorage.removeItem(
+            "chronicai_resource_location"
         );
 
     }
