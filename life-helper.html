@@ -2018,6 +2018,11 @@ document.addEventListener("DOMContentLoaded", () => {
     let stopCommandRecognition = null;
     let stopCommandRequested = false;
     let activeNarrationText = "";
+    // Last text spoken by the AI narrator. Used as an acoustic-echo safety net.
+    let lastNarrationText = "";
+    let lastNarrationAt = 0;
+    const NARRATION_ECHO_WINDOW_MS = 12000;
+    const NARRATION_RESTART_COOLDOWN_MS = 1200;
 
 
     /* =========================================================
@@ -3630,6 +3635,9 @@ document.addEventListener("DOMContentLoaded", () => {
             cleanForSpeech(sentence)
                 .toLowerCase();
 
+        lastNarrationText = activeNarrationText;
+        lastNarrationAt = Date.now();
+
 
         const utterance =
             new SpeechSynthesisUtterance(
@@ -4163,7 +4171,8 @@ document.addEventListener("DOMContentLoaded", () => {
             recordingActive ||
             processingVoice ||
             isSpeaking ||
-            !voiceMode
+            !voiceMode ||
+            ("speechSynthesis" in window && speechSynthesis.speaking)
         ) {
 
             return;
@@ -4824,6 +4833,53 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     /* =========================================================
+       AI NARRATOR ECHO PROTECTION
+
+       Browser echoCancellation helps, but it cannot guarantee that
+       laptop speakers will never be transcribed. The narrator therefore
+       gets a second safety layer: recent TTS text is compared with the
+       transcript and discarded when it is clearly the same speech.
+    ========================================================= */
+
+    function normalizeEchoText(text) {
+        return String(text || "")
+            .toLowerCase()
+            .replace(/[^\p{L}\p{N}\s]/gu, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+    }
+
+    function narrationEchoScore(transcript) {
+        const heard = normalizeEchoText(transcript);
+        const spoken = normalizeEchoText(lastNarrationText);
+
+        if (!heard || !spoken) return 0;
+        if (Date.now() - lastNarrationAt > NARRATION_ECHO_WINDOW_MS) return 0;
+
+        if (heard === spoken) return 1;
+        if (heard.length >= 12 && spoken.includes(heard)) return 0.95;
+        if (spoken.length >= 12 && heard.includes(spoken)) return 0.95;
+
+        const a = new Set(heard.split(" ").filter(Boolean));
+        const b = new Set(spoken.split(" ").filter(Boolean));
+        if (!a.size || !b.size) return 0;
+
+        let common = 0;
+        for (const word of a) {
+            if (b.has(word)) common++;
+        }
+
+        return common / Math.max(a.size, b.size);
+    }
+
+    function isLikelyNarratorEcho(transcript) {
+        const score = narrationEchoScore(transcript);
+        // Require a fairly strong match so normal user speech is not rejected.
+        return score >= 0.72;
+    }
+
+
+    /* =========================================================
        TRANSCRIBE VOICE
     ========================================================= */
 
@@ -4954,6 +5010,26 @@ document.addEventListener("DOMContentLoaded", () => {
                 throw new Error(
                     "No speech could be detected."
                 );
+
+            }
+
+            /*
+               HARD SAFETY NET AGAINST LAPTOP SPEAKER ECHO.
+               If the transcription closely matches something ChronicAI
+               just narrated, do not put it into the input or submit it.
+            */
+            if (isLikelyNarratorEcho(transcript)) {
+
+                console.warn(
+                    "Ignored likely AI narrator echo:",
+                    transcript
+                );
+
+                updateVoiceUI(
+                    "Ignored narrator audio — listening for you…"
+                );
+
+                return;
 
             }
 
@@ -5099,7 +5175,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             }
 
-        }, 500);
+        }, NARRATION_RESTART_COOLDOWN_MS);
 
     }
 
