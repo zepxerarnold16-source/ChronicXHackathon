@@ -1,2184 +1,1758 @@
-"use strict";
-
-/* =========================================================
+/* ============================================================
    CHRONICAI RESOURCE CENTER
-   COMPLETE REPLACEMENT
-   ========================================================= */
+   ============================================================
 
+   Architecture:
 
-/* =========================================================
-   CONFIG
-   ========================================================= */
+   Browser
+      ↓
+   /api/resources
+      ↓
+   Render backend
+      ↓
+   Overpass API
 
-const RESOURCE_CONFIG = {
+   IMPORTANT:
+   Do NOT call Overpass directly from this browser file.
+   ============================================================ */
 
-    defaultZoom: 2,
+(() => {
+    "use strict";
 
-    savedLocationMaxAgeMs:
-        5 * 60 * 1000,
+    /* ============================================================
+       CONFIGURATION
+       ============================================================ */
 
-    /*
-     * IMPORTANT:
-     *
-     * The browser must NOT call Overpass directly.
-     *
-     * Your Render backend must expose:
-     *
-     * GET /api/resources?lat=...&lng=...&radius=...
-     *
-     */
+    const CONFIG = {
+        DEFAULT_RADIUS_KM: 5,
+        MAX_RADIUS_KM: 50,
 
-    resourceApi:
-        "/api/resources",
+        RESOURCE_ENDPOINTS: [
+            "/api/resources",
+            "/api/nearby-resources",
+            "/api/overpass/resources"
+        ],
 
-    airQualityApi:
-        "https://air-quality-api.open-meteo.com/v1/air-quality",
+        LOCATION_TIMEOUT: 15000,
+        LOCATION_MAX_AGE: 30000,
 
-    geocodeApi:
-        "https://nominatim.openstreetmap.org/search",
+        MAP_DEFAULT_ZOOM: 13,
 
-    airRefreshMs:
-        15 * 60 * 1000
+        SEARCH_DEBOUNCE_MS: 350,
 
-};
+        ENABLE_CONSOLE_LOGS: true
+    };
 
 
-/* =========================================================
-   STATE
-   ========================================================= */
+    /* ============================================================
+       GLOBAL STATE
+       ============================================================ */
 
-let map = null;
+    let map = null;
+    let userMarker = null;
 
-let userMarker = null;
+    let resourceMarkers = [];
+    let pollutionLayers = [];
 
-let accuracyCircle = null;
+    let currentLocation = null;
 
-let searchedLocationMarker = null;
+    let currentResourceType = "all";
+    let currentDistanceKm = CONFIG.DEFAULT_RADIUS_KM;
 
-let resourceMarkers = [];
+    let resourcesData = [];
 
-let pollutionZoneLayers = [];
+    let resourceRequestId = 0;
 
-let resources = [];
+    let locationRequestId = 0;
 
-let userLocation = null;
+    let pollutionEnabled = false;
+    let pollutionRangeKm = 1;
 
-let locationWatchId = null;
+    let lastAirQualityLocation = null;
 
-let searchedPollutionLocation = null;
+    let locationWatchId = null;
 
-let currentFilter = "all";
+    let isLoadingResources = false;
 
-let currentRadius = 5;
 
-let pollutionTrackerEnabled = false;
+    /* ============================================================
+       DOM HELPERS
+       ============================================================ */
 
-let pollutionRangeKm = 1;
+    const $ = (id) => document.getElementById(id);
 
-let resourceLoading = false;
-
-let lastResourceSearch = 0;
-
-
-/* =========================================================
-   DOM
-   ========================================================= */
-
-const locateBtn =
-    document.getElementById(
-        "locateBtn"
-    );
-
-
-const refreshBtn =
-    document.getElementById(
-        "refreshBtn"
-    );
-
-
-const centerMapBtn =
-    document.getElementById(
-        "centerMapBtn"
-    );
-
-
-const locationStatus =
-    document.getElementById(
-        "locationStatus"
-    );
-
-
-const mapStatus =
-    document.getElementById(
-        "mapStatus"
-    );
-
-
-const resourceList =
-    document.getElementById(
-        "resourceList"
-    );
-
-
-const resourceCount =
-    document.getElementById(
-        "resourceCount"
-    );
-
-
-const distanceFilter =
-    document.getElementById(
-        "distanceFilter"
-    );
-
-
-const filterButtons =
-    document.querySelectorAll(
-        ".filter-btn"
-    );
-
-
-const pollutionTrackerBtn =
-    document.getElementById(
-        "pollutionTrackerBtn"
-    );
-
-
-const pollutionMapLegend =
-    document.getElementById(
-        "pollutionMapLegend"
-    );
-
-
-const pollutionRangeButtons =
-    document.querySelectorAll(
-        ".pollution-range-btn"
-    );
-
-
-/* =========================================================
-   AIR QUALITY DOM
-   ========================================================= */
-
-const airQualityStatus =
-    document.getElementById(
-        "airQualityStatus"
-    );
-
-
-const aqiCircle =
-    document.getElementById(
-        "aqiCircle"
-    );
-
-
-const aqiValue =
-    document.getElementById(
-        "aqiValue"
-    );
-
-
-const aqiCondition =
-    document.getElementById(
-        "aqiCondition"
-    );
-
-
-const aqiDescription =
-    document.getElementById(
-        "aqiDescription"
-    );
-
-
-const oxygenSafetyIcon =
-    document.getElementById(
-        "oxygenSafetyIcon"
-    );
-
-
-const oxygenSafetyLevel =
-    document.getElementById(
-        "oxygenSafetyLevel"
-    );
-
-
-const oxygenSafetyDescription =
-    document.getElementById(
-        "oxygenSafetyDescription"
-    );
-
-
-const pm25Value =
-    document.getElementById(
-        "pm25Value"
-    );
-
-
-const pm10Value =
-    document.getElementById(
-        "pm10Value"
-    );
-
-
-const no2Value =
-    document.getElementById(
-        "no2Value"
-    );
-
-
-const o3Value =
-    document.getElementById(
-        "o3Value"
-    );
-
-
-const coValue =
-    document.getElementById(
-        "coValue"
-    );
-
-
-const airQualityUpdated =
-    document.getElementById(
-        "airQualityUpdated"
-    );
-
-
-const refreshAirQuality =
-    document.getElementById(
-        "refreshAirQuality"
-    );
-
-
-/* =========================================================
-   POLLUTION SEARCH DOM
-   ========================================================= */
-
-const pollutionPlaceInput =
-    document.getElementById(
-        "pollutionPlaceInput"
-    );
-
-
-const pollutionPlaceSearchBtn =
-    document.getElementById(
-        "pollutionPlaceSearchBtn"
-    );
-
-
-const pollutionLocationStatus =
-    document.getElementById(
-        "pollutionLocationStatus"
-    );
-
-
-const pollutionLocationResult =
-    document.getElementById(
-        "pollutionLocationResult"
-    );
-
-
-/* =========================================================
-   RESOURCE TYPES
-   ========================================================= */
-
-const TYPE_CONFIG = {
-
-    hospital: {
-
-        label:
-            "Hospital",
-
-        icon:
-            "fa-hospital"
-
-    },
-
-
-    police: {
-
-        label:
-            "Police Station",
-
-        icon:
-            "fa-shield-halved"
-
-    },
-
-
-    fire: {
-
-        label:
-            "Fire Station",
-
-        icon:
-            "fa-fire-extinguisher"
-
-    },
-
-
-    government: {
-
-        label:
-            "Government Office",
-
-        icon:
-            "fa-building-columns"
-
-    },
-
-
-    relief: {
-
-        label:
-            "Relief Center",
-
-        icon:
-            "fa-hand-holding-heart"
-
+    function qs(selector, parent = document) {
+        return parent.querySelector(selector);
     }
 
-};
+    function qsa(selector, parent = document) {
+        return Array.from(parent.querySelectorAll(selector));
+    }
 
 
-/* =========================================================
-   INITIALIZATION
-   ========================================================= */
+    /* ============================================================
+       LOGGING
+       ============================================================ */
 
-document.addEventListener(
-    "DOMContentLoaded",
-    () => {
+    function log(...args) {
+        if (CONFIG.ENABLE_CONSOLE_LOGS) {
+            console.log("[ChronicAI]", ...args);
+        }
+    }
+
+    function warn(...args) {
+        console.warn("[ChronicAI]", ...args);
+    }
+
+    function error(...args) {
+        console.error("[ChronicAI]", ...args);
+    }
+
+
+    /* ============================================================
+       SAFE HTML
+       ============================================================ */
+
+    function escapeHTML(value) {
+        if (value === null || value === undefined) {
+            return "";
+        }
+
+        return String(value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+
+    /* ============================================================
+       INITIALIZATION
+       ============================================================ */
+
+    document.addEventListener("DOMContentLoaded", () => {
+        initializeResourceCenter();
+    });
+
+
+    function initializeResourceCenter() {
+        log("Initializing Resource Center...");
 
         initializeMap();
-
         bindEvents();
+        initializeUI();
 
-        loadSavedLocation();
-
-        updateAirWaitingState();
-
+        log("Resource Center initialized.");
     }
-);
 
 
-/* =========================================================
-   MAP
-   ========================================================= */
+    /* ============================================================
+       MAP
+       ============================================================ */
 
-function initializeMap() {
+    function initializeMap() {
+        const mapElement = $("resourceMap");
 
-    if (
-        typeof L === "undefined"
-    ) {
-
-        console.error(
-            "[ChronicAI] Leaflet is not loaded."
-        );
-
-        if (mapStatus) {
-
-            mapStatus.textContent =
-                "Map unavailable";
-
+        if (!mapElement) {
+            warn("resourceMap element not found.");
+            return;
         }
 
-        return;
-
-    }
-
-
-    const mapElement =
-        document.getElementById(
-            "resourceMap"
-        );
-
-
-    if (
-        !mapElement
-    ) {
-
-        console.error(
-            "[ChronicAI] #resourceMap not found."
-        );
-
-        return;
-
-    }
-
-
-    map =
-        L.map(
-            "resourceMap"
-        )
-        .setView(
-            [
-                20,
-                0
-            ],
-            RESOURCE_CONFIG.defaultZoom
-        );
-
-
-    L.tileLayer(
-        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        {
-
-            maxZoom:
-                19,
-
-            attribution:
-                "&copy; OpenStreetMap contributors"
-
+        if (typeof L === "undefined") {
+            error("Leaflet is not loaded.");
+            return;
         }
-    )
-    .addTo(
-        map
-    );
 
+        try {
+            map = L.map("resourceMap", {
+                zoomControl: true,
+                attributionControl: true
+            }).setView(
+                [22.5726, 88.3639],
+                CONFIG.MAP_DEFAULT_ZOOM
+            );
 
-    if (mapStatus) {
+            L.tileLayer(
+                "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                {
+                    maxZoom: 19,
+                    attribution: "&copy; OpenStreetMap contributors"
+                }
+            ).addTo(map);
 
-        mapStatus.textContent =
-            "Ready";
+            setMapStatus("Ready");
 
+        } catch (err) {
+            error("Map initialization failed:", err);
+        }
     }
 
-}
+
+    /* ============================================================
+       EVENTS
+       ============================================================ */
+
+    function bindEvents() {
+
+        const locateBtn = $("locateBtn");
+
+        if (locateBtn) {
+            locateBtn.addEventListener(
+                "click",
+                requestUserLocation
+            );
+        }
 
 
-/* =========================================================
-   EVENTS
-   ========================================================= */
+        const refreshBtn = $("refreshBtn");
 
-function bindEvents() {
+        if (refreshBtn) {
+            refreshBtn.addEventListener(
+                "click",
+                () => {
+                    if (!currentLocation) {
+                        requestUserLocation();
+                        return;
+                    }
 
-    locateBtn?.addEventListener(
-        "click",
-        getUserLocation
-    );
-
-
-    refreshBtn?.addEventListener(
-        "click",
-        refreshEverything
-    );
-
-
-    centerMapBtn?.addEventListener(
-        "click",
-        centerOnUser
-    );
+                    loadNearbyResources();
+                }
+            );
+        }
 
 
-    distanceFilter?.addEventListener(
-        "change",
-        () => {
+        const centerBtn = $("centerMapBtn");
 
-            const radius =
-                Number(
-                    distanceFilter.value
+        if (centerBtn) {
+            centerBtn.addEventListener(
+                "click",
+                centerMapOnUser
+            );
+        }
+
+
+        qsa(".filter-btn").forEach((button) => {
+
+            button.addEventListener("click", () => {
+
+                qsa(".filter-btn").forEach((btn) => {
+                    btn.classList.remove("active");
+                });
+
+                button.classList.add("active");
+
+                currentResourceType =
+                    button.dataset.type || "all";
+
+                renderResourceList();
+                renderResourceMarkers();
+            });
+        });
+
+
+        const distanceFilter = $("distanceFilter");
+
+        if (distanceFilter) {
+
+            distanceFilter.addEventListener(
+                "change",
+                () => {
+
+                    const value =
+                        Number(distanceFilter.value);
+
+                    if (
+                        Number.isFinite(value) &&
+                        value > 0
+                    ) {
+                        currentDistanceKm = value;
+                    }
+
+                    if (currentLocation) {
+                        loadNearbyResources();
+                    }
+                }
+            );
+        }
+
+
+        const pollutionBtn =
+            $("pollutionTrackerBtn");
+
+        if (pollutionBtn) {
+
+            pollutionBtn.addEventListener(
+                "click",
+                togglePollutionTracker
+            );
+        }
+
+
+        qsa(".pollution-range-btn").forEach(
+            (button) => {
+
+                button.addEventListener(
+                    "click",
+                    () => {
+
+                        const range =
+                            Number(button.dataset.range);
+
+                        if (!Number.isFinite(range)) {
+                            return;
+                        }
+
+                        pollutionRangeKm = range;
+
+                        qsa(
+                            ".pollution-range-btn"
+                        ).forEach((btn) => {
+                            btn.classList.remove(
+                                "active"
+                            );
+                        });
+
+                        button.classList.add("active");
+
+                        if (
+                            pollutionEnabled &&
+                            currentLocation
+                        ) {
+                            renderPollutionZones();
+                        }
+                    }
                 );
-
-
-            if (
-                Number.isFinite(radius) &&
-                radius > 0
-            ) {
-
-                currentRadius =
-                    radius;
-
             }
+        );
 
 
-            if (
-                userLocation
-            ) {
+        const airRefresh =
+            $("refreshAirQuality");
 
-                /*
-                 * Re-query because the selected
-                 * radius may be larger than the
-                 * previous query.
-                 */
+        if (airRefresh) {
 
-                loadNearbyResources();
-
-            }
-
-        }
-    );
-
-
-    filterButtons.forEach(
-        button => {
-
-            button.addEventListener(
+            airRefresh.addEventListener(
                 "click",
                 () => {
 
-                    filterButtons.forEach(
-                        item => {
-
-                            item.classList.remove(
-                                "active"
-                            );
-
-                        }
-                    );
-
-
-                    button.classList.add(
-                        "active"
-                    );
-
-
-                    currentFilter =
-                        button.dataset.type ||
-                        "all";
-
-
-                    renderMarkers();
-
-                    renderResources();
-
+                    if (currentLocation) {
+                        loadAirQuality(
+                            currentLocation.lat,
+                            currentLocation.lon
+                        );
+                    } else {
+                        requestUserLocation();
+                    }
                 }
             );
-
         }
-    );
 
 
-    pollutionTrackerBtn?.addEventListener(
-        "click",
-        togglePollutionTracker
-    );
+        const pollutionSearchBtn =
+            $("pollutionPlaceSearchBtn");
 
+        if (pollutionSearchBtn) {
 
-    pollutionRangeButtons.forEach(
-        button => {
-
-            button.addEventListener(
+            pollutionSearchBtn.addEventListener(
                 "click",
-                event => {
-
-                    event.stopPropagation();
-
-
-                    pollutionRangeButtons.forEach(
-                        item => {
-
-                            item.classList.remove(
-                                "active"
-                            );
-
-                        }
-                    );
+                searchPollutionLocation
+            );
+        }
 
 
-                    button.classList.add(
-                        "active"
-                    );
+        const pollutionInput =
+            $("pollutionPlaceInput");
 
+        if (pollutionInput) {
 
-                    pollutionRangeKm =
-                        Number(
-                            button.dataset.range
-                        ) || 1;
+            pollutionInput.addEventListener(
+                "keydown",
+                (event) => {
 
-
-                    if (
-                        pollutionTrackerEnabled
-                    ) {
-
-                        const target =
-                            searchedPollutionLocation ||
-                            userLocation;
-
-
-                        if (
-                            target
-                        ) {
-
-                            loadPollutionZones(
-                                target.lat,
-                                target.lng
-                            );
-
-                        }
-
+                    if (event.key === "Enter") {
+                        event.preventDefault();
+                        searchPollutionLocation();
                     }
-
                 }
             );
-
         }
-    );
+    }
 
 
-    refreshAirQuality?.addEventListener(
-        "click",
-        () => {
+    /* ============================================================
+       UI INITIALIZATION
+       ============================================================ */
 
-            const target =
-                searchedPollutionLocation ||
-                userLocation;
+    function initializeUI() {
 
-
-            if (
-                target
-            ) {
-
-                loadAirQuality(
-                    target.lat,
-                    target.lng
-                );
-
-            }
-            else {
-
-                setAirMessage(
-                    "Choose a location first."
-                );
-
-            }
-
-        }
-    );
-
-
-    pollutionPlaceSearchBtn?.addEventListener(
-        "click",
-        searchPollutionLocation
-    );
-
-
-    pollutionPlaceInput?.addEventListener(
-        "keydown",
-        event => {
-
-            if (
-                event.key === "Enter"
-            ) {
-
-                event.preventDefault();
-
-                searchPollutionLocation();
-
-            }
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   REFRESH EVERYTHING
-   ========================================================= */
-
-function refreshEverything() {
-
-    if (
-        userLocation
-    ) {
-
-        loadNearbyResources();
-
-
-        loadAirQuality(
-            userLocation.lat,
-            userLocation.lng
+        setLocationStatus(
+            "Waiting for your location..."
         );
 
+        setMapStatus("Ready");
 
-        if (
-            pollutionTrackerEnabled
-        ) {
+        updateResourceCount(0);
 
-            loadPollutionZones(
-                userLocation.lat,
-                userLocation.lng
-            );
-
-        }
-
-
-        return;
-
+        setAirQualityWaiting();
     }
 
 
-    getUserLocation();
+    /* ============================================================
+       LOCATION
+       ============================================================ */
 
-}
+    function requestUserLocation() {
 
-
-/* =========================================================
-   LOCATION
-   ========================================================= */
-
-function getUserLocation() {
-
-    if (
-        !navigator.geolocation
-    ) {
-
-        showLocationError(
-            "Your browser does not support location services."
-        );
-
-        return;
-
-    }
-
-
-    if (
-        locateBtn
-    ) {
-
-        locateBtn.disabled =
-            true;
-
-    }
-
-
-    setLocationStatus(
-        "Getting your live location...",
-        "normal"
-    );
-
-
-    navigator.geolocation.getCurrentPosition(
-
-        position => {
-
-            const latitude =
-                Number(
-                    position.coords.latitude
-                );
-
-
-            const longitude =
-                Number(
-                    position.coords.longitude
-                );
-
-
-            const accuracy =
-                Number(
-                    position.coords.accuracy || 0
-                );
-
-
-            if (
-                !Number.isFinite(latitude) ||
-                !Number.isFinite(longitude)
-            ) {
-
-                handleLocationError(
-                    {
-                        code:
-                            2,
-
-                        message:
-                            "Invalid location."
-                    }
-                );
-
-                return;
-
-            }
-
-
-            userLocation = {
-
-                lat:
-                    latitude,
-
-                lng:
-                    longitude,
-
-                accuracy:
-                    accuracy
-
-            };
-
-
-            saveLocation(
-                userLocation
-            );
-
-
-            clearSearchedMarker();
-
-
-            updateUserMarker(
-                latitude,
-                longitude,
-                accuracy
-            );
-
-
-            if (
-                map
-            ) {
-
-                map.setView(
-                    [
-                        latitude,
-                        longitude
-                    ],
-                    16,
-                    {
-                        animate:
-                            true
-                    }
-                );
-
-            }
-
+        if (!navigator.geolocation) {
 
             setLocationStatus(
-                `Location detected ±${Math.round(
-                    accuracy
-                )}m`,
-                "success"
+                "Geolocation is not supported by this browser."
             );
 
-
-            if (
-                locateBtn
-            ) {
-
-                locateBtn.disabled =
-                    false;
-
-            }
-
-
-            /*
-             * IMPORTANT:
-             *
-             * Resource loading is intentionally
-             * handled separately from location.
-             */
-
-            loadNearbyResources();
-
-
-            loadAirQuality(
-                latitude,
-                longitude
-            );
-
-
-            if (
-                pollutionTrackerEnabled
-            ) {
-
-                loadPollutionZones(
-                    latitude,
-                    longitude
-                );
-
-            }
-
-
-            startLocationWatch();
-
-        },
-
-        error => {
-
-            if (
-                locateBtn
-            ) {
-
-                locateBtn.disabled =
-                    false;
-
-            }
-
-
-            handleLocationError(
-                error
-            );
-
-        },
-
-        {
-
-            enableHighAccuracy:
-                true,
-
-            timeout:
-                20000,
-
-            maximumAge:
-                30000
-
+            return;
         }
 
-    );
 
-}
+        const locateBtn = $("locateBtn");
 
+        if (locateBtn) {
+            locateBtn.disabled = true;
 
-/* =========================================================
-   LIVE LOCATION WATCH
-   ========================================================= */
-
-function startLocationWatch() {
-
-    if (
-        !navigator.geolocation
-    ) {
-
-        return;
-
-    }
+            locateBtn.innerHTML =
+                '<i class="fa-solid fa-spinner fa-spin"></i> Locating...';
+        }
 
 
-    if (
-        locationWatchId !== null
-    ) {
+        const requestId = ++locationRequestId;
 
-        navigator.geolocation.clearWatch(
-            locationWatchId
+
+        setLocationStatus(
+            "Requesting your location..."
         );
 
-    }
+
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+
+                if (requestId !== locationRequestId) {
+                    return;
+                }
 
 
-    locationWatchId =
-        navigator.geolocation.watchPosition(
+                const latitude =
+                    Number(position.coords.latitude);
 
-            position => {
+                const longitude =
+                    Number(position.coords.longitude);
 
-                const nextLocation = {
 
-                    lat:
-                        Number(
-                            position.coords.latitude
-                        ),
+                if (
+                    !Number.isFinite(latitude) ||
+                    !Number.isFinite(longitude)
+                ) {
 
-                    lng:
-                        Number(
-                            position.coords.longitude
-                        ),
+                    handleLocationError(
+                        new Error("Invalid coordinates")
+                    );
 
+                    return;
+                }
+
+
+                currentLocation = {
+                    lat: latitude,
+                    lon: longitude,
                     accuracy:
-                        Number(
-                            position.coords.accuracy || 0
-                        )
-
+                        Number(position.coords.accuracy) || null
                 };
 
 
-                if (
-                    !Number.isFinite(
-                        nextLocation.lat
-                    ) ||
-                    !Number.isFinite(
-                        nextLocation.lng
-                    )
-                ) {
-
-                    return;
-
-                }
-
-
-                const movedMeters =
-                    userLocation
-                        ? calculateDistance(
-                            userLocation.lat,
-                            userLocation.lng,
-                            nextLocation.lat,
-                            nextLocation.lng
-                        ) * 1000
-                        : Infinity;
-
-
-                userLocation =
-                    nextLocation;
-
-
-                saveLocation(
-                    userLocation
+                log(
+                    "Location obtained:",
+                    currentLocation
                 );
 
 
-                clearSearchedMarker();
-
-
-                updateUserMarker(
-                    userLocation.lat,
-                    userLocation.lng,
-                    userLocation.accuracy
-                );
-
+                updateUserMarker();
 
                 setLocationStatus(
-                    `Live location ±${Math.round(
-                        userLocation.accuracy
-                    )}m`,
-                    "success"
+                    `Location found (${latitude.toFixed(5)}, ${longitude.toFixed(5)})`
                 );
 
 
-                /*
-                 * Only refresh expensive APIs after
-                 * the user has moved at least 100 m.
-                 */
+                if (map) {
 
-                if (
-                    movedMeters >= 100
-                ) {
-
-                    loadNearbyResources();
-
-
-                    loadAirQuality(
-                        userLocation.lat,
-                        userLocation.lng
+                    map.setView(
+                        [latitude, longitude],
+                        Math.max(
+                            map.getZoom(),
+                            13
+                        )
                     );
-
-
-                    if (
-                        pollutionTrackerEnabled
-                    ) {
-
-                        loadPollutionZones(
-                            userLocation.lat,
-                            userLocation.lng
-                        );
-
-                    }
-
                 }
 
+
+                try {
+
+                    await loadNearbyResources();
+
+                } catch (err) {
+
+                    error(
+                        "Resource loading failed:",
+                        err
+                    );
+
+                } finally {
+
+                    try {
+                        await loadAirQuality(
+                            latitude,
+                            longitude
+                        );
+                    } catch (err) {
+                        warn(
+                            "Air quality loading failed:",
+                            err
+                        );
+                    }
+
+                    restoreLocateButton();
+                }
             },
 
-            error => {
 
-                console.warn(
-                    "[ChronicAI] Live location update failed:",
-                    error?.message ||
-                    error
+            (geoError) => {
+
+                if (requestId !== locationRequestId) {
+                    return;
+                }
+
+                handleLocationError(geoError);
+                restoreLocateButton();
+            },
+
+
+            {
+                enableHighAccuracy: true,
+                timeout: CONFIG.LOCATION_TIMEOUT,
+                maximumAge: CONFIG.LOCATION_MAX_AGE
+            }
+        );
+    }
+
+
+    function handleLocationError(geoError) {
+
+        let message =
+            "Unable to determine your location.";
+
+        if (geoError) {
+
+            switch (geoError.code) {
+
+                case 1:
+                    message =
+                        "Location permission was denied.";
+                    break;
+
+                case 2:
+                    message =
+                        "Your location could not be determined.";
+                    break;
+
+                case 3:
+                    message =
+                        "Location request timed out.";
+                    break;
+            }
+        }
+
+
+        setLocationStatus(message);
+
+        setMapStatus("Location unavailable");
+
+        warn("Geolocation error:", geoError);
+    }
+
+
+    function restoreLocateButton() {
+
+        const locateBtn = $("locateBtn");
+
+        if (!locateBtn) {
+            return;
+        }
+
+        locateBtn.disabled = false;
+
+        locateBtn.innerHTML =
+            '<i class="fa-solid fa-location-crosshairs"></i> Use My Location';
+    }
+
+
+    /* ============================================================
+       USER MARKER
+       ============================================================ */
+
+    function updateUserMarker() {
+
+        if (!map || !currentLocation) {
+            return;
+        }
+
+
+        const {
+            lat,
+            lon
+        } = currentLocation;
+
+
+        if (userMarker) {
+
+            userMarker.setLatLng([
+                lat,
+                lon
+            ]);
+
+        } else {
+
+            userMarker = L.marker(
+                [lat, lon]
+            )
+                .addTo(map)
+                .bindPopup(
+                    "<strong>Your Location</strong>"
                 );
-
-            },
-
-            {
-
-                enableHighAccuracy:
-                    true,
-
-                timeout:
-                    30000,
-
-                maximumAge:
-                    30000
-
-            }
-
-        );
-
-}
-
-
-/* =========================================================
-   LOCATION UI
-   ========================================================= */
-
-function setLocationStatus(
-    message,
-    type
-) {
-
-    if (
-        !locationStatus
-    ) {
-
-        return;
-
+        }
     }
 
 
-    locationStatus.innerHTML =
-        `
-            <i class="fa-solid fa-location-dot"></i>
-            ${escapeHtml(message)}
-        `;
-
-
-    locationStatus.classList.remove(
-        "success",
-        "error"
-    );
-
-
-    if (
-        type === "success"
-    ) {
-
-        locationStatus.classList.add(
-            "success"
-        );
-
-    }
-
-
-    if (
-        type === "error"
-    ) {
-
-        locationStatus.classList.add(
-            "error"
-        );
-
-    }
-
-}
-
-
-function showLocationError(
-    message
-) {
-
-    setLocationStatus(
-        message,
-        "error"
-    );
-
-}
-
-
-function handleLocationError(
-    error
-) {
-
-    let message =
-        "Unable to get your location.";
-
-
-    if (
-        error?.code ===
-        error?.PERMISSION_DENIED ||
-        error?.code === 1
-    ) {
-
-        message =
-            "Location permission was denied. Allow location access and try again.";
-
-    }
-    else if (
-        error?.code ===
-        error?.POSITION_UNAVAILABLE ||
-        error?.code === 2
-    ) {
-
-        message =
-            "Your location is currently unavailable.";
-
-    }
-    else if (
-        error?.code ===
-        error?.TIMEOUT ||
-        error?.code === 3
-    ) {
-
-        message =
-            "Location request timed out. Please try again.";
-
-    }
-
-
-    showLocationError(
-        message
-    );
-
-}
-
-
-/* =========================================================
-   USER MARKER
-   ========================================================= */
-
-function updateUserMarker(
-    lat,
-    lng,
-    accuracy
-) {
-
-    if (
-        !map
-    ) {
-
-        return;
-
-    }
-
-
-    if (
-        userMarker
-    ) {
-
-        map.removeLayer(
-            userMarker
-        );
-
-    }
-
-
-    if (
-        accuracyCircle
-    ) {
-
-        map.removeLayer(
-            accuracyCircle
-        );
-
-    }
-
-
-    const icon =
-        L.divIcon(
-            {
-
-                className:
-                    "resource-user-marker",
-
-                html:
-                    `
-                        <div style="
-                            width:18px;
-                            height:18px;
-                            border-radius:50%;
-                            background:#4da3ff;
-                            border:3px solid white;
-                            box-shadow:
-                                0 0 0 8px rgba(77,163,255,.16),
-                                0 0 25px rgba(77,163,255,.75);
-                        "></div>
-                    `,
-
-                iconSize:
-                    [
-                        18,
-                        18
-                    ],
-
-                iconAnchor:
-                    [
-                        9,
-                        9
-                    ]
-
-            }
-        );
-
-
-    userMarker =
-        L.marker(
-            [
-                lat,
-                lng
-            ],
-            {
-
-                icon:
-                    icon,
-
-                zIndexOffset:
-                    3000
-
-            }
-        )
-        .addTo(
-            map
-        )
-        .bindPopup(
-            `
-                <strong>
-                    Your Location
-                </strong>
-
-                <br><br>
-
-                ChronicAI is using this location
-                for nearby resources and air-quality
-                information.
-            `
-        );
-
-
-    accuracyCircle =
-        L.circle(
-            [
-                lat,
-                lng
-            ],
-            {
-
-                radius:
-                    Math.max(
-                        Number(accuracy) || 0,
-                        20
-                    ),
-
-                color:
-                    "#4da3ff",
-
-                fillColor:
-                    "#4da3ff",
-
-                fillOpacity:
-                    0.05,
-
-                weight:
-                    1
-
-            }
-        )
-        .addTo(
-            map
-        );
-
-}
-
-
-/* =========================================================
-   CENTER USER
-   ========================================================= */
-
-function centerOnUser() {
-
-    if (
-        !userLocation
-    ) {
-
-        getUserLocation();
-
-        return;
-
-    }
-
-
-    clearSearchedMarker();
-
-
-    if (
-        map
-    ) {
+    function centerMapOnUser() {
+
+        if (!currentLocation) {
+            requestUserLocation();
+            return;
+        }
+
+        if (!map) {
+            return;
+        }
 
         map.setView(
             [
-                userLocation.lat,
-                userLocation.lng
+                currentLocation.lat,
+                currentLocation.lon
             ],
-            15,
-            {
-                animate:
-                    true
+            Math.max(
+                map.getZoom(),
+                14
+            )
+        );
+
+        if (userMarker) {
+            userMarker.openPopup();
+        }
+    }
+
+
+    /* ============================================================
+       RESOURCE LOADING
+       ============================================================ */
+
+    async function loadNearbyResources() {
+
+        if (!currentLocation) {
+            warn(
+                "Cannot load resources without location."
+            );
+            return;
+        }
+
+
+        const requestId = ++resourceRequestId;
+
+
+        if (isLoadingResources) {
+            log(
+                "A previous resource request is still running."
+            );
+        }
+
+        isLoadingResources = true;
+
+
+        setMapStatus("Finding resources...");
+
+        showResourceLoading();
+
+
+        const {
+            lat,
+            lon
+        } = currentLocation;
+
+
+        try {
+
+            const resources =
+                await fetchResourcesFromBackend(
+                    lat,
+                    lon,
+                    currentDistanceKm
+                );
+
+
+            /*
+             * Ignore stale requests.
+             */
+
+            if (requestId !== resourceRequestId) {
+                return;
+            }
+
+
+            resourcesData =
+                normalizeResources(resources);
+
+
+            resourcesData =
+                resourcesData.filter(
+                    (resource) => {
+
+                        if (
+                            !Number.isFinite(
+                                resource.lat
+                            ) ||
+                            !Number.isFinite(
+                                resource.lon
+                            )
+                        ) {
+                            return false;
+                        }
+
+                        return (
+                            resource.distanceKm === null ||
+                            resource.distanceKm <=
+                            currentDistanceKm
+                        );
+                    }
+                );
+
+
+            resourcesData.sort(
+                (a, b) => {
+
+                    const da =
+                        Number.isFinite(
+                            a.distanceKm
+                        )
+                            ? a.distanceKm
+                            : Infinity;
+
+                    const db =
+                        Number.isFinite(
+                            b.distanceKm
+                        )
+                            ? b.distanceKm
+                            : Infinity;
+
+                    return da - db;
+                }
+            );
+
+
+            log(
+                "Normalized resources:",
+                resourcesData
+            );
+
+
+            renderResourceList();
+
+            renderResourceMarkers();
+
+            updateResourceCount(
+                getVisibleResources().length
+            );
+
+
+            if (resourcesData.length > 0) {
+
+                setMapStatus(
+                    `${resourcesData.length} resources found`
+                );
+
+                setLocationStatus(
+                    `Found ${resourcesData.length} nearby resources`
+                );
+
+            } else {
+
+                setMapStatus(
+                    "No resources found"
+                );
+
+                showNoResources();
+            }
+
+
+        } catch (err) {
+
+            if (requestId !== resourceRequestId) {
+                return;
+            }
+
+
+            error(
+                "Resource search failed:",
+                err
+            );
+
+
+            resourcesData = [];
+
+            clearResourceMarkers();
+
+            updateResourceCount(0);
+
+
+            showResourceError(err);
+
+
+            setMapStatus(
+                "Resource search unavailable"
+            );
+
+        } finally {
+
+            if (requestId === resourceRequestId) {
+                isLoadingResources = false;
+            }
+        }
+    }
+
+
+    /* ============================================================
+       BACKEND REQUEST
+       ============================================================ */
+
+    async function fetchResourcesFromBackend(
+        lat,
+        lon,
+        radiusKm
+    ) {
+
+        const params = new URLSearchParams({
+            lat: String(lat),
+            lon: String(lon),
+            radius: String(
+                Math.min(
+                    CONFIG.MAX_RADIUS_KM,
+                    radiusKm
+                )
+            )
+        });
+
+
+        let lastError = null;
+
+
+        for (
+            const endpoint
+            of CONFIG.RESOURCE_ENDPOINTS
+        ) {
+
+            try {
+
+                log(
+                    "Trying resource endpoint:",
+                    endpoint
+                );
+
+
+                const response =
+                    await fetch(
+                        `${endpoint}?${params.toString()}`,
+                        {
+                            method: "GET",
+                            headers: {
+                                Accept:
+                                    "application/json"
+                            },
+                            credentials: "same-origin"
+                        }
+                    );
+
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        `HTTP ${response.status}`
+                    );
+                }
+
+
+                const data =
+                    await response.json();
+
+
+                if (!data) {
+                    throw new Error(
+                        "Empty server response"
+                    );
+                }
+
+
+                /*
+                 * Accept several backend response shapes.
+                 */
+
+                if (Array.isArray(data)) {
+                    return data;
+                }
+
+
+                if (Array.isArray(data.resources)) {
+                    return data.resources;
+                }
+
+
+                if (Array.isArray(data.elements)) {
+                    return data.elements;
+                }
+
+
+                if (
+                    data.data &&
+                    Array.isArray(data.data)
+                ) {
+                    return data.data;
+                }
+
+
+                throw new Error(
+                    "Backend returned no resources array"
+                );
+
+
+            } catch (err) {
+
+                lastError = err;
+
+                warn(
+                    `Endpoint ${endpoint} failed:`,
+                    err.message
+                );
+            }
+        }
+
+
+        throw (
+            lastError ||
+            new Error(
+                "No resource backend is available."
+            )
+        );
+    }
+
+
+    /* ============================================================
+       NORMALIZE RESOURCES
+       ============================================================ */
+
+    function normalizeResources(input) {
+
+        if (!Array.isArray(input)) {
+            return [];
+        }
+
+
+        return input
+            .map((raw) => {
+
+                const tags =
+                    raw.tags || {};
+
+
+                const lat =
+                    Number(
+                        raw.lat ??
+                        raw.latitude ??
+                        raw.center?.lat
+                    );
+
+
+                const lon =
+                    Number(
+                        raw.lon ??
+                        raw.lng ??
+                        raw.longitude ??
+                        raw.center?.lon
+                    );
+
+
+                if (
+                    !Number.isFinite(lat) ||
+                    !Number.isFinite(lon)
+                ) {
+                    return null;
+                }
+
+
+                const name =
+                    firstNonEmpty(
+                        raw.name,
+                        tags.name,
+                        tags["official_name"],
+                        tags["short_name"],
+                        getDefaultResourceName(
+                            raw.type,
+                            tags
+                        )
+                    );
+
+
+                const type =
+                    normalizeResourceType(
+                        raw.type ||
+                        raw.category ||
+                        tags.amenity ||
+                        tags.office ||
+                        tags.emergency ||
+                        tags.building ||
+                        ""
+                    );
+
+
+                const phone =
+                    firstNonEmpty(
+                        raw.phone,
+                        raw.telephone,
+                        tags.phone,
+                        tags["contact:phone"]
+                    );
+
+
+                const address =
+                    firstNonEmpty(
+                        raw.address,
+                        tags["addr:full"],
+                        buildAddress(tags)
+                    );
+
+
+                let distanceKm =
+                    Number(
+                        raw.distanceKm ??
+                        raw.distance ??
+                        raw.distance_km
+                    );
+
+
+                if (
+                    !Number.isFinite(
+                        distanceKm
+                    ) &&
+                    currentLocation
+                ) {
+
+                    distanceKm =
+                        calculateDistanceKm(
+                            currentLocation.lat,
+                            currentLocation.lon,
+                            lat,
+                            lon
+                        );
+                }
+
+
+                if (
+                    !Number.isFinite(
+                        distanceKm
+                    )
+                ) {
+                    distanceKm = null;
+                }
+
+
+                return {
+
+                    id:
+                        String(
+                            raw.id ??
+                            raw.osm_id ??
+                            `${lat}-${lon}-${name}`
+                        ),
+
+                    name,
+
+                    type,
+
+                    lat,
+
+                    lon,
+
+                    phone,
+
+                    address,
+
+                    distanceKm,
+
+                    website:
+                        firstNonEmpty(
+                            raw.website,
+                            tags.website,
+                            tags["contact:website"]
+                        ),
+
+                    openingHours:
+                        firstNonEmpty(
+                            raw.openingHours,
+                            tags.opening_hours
+                        ),
+
+                    raw
+                };
+            })
+            .filter(Boolean);
+    }
+
+
+    function firstNonEmpty(...values) {
+
+        for (const value of values) {
+
+            if (
+                value !== undefined &&
+                value !== null &&
+                String(value).trim() !== ""
+            ) {
+                return String(value).trim();
+            }
+        }
+
+        return "";
+    }
+
+
+    function buildAddress(tags) {
+
+        const parts = [
+            tags["addr:housenumber"],
+            tags["addr:street"],
+            tags["addr:suburb"],
+            tags["addr:city"]
+        ].filter(Boolean);
+
+
+        return parts.join(", ");
+    }
+
+
+    function getDefaultResourceName(
+        type,
+        tags
+    ) {
+
+        const normalized =
+            normalizeResourceType(
+                type ||
+                tags?.amenity ||
+                ""
+            );
+
+
+        const names = {
+            hospital: "Hospital",
+            police: "Police Station",
+            fire: "Fire Station",
+            government: "Government Office",
+            relief: "Relief Center",
+            other: "Public Resource"
+        };
+
+
+        return (
+            names[normalized] ||
+            "Public Resource"
+        );
+    }
+
+
+    /* ============================================================
+       RESOURCE TYPE
+       ============================================================ */
+
+    function normalizeResourceType(value) {
+
+        const text =
+            String(value || "")
+                .toLowerCase()
+                .trim();
+
+
+        if (
+            text.includes("hospital") ||
+            text.includes("clinic") ||
+            text.includes("health") ||
+            text.includes("doctors")
+        ) {
+            return "hospital";
+        }
+
+
+        if (
+            text.includes("police")
+        ) {
+            return "police";
+        }
+
+
+        if (
+            text.includes("fire")
+        ) {
+            return "fire";
+        }
+
+
+        if (
+            text.includes("government") ||
+            text.includes("government_office") ||
+            text.includes("townhall") ||
+            text.includes("public_service") ||
+            text.includes("post_office") ||
+            text.includes("administrative")
+        ) {
+            return "government";
+        }
+
+
+        if (
+            text.includes("relief") ||
+            text.includes("shelter") ||
+            text.includes("food_bank") ||
+            text.includes("social")
+        ) {
+            return "relief";
+        }
+
+
+        return "other";
+    }
+
+
+    /* ============================================================
+       FILTERING
+       ============================================================ */
+
+    function getVisibleResources() {
+
+        return resourcesData.filter(
+            (resource) => {
+
+                if (
+                    currentResourceType !==
+                    "all"
+                ) {
+
+                    if (
+                        resource.type !==
+                        currentResourceType
+                    ) {
+                        return false;
+                    }
+                }
+
+
+                if (
+                    Number.isFinite(
+                        resource.distanceKm
+                    )
+                ) {
+
+                    if (
+                        resource.distanceKm >
+                        currentDistanceKm
+                    ) {
+                        return false;
+                    }
+                }
+
+
+                return true;
             }
         );
-
-    }
-
-}
-
-
-/* =========================================================
-   NEARBY RESOURCES
-   ========================================================= */
-
-async function loadNearbyResources() {
-
-    if (
-        !userLocation
-    ) {
-
-        showResourceEmptyState(
-            "Location Required",
-            'Click "Use My Location" to find nearby civic resources.'
-        );
-
-        return;
-
     }
 
 
-    if (
-        resourceLoading
-    ) {
+    /* ============================================================
+       RESOURCE LIST
+       ============================================================ */
 
-        console.log(
-            "[ChronicAI] Resource search already running."
-        );
+    function renderResourceList() {
 
-        return;
+        const list =
+            $("resourceList");
 
-    }
+        if (!list) {
+            return;
+        }
 
 
-    const radius =
-        Number(
-            distanceFilter?.value ||
-            currentRadius ||
-            5
+        const resources =
+            getVisibleResources();
+
+
+        updateResourceCount(
+            resources.length
         );
 
 
-    currentRadius =
-        Number.isFinite(radius) &&
-        radius > 0
-            ? radius
-            : 5;
+        if (!resources.length) {
 
-
-    resourceLoading =
-        true;
-
-
-    lastResourceSearch =
-        Date.now();
-
-
-    if (
-        mapStatus
-    ) {
-
-        mapStatus.textContent =
-            `Searching within ${currentRadius} km...`;
-
-    }
-
-
-    if (
-        resourceList
-    ) {
-
-        resourceList.innerHTML =
-            `
+            list.innerHTML = `
                 <div class="empty-state">
-
                     <div class="empty-icon">
-                        <i class="fa-solid fa-spinner fa-spin"></i>
+                        <i class="fa-solid fa-location-dot"></i>
+                    </div>
+
+                    <h4>No Resources Found</h4>
+
+                    <p>
+                        No matching resources were found
+                        within ${escapeHTML(
+                            currentDistanceKm
+                        )} km.
+                    </p>
+                </div>
+            `;
+
+            return;
+        }
+
+
+        list.innerHTML =
+            resources
+                .map(
+                    createResourceCard
+                )
+                .join("");
+
+
+        /*
+         * Add click handlers.
+         */
+
+        qsa(
+            "[data-resource-id]",
+            list
+        ).forEach((card) => {
+
+            card.addEventListener(
+                "click",
+                () => {
+
+                    const id =
+                        card.dataset.resourceId;
+
+                    focusResource(id);
+                }
+            );
+        });
+    }
+
+
+    function createResourceCard(resource) {
+
+        const icon =
+            getResourceIcon(
+                resource.type
+            );
+
+
+        const distance =
+            Number.isFinite(
+                resource.distanceKm
+            )
+                ? `${resource.distanceKm.toFixed(1)} km`
+                : "Distance unavailable";
+
+
+        const phoneHTML =
+            resource.phone
+                ? `
+                    <a
+                        href="tel:${escapeHTML(
+                            resource.phone
+                        )}"
+                        class="resource-contact-btn"
+                        onclick="event.stopPropagation()"
+                    >
+                        <i class="fa-solid fa-phone"></i>
+                        Call
+                    </a>
+                `
+                : "";
+
+
+        const directionsUrl =
+            createDirectionsUrl(
+                resource.lat,
+                resource.lon
+            );
+
+
+        return `
+            <article
+                class="resource-item"
+                data-resource-id="${escapeHTML(
+                    resource.id
+                )}"
+            >
+
+                <div class="resource-item-icon ${escapeHTML(
+                    resource.type
+                )}">
+                    <i class="${icon}"></i>
+                </div>
+
+                <div class="resource-item-content">
+
+                    <div class="resource-item-top">
+
+                        <span class="resource-type">
+                            ${escapeHTML(
+                                formatResourceType(
+                                    resource.type
+                                )
+                            )}
+                        </span>
+
+                        <span class="resource-distance">
+                            ${escapeHTML(distance)}
+                        </span>
+
                     </div>
 
                     <h4>
-                        Finding Nearby Resources
+                        ${escapeHTML(
+                            resource.name
+                        )}
                     </h4>
 
-                    <p>
-                        Searching within
-                        ${currentRadius} km...
-                    </p>
+                    ${
+                        resource.address
+                            ? `
+                                <p>
+                                    <i class="fa-solid fa-location-dot"></i>
+                                    ${escapeHTML(
+                                        resource.address
+                                    )}
+                                </p>
+                            `
+                            : ""
+                    }
+
+                    ${
+                        resource.openingHours
+                            ? `
+                                <p>
+                                    <i class="fa-solid fa-clock"></i>
+                                    ${escapeHTML(
+                                        resource.openingHours
+                                    )}
+                                </p>
+                            `
+                            : ""
+                    }
+
+                    <div class="resource-item-actions">
+
+                        ${
+                            phoneHTML
+                        }
+
+                        <a
+                            href="${directionsUrl}"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="resource-contact-btn"
+                            onclick="event.stopPropagation()"
+                        >
+                            <i class="fa-solid fa-route"></i>
+                            Directions
+                        </a>
+
+                    </div>
+
+                </div>
+
+            </article>
+        `;
+    }
+
+
+    function getResourceIcon(type) {
+
+        const icons = {
+
+            hospital:
+                "fa-solid fa-hospital",
+
+            police:
+                "fa-solid fa-shield-halved",
+
+            fire:
+                "fa-solid fa-fire-extinguisher",
+
+            government:
+                "fa-solid fa-building-columns",
+
+            relief:
+                "fa-solid fa-hand-holding-heart",
+
+            other:
+                "fa-solid fa-location-dot"
+        };
+
+
+        return (
+            icons[type] ||
+            icons.other
+        );
+    }
+
+
+    function formatResourceType(type) {
+
+        const labels = {
+
+            hospital: "Hospital",
+
+            police: "Police",
+
+            fire: "Fire",
+
+            government: "Government",
+
+            relief: "Relief",
+
+            other: "Public Resource"
+        };
+
+
+        return (
+            labels[type] ||
+            "Public Resource"
+        );
+    }
+
+
+    /* ============================================================
+       MAP MARKERS
+       ============================================================ */
+
+    function renderResourceMarkers() {
+
+        if (!map) {
+            return;
+        }
+
+
+        clearResourceMarkers();
+
+
+        const resources =
+            getVisibleResources();
+
+
+        resources.forEach((resource) => {
+
+            const marker =
+                L.marker([
+                    resource.lat,
+                    resource.lon
+                ]);
+
+
+            const popup = `
+                <div class="resource-popup">
+
+                    <strong>
+                        ${escapeHTML(
+                            resource.name
+                        )}
+                    </strong>
+
+                    <div>
+                        ${escapeHTML(
+                            formatResourceType(
+                                resource.type
+                            )
+                        )}
+                    </div>
+
+                    ${
+                        Number.isFinite(
+                            resource.distanceKm
+                        )
+                            ? `
+                                <div>
+                                    ${resource.distanceKm.toFixed(1)}
+                                    km away
+                                </div>
+                            `
+                            : ""
+                    }
+
+                    ${
+                        resource.address
+                            ? `
+                                <div>
+                                    ${escapeHTML(
+                                        resource.address
+                                    )}
+                                </div>
+                            `
+                            : ""
+                    }
+
+                    <br>
+
+                    <a
+                        href="${createDirectionsUrl(
+                            resource.lat,
+                            resource.lon
+                        )}"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        Get Directions
+                    </a>
 
                 </div>
             `;
 
-    }
 
+            marker
+                .bindPopup(popup)
+                .addTo(map);
 
-    try {
 
-        console.log(
-            "[ChronicAI] Resource search:",
-            {
-                lat:
-                    userLocation.lat,
-
-                lng:
-                    userLocation.lng,
-
-                radius:
-                    currentRadius
-            }
-        );
-
-
-        const data =
-            await fetchResourceApi(
-                userLocation.lat,
-                userLocation.lng,
-                currentRadius
-            );
-
-
-        const normalized =
-            normalizeResources(
-                data
-            );
-
-
-        resources =
-            removeDuplicateResources(
-                normalized
-            );
-
-
-        saveResources(
-            resources
-        );
-
-
-        renderMarkers();
-
-        renderResources();
-
-
-        if (
-            resources.length
-        ) {
-
-            if (
-                mapStatus
-            ) {
-
-                mapStatus.textContent =
-                    `Live resources • ${resources.length} found`;
-
-            }
-
-        }
-        else {
-
-            if (
-                mapStatus
-            ) {
-
-                mapStatus.textContent =
-                    "No resources found";
-
-            }
-
-            showResourceEmptyState(
-                "No Resources Found",
-                `No mapped civic resources were found within ${currentRadius} km. Try a larger radius.`
-            );
-
-        }
-
-
-        console.log(
-            "[ChronicAI] Resources displayed:",
-            resources.length
-        );
-
-    }
-    catch (
-        error
-    ) {
-
-        console.error(
-            "[ChronicAI] Resource search failed:",
-            error
-        );
-
-
-        /*
-         * Try cached resources.
-         */
-
-        const cached =
-            loadCachedResources();
-
-
-        resources =
-            Array.isArray(cached)
-                ? cached
-                : [];
-
-
-        renderMarkers();
-
-        renderResources();
-
-
-        if (
-            resources.length
-        ) {
-
-            if (
-                mapStatus
-            ) {
-
-                mapStatus.textContent =
-                    `Cached resources • ${resources.length} found`;
-
-            }
-
-        }
-        else {
-
-            if (
-                mapStatus
-            ) {
-
-                mapStatus.textContent =
-                    "Resource service unavailable";
-
-            }
-
-
-            showResourceEmptyState(
-                "Unable to Load Resources",
-                "The live resource service could not be reached. Please try Refresh again."
-            );
-
-        }
-
-    }
-    finally {
-
-        resourceLoading =
-            false;
-
-    }
-
-}
-
-
-/* =========================================================
-   RESOURCE API
-   ========================================================= */
-
-async function fetchResourceApi(
-    lat,
-    lng,
-    radiusKm
-) {
-
-    const params =
-        new URLSearchParams({
-
-            lat:
-                String(lat),
-
-            lng:
-                String(lng),
-
-            radius:
-                String(radiusKm)
-
-        });
-
-
-    const url =
-        RESOURCE_CONFIG.resourceApi +
-        "?" +
-        params.toString();
-
-
-    console.log(
-        "[ChronicAI] Requesting:",
-        url
-    );
-
-
-    const controller =
-        new AbortController();
-
-
-    const timeout =
-        setTimeout(
-            () => {
-
-                controller.abort();
-
-            },
-            35000
-        );
-
-
-    try {
-
-        const response =
-            await fetch(
-                url,
-                {
-
-                    method:
-                        "GET",
-
-                    headers:
-                        {
-                            "Accept":
-                                "application/json"
-                        },
-
-                    credentials:
-                        "same-origin",
-
-                    cache:
-                        "no-store",
-
-                    signal:
-                        controller.signal
-
-                }
-            );
-
-
-        if (
-            !response.ok
-        ) {
-
-            let details =
-                "";
-
-
-            try {
-
-                details =
-                    await response.text();
-
-            }
-            catch {}
-
-
-            throw new Error(
-                `Resource API HTTP ${response.status}` +
-                (
-                    details
-                        ? `: ${details.slice(0, 200)}`
-                        : ""
-                )
-            );
-
-        }
-
-
-        const data =
-            await response.json();
-
-
-        if (
-            !data
-        ) {
-
-            throw new Error(
-                "Empty resource API response."
-            );
-
-        }
-
-
-        /*
-         * Accept both:
-         *
-         * { elements: [...] }
-         *
-         * and
-         *
-         * { resources: [...] }
-         */
-
-        if (
-            Array.isArray(
-                data.elements
-            )
-        ) {
-
-            return data;
-
-        }
-
-
-        if (
-            Array.isArray(
-                data.resources
-            )
-        ) {
-
-            return {
-                elements:
-                    data.resources
-            };
-
-        }
-
-
-        throw new Error(
-            "Resource API returned an invalid JSON structure."
-        );
-
-    }
-    finally {
-
-        clearTimeout(
-            timeout
-        );
-
-    }
-
-}
-
-
-/* =========================================================
-   NORMALIZE RESOURCES
-   ========================================================= */
-
-function normalizeResources(
-    data
-) {
-
-    if (
-        !data
-    ) {
-
-        return [];
-
-    }
-
-
-    const elements =
-        Array.isArray(
-            data.elements
-        )
-            ? data.elements
-            : Array.isArray(data)
-                ? data
-                : [];
-
-
-    if (
-        !elements.length
-    ) {
-
-        return [];
-
-    }
-
-
-    const normalized =
-        [];
-
-
-    elements.forEach(
-        element => {
-
-            const tags =
-                element.tags ||
-                {};
-
-
-            let type =
-                null;
-
-
-            /*
-             * Hospitals.
-             */
-
-            if (
-                tags.amenity ===
-                    "hospital" ||
-
-                tags.healthcare ===
-                    "hospital" ||
-
-                tags.amenity ===
-                    "clinic" ||
-
-                tags.healthcare ===
-                    "clinic" ||
-
-                tags.amenity ===
-                    "doctors"
-            ) {
-
-                type =
-                    "hospital";
-
-            }
-
-
-            /*
-             * Police.
-             */
-
-            else if (
-                tags.amenity ===
-                "police"
-            ) {
-
-                type =
-                    "police";
-
-            }
-
-
-            /*
-             * Fire.
-             */
-
-            else if (
-                tags.amenity ===
-                "fire_station"
-            ) {
-
-                type =
-                    "fire";
-
-            }
-
-
-            /*
-             * Government.
-             */
-
-            else if (
-                tags.office ===
-                    "government" ||
-
-                tags.amenity ===
-                    "townhall"
-            ) {
-
-                type =
-                    "government";
-
-            }
-
-
-            /*
-             * Relief/community.
-             */
-
-            else if (
-                tags.amenity ===
-                    "social_centre" ||
-
-                tags.amenity ===
-                    "community_centre" ||
-
-                tags.amenity ===
-                    "shelter" ||
-
-                tags.amenity ===
-                    "food_bank"
-            ) {
-
-                type =
-                    "relief";
-
-            }
-
-
-            if (
-                !type
-            ) {
-
-                return;
-
-            }
-
-
-            let lat =
-                Number(
-                    element.lat
-                );
-
-
-            let lng =
-                Number(
-                    element.lon
-                );
-
-
-            /*
-             * Ways and relations use center.
-             */
-
-            if (
-                !Number.isFinite(lat) ||
-                !Number.isFinite(lng)
-            ) {
-
-                lat =
-                    Number(
-                        element.center?.lat
-                    );
-
-                lng =
-                    Number(
-                        element.center?.lon
-                    );
-
-            }
-
-
-            if (
-                !Number.isFinite(lat) ||
-                !Number.isFinite(lng)
-            ) {
-
-                return;
-
-            }
-
-
-            const distance =
-                userLocation
-                    ? calculateDistance(
-                        userLocation.lat,
-                        userLocation.lng,
-                        lat,
-                        lng
-                    )
-                    : 0;
-
-
-            const name =
-                tags.name ||
-                tags.official_name ||
-                tags.short_name ||
-                TYPE_CONFIG[type].label;
-
-
-            const addressParts = [
-
-                tags["addr:housenumber"],
-
-                tags["addr:street"],
-
-                tags["addr:suburb"],
-
-                tags["addr:city"],
-
-                tags["addr:postcode"]
-
-            ]
-            .filter(
-                Boolean
-            );
-
-
-            normalized.push({
-
-                id:
-                    `${element.type || "resource"}-${element.id || `${lat}-${lng}`}`,
-
-                name:
-                    String(name),
-
-                type:
-                    type,
-
-                lat:
-                    lat,
-
-                lng:
-                    lng,
-
-                address:
-                    addressParts.join(
-                        ", "
-                    ) ||
-                    "Address information unavailable",
-
-                phone:
-                    tags.phone ||
-                    tags["contact:phone"] ||
-                    tags["contact:mobile"] ||
-                    "",
-
-                website:
-                    tags.website ||
-                    tags["contact:website"] ||
-                    "",
-
-                openingHours:
-                    tags.opening_hours ||
-                    "",
-
-                distance:
-                    distance
-
+            resourceMarkers.push({
+                id: resource.id,
+                marker
             });
-
-        }
-    );
-
-
-    return normalized.sort(
-        (
-            a,
-            b
-        ) =>
-            a.distance -
-            b.distance
-    );
-
-}
-
-
-/* =========================================================
-   REMOVE DUPLICATES
-   ========================================================= */
-
-function removeDuplicateResources(
-    items
-) {
-
-    const seen =
-        new Set();
-
-
-    return items.filter(
-        item => {
-
-            const key =
-                item.id ||
-                `${item.name}-${item.lat.toFixed(5)}-${item.lng.toFixed(5)}`;
-
-
-            if (
-                seen.has(key)
-            ) {
-
-                return false;
-
-            }
-
-
-            seen.add(
-                key
-            );
-
-
-            return true;
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   RESOURCE EMPTY STATE
-   ========================================================= */
-
-function showResourceEmptyState(
-    title,
-    message
-) {
-
-    if (
-        !resourceList
-    ) {
-
-        return;
-
+        });
     }
 
 
-    resourceList.innerHTML =
-        `
+    function clearResourceMarkers() {
+
+        resourceMarkers.forEach(
+            ({ marker }) => {
+
+                try {
+                    marker.remove();
+                } catch (_) {}
+            }
+        );
+
+
+        resourceMarkers = [];
+    }
+
+
+    function focusResource(id) {
+
+        const resource =
+            resourcesData.find(
+                (item) =>
+                    String(item.id) ===
+                    String(id)
+            );
+
+
+        if (!resource || !map) {
+            return;
+        }
+
+
+        map.setView(
+            [
+                resource.lat,
+                resource.lon
+            ],
+            Math.max(
+                map.getZoom(),
+                16
+            )
+        );
+
+
+        const entry =
+            resourceMarkers.find(
+                (item) =>
+                    String(item.id) ===
+                    String(id)
+            );
+
+
+        if (entry) {
+            entry.marker.openPopup();
+        }
+    }
+
+
+    /* ============================================================
+       RESOURCE UI STATES
+       ============================================================ */
+
+    function showResourceLoading() {
+
+        const list =
+            $("resourceList");
+
+        if (!list) {
+            return;
+        }
+
+
+        list.innerHTML = `
+            <div class="empty-state">
+
+                <div class="empty-icon">
+                    <i class="fa-solid fa-spinner fa-spin"></i>
+                </div>
+
+                <h4>
+                    Finding Nearby Resources
+                </h4>
+
+                <p>
+                    Searching hospitals, police stations,
+                    fire stations and public services...
+                </p>
+
+            </div>
+        `;
+    }
+
+
+    function showNoResources() {
+
+        const list =
+            $("resourceList");
+
+        if (!list) {
+            return;
+        }
+
+
+        list.innerHTML = `
             <div class="empty-state">
 
                 <div class="empty-icon">
@@ -2186,2983 +1760,1178 @@ function showResourceEmptyState(
                 </div>
 
                 <h4>
-                    ${escapeHtml(title)}
+                    No Resources Found
                 </h4>
 
                 <p>
-                    ${escapeHtml(message)}
+                    Try increasing the search distance
+                    or changing the resource category.
+                </p>
+
+            </div>
+        `;
+    }
+
+
+    function showResourceError(err) {
+
+        const list =
+            $("resourceList");
+
+        if (!list) {
+            return;
+        }
+
+
+        list.innerHTML = `
+            <div class="empty-state">
+
+                <div class="empty-icon">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+
+                <h4>
+                    Resource Search Unavailable
+                </h4>
+
+                <p>
+                    The resource server could not be reached.
+                    Please try Refresh in a moment.
                 </p>
 
             </div>
         `;
 
 
-    if (
-        resourceCount
-    ) {
+        /*
+         * Do NOT expose raw server/CORS errors
+         * to normal users.
+         */
 
-        resourceCount.textContent =
-            "0";
-
-    }
-
-}
-
-
-/* =========================================================
-   RESOURCE MARKERS
-   ========================================================= */
-
-function renderMarkers() {
-
-    if (
-        !map
-    ) {
-
-        return;
-
-    }
-
-
-    resourceMarkers.forEach(
-        marker => {
-
-            try {
-
-                map.removeLayer(
-                    marker
-                );
-
-            }
-            catch {}
-
-        }
-    );
-
-
-    resourceMarkers =
-        [];
-
-
-    resources.forEach(
-        resource => {
-
-            if (
-                currentFilter !==
-                    "all" &&
-
-                resource.type !==
-                    currentFilter
-            ) {
-
-                return;
-
-            }
-
-
-            if (
-                resource.distance >
-                currentRadius
-            ) {
-
-                return;
-
-            }
-
-
-            const config =
-                TYPE_CONFIG[
-                    resource.type
-                ];
-
-
-            const icon =
-                L.divIcon(
-                    {
-
-                        className:
-                            "resource-marker",
-
-                        html:
-                            `
-                                <div style="
-                                    width:34px;
-                                    height:34px;
-                                    border-radius:50%;
-                                    background:#07111f;
-                                    border:2px solid white;
-                                    display:flex;
-                                    align-items:center;
-                                    justify-content:center;
-                                    box-shadow:0 4px 15px rgba(0,0,0,.35);
-                                ">
-                                    <i
-                                        class="fa-solid ${config.icon}"
-                                        style="
-                                            font-size:15px;
-                                            color:white;
-                                        "
-                                    ></i>
-                                </div>
-                            `,
-
-                        iconSize:
-                            [
-                                34,
-                                34
-                            ],
-
-                        iconAnchor:
-                            [
-                                17,
-                                17
-                            ]
-
-                    }
-                );
-
-
-            const marker =
-                L.marker(
-                    [
-                        resource.lat,
-                        resource.lng
-                    ],
-                    {
-                        icon:
-                            icon
-                    }
-                )
-                .addTo(
-                    map
-                );
-
-
-            marker.bindPopup(
-                `
-                    <div>
-
-                        <strong>
-                            ${escapeHtml(
-                                resource.name
-                            )}
-                        </strong>
-
-                        <br>
-
-                        ${escapeHtml(
-                            config.label
-                        )}
-
-                        <br>
-
-                        ${formatDistance(
-                            resource.distance
-                        )}
-
-                        ${
-                            resource.address
-                                ? `
-                                    <br><br>
-                                    ${escapeHtml(
-                                        resource.address
-                                    )}
-                                  `
-                                : ""
-                        }
-
-                        <br><br>
-
-                        <a
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
-                                resource.lat +
-                                "," +
-                                resource.lng
-                            )}"
-                        >
-                            Get Directions
-                        </a>
-
-                    </div>
-                `
+        if (CONFIG.ENABLE_CONSOLE_LOGS) {
+            console.error(
+                "[ChronicAI] Resource backend error:",
+                err
             );
-
-
-            resourceMarkers.push(
-                marker
-            );
-
         }
-    );
-
-}
-
-
-/* =========================================================
-   RESOURCE LIST
-   ========================================================= */
-
-function renderResources() {
-
-    if (
-        !resourceList
-    ) {
-
-        return;
-
     }
 
 
-    const filtered =
-        resources.filter(
-            resource => {
+    function updateResourceCount(count) {
 
-                const typeOk =
-                    currentFilter ===
-                        "all" ||
+        const element =
+            $("resourceCount");
 
-                    resource.type ===
-                        currentFilter;
-
-
-                const distanceOk =
-                    Number(
-                        resource.distance
-                    ) <=
-                    Number(
-                        currentRadius
-                    );
-
-
-                return (
-                    typeOk &&
-                    distanceOk
-                );
-
-            }
-        );
-
-
-    if (
-        resourceCount
-    ) {
-
-        resourceCount.textContent =
-            filtered.length;
-
+        if (element) {
+            element.textContent =
+                String(count);
+        }
     }
 
 
-    if (
-        !filtered.length
-    ) {
+    /* ============================================================
+       MAP STATUS
+       ============================================================ */
 
-        showResourceEmptyState(
-            "No Resources Found",
-            "Try another category or increase the search radius."
-        );
+    function setMapStatus(message) {
 
-        return;
+        const element =
+            $("mapStatus");
 
+        if (element) {
+            element.textContent =
+                message;
+        }
     }
 
 
-    resourceList.innerHTML =
-        filtered
-            .map(
-                createResourceCard
-            )
-            .join("");
+    function setLocationStatus(message) {
 
-}
+        const element =
+            $("locationStatus");
 
-
-/* =========================================================
-   RESOURCE CARD
-   ========================================================= */
-
-function createResourceCard(
-    resource
-) {
-
-    const config =
-        TYPE_CONFIG[
-            resource.type
-        ];
-
-
-    const phone =
-        resource.phone
-            ? `
-                <a
-                    class="resource-action"
-                    href="tel:${encodeURIComponent(
-                        resource.phone
-                    )}"
-                >
-                    <i class="fa-solid fa-phone"></i>
-                    Call
-                </a>
-            `
-            : "";
-
-
-    let website =
-        "";
-
-
-    if (
-        resource.website
-    ) {
-
-        let websiteUrl =
-            String(
-                resource.website
-            ).trim();
-
-
-        if (
-            !/^https?:\/\//i.test(
-                websiteUrl
-            )
-        ) {
-
-            websiteUrl =
-                "https://" +
-                websiteUrl;
-
+        if (!element) {
+            return;
         }
 
 
-        website =
-            `
-                <a
-                    class="resource-action"
-                    href="${escapeHtml(
-                        websiteUrl
-                    )}"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                >
-                    <i class="fa-solid fa-globe"></i>
-                    Web
-                </a>
-            `;
-
+        element.innerHTML = `
+            <i class="fa-solid fa-location-dot"></i>
+            ${escapeHTML(message)}
+        `;
     }
 
 
-    return `
-        <article
-            class="resource-item"
-        >
+    /* ============================================================
+       DIRECTIONS
+       ============================================================ */
 
-            <div
-                class="resource-item-top"
-            >
-
-                <div
-                    class="resource-type-icon"
-                >
-
-                    <i
-                        class="fa-solid ${config.icon}"
-                    ></i>
-
-                </div>
-
-
-                <div>
-
-                    <h4>
-                        ${escapeHtml(
-                            resource.name
-                        )}
-                    </h4>
-
-                    <div
-                        class="resource-type"
-                    >
-                        ${escapeHtml(
-                            config.label
-                        )}
-                    </div>
-
-                </div>
-
-
-                <span
-                    class="resource-distance"
-                >
-                    ${formatDistance(
-                        resource.distance
-                    )}
-                </span>
-
-            </div>
-
-
-            <div
-                class="resource-address"
-            >
-
-                <i
-                    class="fa-solid fa-location-dot"
-                ></i>
-
-                ${escapeHtml(
-                    resource.address
-                )}
-
-            </div>
-
-
-            <div
-                class="resource-actions"
-            >
-
-                <a
-                    class="resource-action primary"
-                    href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
-                        resource.lat +
-                        "," +
-                        resource.lng
-                    )}"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                >
-
-                    <i
-                        class="fa-solid fa-route"
-                    ></i>
-
-                    Directions
-
-                </a>
-
-
-                ${phone}
-
-
-                ${website}
-
-            </div>
-
-        </article>
-    `;
-
-}
-
-
-/* =========================================================
-   DISTANCE
-   ========================================================= */
-
-function calculateDistance(
-    lat1,
-    lon1,
-    lat2,
-    lon2
-) {
-
-    const R =
-        6371;
-
-
-    const dLat =
-        toRadians(
-            lat2 -
-            lat1
-        );
-
-
-    const dLng =
-        toRadians(
-            lon2 -
-            lon1
-        );
-
-
-    const a =
-        Math.sin(
-            dLat / 2
-        ) ** 2
-
-        +
-
-        Math.cos(
-            toRadians(
-                lat1
-            )
-        )
-
-        *
-
-        Math.cos(
-            toRadians(
-                lat2
-            )
-        )
-
-        *
-
-        Math.sin(
-            dLng / 2
-        ) ** 2;
-
-
-    return (
-        R *
-        2 *
-        Math.atan2(
-            Math.sqrt(a),
-            Math.sqrt(
-                1 - a
-            )
-        )
-    );
-
-}
-
-
-function toRadians(
-    value
-) {
-
-    return (
-        value *
-        Math.PI /
-        180
-    );
-
-}
-
-
-function formatDistance(
-    distance
-) {
-
-    if (
-        !Number.isFinite(
-            distance
-        )
-    ) {
-
-        return "—";
-
-    }
-
-
-    if (
-        distance < 1
+    function createDirectionsUrl(
+        lat,
+        lon
     ) {
 
         return (
-            Math.round(
-                distance * 1000
-            ) +
-            " m"
+            "https://www.google.com/maps/dir/?api=1" +
+            `&destination=${encodeURIComponent(
+                `${lat},${lon}`
+            )}`
         );
-
     }
 
 
-    return (
-        distance.toFixed(
-            1
-        ) +
-        " km"
-    );
+    /* ============================================================
+       DISTANCE
+       ============================================================ */
 
-}
+    function calculateDistanceKm(
+        lat1,
+        lon1,
+        lat2,
+        lon2
+    ) {
+
+        const earthRadiusKm =
+            6371;
 
 
-/* =========================================================
-   LOCATION CACHE
-   ========================================================= */
+        const dLat =
+            degreesToRadians(
+                lat2 - lat1
+            );
 
-function saveLocation(
-    location
-) {
 
-    try {
+        const dLon =
+            degreesToRadians(
+                lon2 - lon1
+            );
 
-        localStorage.setItem(
-            "chronicai_resource_location",
-            JSON.stringify(
-                {
-                    ...location,
-                    savedAt:
-                        Date.now()
-                }
-            )
-        );
 
+        const a =
+            Math.sin(dLat / 2) ** 2 +
+            Math.cos(
+                degreesToRadians(lat1)
+            ) *
+            Math.cos(
+                degreesToRadians(lat2)
+            ) *
+            Math.sin(dLon / 2) ** 2;
+
+
+        const c =
+            2 *
+            Math.atan2(
+                Math.sqrt(a),
+                Math.sqrt(1 - a)
+            );
+
+
+        return earthRadiusKm * c;
     }
-    catch {}
-
-}
 
 
-function loadSavedLocation() {
+    function degreesToRadians(value) {
+        return value *
+            Math.PI /
+            180;
+    }
 
-    /*
-     * Do not automatically trust an old location.
-     *
-     * The user explicitly chooses "Use My Location".
-     */
 
-    try {
+    /* ============================================================
+       POLLUTION TRACKER
+       ============================================================ */
 
-        const raw =
-            localStorage.getItem(
-                "chronicai_resource_location"
+    function togglePollutionTracker() {
+
+        pollutionEnabled =
+            !pollutionEnabled;
+
+
+        const button =
+            $("pollutionTrackerBtn");
+
+
+        if (button) {
+
+            button.setAttribute(
+                "aria-pressed",
+                String(
+                    pollutionEnabled
+                )
             );
 
-
-        if (
-            !raw
-        ) {
-
-            return;
-
+            button.classList.toggle(
+                "active",
+                pollutionEnabled
+            );
         }
 
 
-        const saved =
-            JSON.parse(
-                raw
+        const legend =
+            $("pollutionMapLegend");
+
+
+        if (legend) {
+
+            legend.classList.toggle(
+                "visible",
+                pollutionEnabled
             );
-
-
-        if (
-            !saved ||
-            !Number.isFinite(
-                Number(saved.lat)
-            ) ||
-            !Number.isFinite(
-                Number(saved.lng)
-            )
-        ) {
-
-            return;
-
         }
+
+
+        if (pollutionEnabled) {
+
+            if (currentLocation) {
+                renderPollutionZones();
+            } else {
+                requestUserLocation();
+            }
+
+        } else {
+
+            clearPollutionLayers();
+        }
+    }
+
+
+    function renderPollutionZones() {
+
+        if (!map || !currentLocation) {
+            return;
+        }
+
+
+        clearPollutionLayers();
+
+
+        const center =
+            [
+                currentLocation.lat,
+                currentLocation.lon
+            ];
 
 
         /*
-         * Only use the cache if it is recent.
+         * These are visualization zones based on
+         * the current modeled AQI, not direct sensor
+         * measurements.
          */
 
-        if (
-            Date.now() -
+        const aqi =
             Number(
-                saved.savedAt || 0
-            ) >
-            RESOURCE_CONFIG.savedLocationMaxAgeMs
+                $("aqiValue")?.textContent
+            );
+
+
+        let baseClass =
+            "green";
+
+
+        if (
+            Number.isFinite(aqi)
         ) {
+
+            if (aqi <= 50) {
+                baseClass = "green";
+            } else if (aqi <= 100) {
+                baseClass = "yellow";
+            } else {
+                baseClass = "red";
+            }
+        }
+
+
+        const radius =
+            pollutionRangeKm *
+            1000;
+
+
+        const circle =
+            L.circle(
+                center,
+                {
+                    radius,
+
+                    className:
+                        `pollution-zone-${baseClass}`,
+
+                    fillOpacity: 0.14,
+
+                    weight: 1
+                }
+            ).addTo(map);
+
+
+        pollutionLayers.push(circle);
+    }
+
+
+    function clearPollutionLayers() {
+
+        pollutionLayers.forEach(
+            (layer) => {
+
+                try {
+                    layer.remove();
+                } catch (_) {}
+            }
+        );
+
+
+        pollutionLayers = [];
+    }
+
+
+    /* ============================================================
+       POLLUTION LOCATION SEARCH
+       ============================================================ */
+
+    async function searchPollutionLocation() {
+
+        const input =
+            $("pollutionPlaceInput");
+
+
+        const status =
+            $("pollutionLocationStatus");
+
+
+        const result =
+            $("pollutionLocationResult");
+
+
+        if (!input) {
+            return;
+        }
+
+
+        const query =
+            input.value.trim();
+
+
+        if (!query) {
+
+            if (status) {
+                status.textContent =
+                    "Please enter a city or area.";
+            }
 
             return;
-
         }
 
 
-        /*
-         * We intentionally don't automatically activate
-         * location from cache. This keeps the permission
-         * model clear.
-         */
-
-    }
-    catch {}
-
-}
-
-
-/* =========================================================
-   RESOURCE CACHE
-   ========================================================= */
-
-function saveResources(
-    data
-) {
-
-    try {
-
-        localStorage.setItem(
-            "chronicai_resource_cache",
-            JSON.stringify(
-                data
-            )
-        );
-
-    }
-    catch {}
-
-}
-
-
-function loadCachedResources() {
-
-    try {
-
-        const raw =
-            localStorage.getItem(
-                "chronicai_resource_cache"
-            );
-
-
-        if (
-            !raw
-        ) {
-
-            return [];
-
+        if (status) {
+            status.textContent =
+                "Searching location...";
         }
 
 
-        const data =
-            JSON.parse(
-                raw
-            );
-
-
-        return Array.isArray(
-            data
-        )
-            ? data
-            : [];
-
-    }
-    catch {
-
-        return [];
-
-    }
-
-}
-
-
-/* =========================================================
-   AIR QUALITY
-   ========================================================= */
-
-async function loadAirQuality(
-    latitude,
-    longitude
-) {
-
-    if (
-        !Number.isFinite(
-            Number(latitude)
-        ) ||
-        !Number.isFinite(
-            Number(longitude)
-        )
-    ) {
-
-        return;
-
-    }
-
-
-    setAirLoading();
-
-
-    const params =
-        new URLSearchParams({
-
-            latitude:
-                String(latitude),
-
-            longitude:
-                String(longitude),
-
-            current:
-                [
-                    "us_aqi",
-                    "european_aqi",
-                    "pm2_5",
-                    "pm10",
-                    "nitrogen_dioxide",
-                    "ozone",
-                    "carbon_monoxide"
-                ].join(","),
-
-            timezone:
-                "auto"
-
-        });
-
-
-    try {
-
-        const response =
-            await fetch(
-                RESOURCE_CONFIG.airQualityApi +
-                "?" +
-                params.toString()
-            );
-
-
-        if (
-            !response.ok
-        ) {
-
-            throw new Error(
-                `Air quality HTTP ${response.status}`
-            );
-
-        }
-
-
-        const data =
-            await response.json();
-
-
-        const current =
-            data.current ||
-            {};
-
-
-        const values = {
-
-            aqi:
-                Number(
-                    current.us_aqi ??
-                    current.european_aqi ??
-                    NaN
-                ),
-
-            pm25:
-                Number(
-                    current.pm2_5 ??
-                    NaN
-                ),
-
-            pm10:
-                Number(
-                    current.pm10 ??
-                    NaN
-                ),
-
-            no2:
-                Number(
-                    current.nitrogen_dioxide ??
-                    NaN
-                ),
-
-            o3:
-                Number(
-                    current.ozone ??
-                    NaN
-                ),
-
-            co:
-                Number(
-                    current.carbon_monoxide ??
-                    NaN
-                )
-
-        };
-
-
-        renderAirQuality(
-            values
-        );
-
-    }
-    catch (
-        error
-    ) {
-
-        console.error(
-            "[ChronicAI] Air quality error:",
-            error
-        );
-
-
-        setAirError();
-
-    }
-
-}
-
-
-/* =========================================================
-   AIR UI
-   ========================================================= */
-
-function setAirLoading() {
-
-    if (
-        !airQualityStatus
-    ) {
-
-        return;
-
-    }
-
-
-    airQualityStatus.className =
-        "air-quality-status loading";
-
-
-    airQualityStatus.innerHTML =
-        `
-            <span
-                class="air-status-dot"
-            ></span>
-
-            Loading
-        `;
-
-}
-
-
-function updateAirWaitingState() {
-
-    if (
-        !airQualityStatus
-    ) {
-
-        return;
-
-    }
-
-
-    airQualityStatus.className =
-        "air-quality-status loading";
-
-
-    airQualityStatus.innerHTML =
-        `
-            <span
-                class="air-status-dot"
-            ></span>
-
-            Waiting
-        `;
-
-}
-
-
-function setAirError() {
-
-    if (
-        airQualityStatus
-    ) {
-
-        airQualityStatus.className =
-            "air-quality-status poor";
-
-
-        airQualityStatus.innerHTML =
-            `
-                <span
-                    class="air-status-dot"
-                ></span>
-
-                Unavailable
-            `;
-
-    }
-
-
-    if (
-        aqiValue
-    ) {
-
-        aqiValue.textContent =
-            "—";
-
-    }
-
-
-    if (
-        aqiCondition
-    ) {
-
-        aqiCondition.textContent =
-            "Data unavailable";
-
-    }
-
-
-    if (
-        aqiDescription
-    ) {
-
-        aqiDescription.textContent =
-            "Air-quality data could not be loaded right now.";
-
-    }
-
-
-    if (
-        airQualityUpdated
-    ) {
-
-        airQualityUpdated.textContent =
-            "Air-quality update failed.";
-
-    }
-
-}
-
-
-function setAirMessage(
-    message
-) {
-
-    if (
-        airQualityUpdated
-    ) {
-
-        airQualityUpdated.textContent =
-            message;
-
-    }
-
-}
-
-
-/* =========================================================
-   AIR RENDER
-   ========================================================= */
-
-function renderAirQuality(
-    values
-) {
-
-    const category =
-        getAQICategory(
-            values.aqi
-        );
-
-
-    if (
-        airQualityStatus
-    ) {
-
-        airQualityStatus.className =
-            `air-quality-status ${category.className}`;
-
-
-        airQualityStatus.innerHTML =
-            `
-                <span
-                    class="air-status-dot"
-                ></span>
-
-                ${category.label}
-            `;
-
-    }
-
-
-    if (
-        aqiCircle
-    ) {
-
-        aqiCircle.className =
-            `aqi-circle ${category.className}`;
-
-    }
-
-
-    if (
-        aqiValue
-    ) {
-
-        aqiValue.textContent =
-            Number.isFinite(
-                values.aqi
-            )
-                ? Math.round(
-                    values.aqi
-                )
-                : "—";
-
-    }
-
-
-    if (
-        aqiCondition
-    ) {
-
-        aqiCondition.textContent =
-            category.label;
-
-    }
-
-
-    if (
-        aqiDescription
-    ) {
-
-        aqiDescription.textContent =
-            category.description;
-
-    }
-
-
-    if (
-        oxygenSafetyIcon
-    ) {
-
-        oxygenSafetyIcon.className =
-            `oxygen-safety-icon ${category.className}`;
-
-    }
-
-
-    if (
-        oxygenSafetyLevel
-    ) {
-
-        oxygenSafetyLevel.textContent =
-            category.safety;
-
-    }
-
-
-    if (
-        oxygenSafetyDescription
-    ) {
-
-        oxygenSafetyDescription.textContent =
-            category.safetyText;
-
-    }
-
-
-    if (
-        pm25Value
-    ) {
-
-        pm25Value.textContent =
-            formatAirValue(
-                values.pm25
-            );
-
-    }
-
-
-    if (
-        pm10Value
-    ) {
-
-        pm10Value.textContent =
-            formatAirValue(
-                values.pm10
-            );
-
-    }
-
-
-    if (
-        no2Value
-    ) {
-
-        no2Value.textContent =
-            formatAirValue(
-                values.no2
-            );
-
-    }
-
-
-    if (
-        o3Value
-    ) {
-
-        o3Value.textContent =
-            formatAirValue(
-                values.o3
-            );
-
-    }
-
-
-    if (
-        coValue
-    ) {
-
-        coValue.textContent =
-            formatAirValue(
-                values.co
-            );
-
-    }
-
-
-    if (
-        airQualityUpdated
-    ) {
-
-        airQualityUpdated.textContent =
-            "Updated " +
-            new Date().toLocaleTimeString();
-
-    }
-
-}
-
-
-/* =========================================================
-   AQI CATEGORY
-   ========================================================= */
-
-function getAQICategory(
-    aqi
-) {
-
-    if (
-        !Number.isFinite(
-            Number(aqi)
-        )
-    ) {
-
-        return {
-
-            className:
-                "poor",
-
-            label:
-                "Unavailable",
-
-            safety:
-                "Unavailable",
-
-            description:
-                "Air-quality data is unavailable.",
-
-            safetyText:
-                "This indicator is unavailable."
-
-        };
-
-    }
-
-
-    if (
-        aqi <= 50
-    ) {
-
-        return {
-
-            className:
-                "good",
-
-            label:
-                "Good",
-
-            safety:
-                "Good",
-
-            description:
-                "Air quality is generally favorable.",
-
-            safetyText:
-                "Pollution is relatively low. This is a pollution-based safety indicator, not a direct oxygen concentration measurement."
-
-        };
-
-    }
-
-
-    if (
-        aqi <= 100
-    ) {
-
-        return {
-
-            className:
-                "moderate",
-
-            label:
-                "Moderate",
-
-            safety:
-                "Moderate",
-
-            description:
-                "Air quality is acceptable for many people.",
-
-            safetyText:
-                "Sensitive people may prefer to reduce prolonged outdoor exposure."
-
-        };
-
-    }
-
-
-    if (
-        aqi <= 150
-    ) {
-
-        return {
-
-            className:
-                "caution",
-
-            label:
-                "Caution",
-
-            safety:
-                "Caution",
-
-            description:
-                "Pollution may affect sensitive groups.",
-
-            safetyText:
-                "Sensitive people should consider reducing prolonged outdoor exposure."
-
-        };
-
-    }
-
-
-    if (
-        aqi <= 200
-    ) {
-
-        return {
-
-            className:
-                "poor",
-
-            label:
-                "Poor",
-
-            safety:
-                "Poor",
-
-            description:
-                "Air pollution is elevated and may affect health.",
-
-            safetyText:
-                "Reduce prolonged exposure where practical."
-
-        };
-
-    }
-
-
-    return {
-
-        className:
-            "high-risk",
-
-        label:
-            "High Risk",
-
-        safety:
-            "High Risk",
-
-        description:
-            "Very high pollution conditions may be present.",
-
-        safetyText:
-            "Follow local health guidance and minimize exposure when conditions are severe."
-
-    };
-
-}
-
-
-function formatAirValue(
-    value
-) {
-
-    if (
-        !Number.isFinite(
-            Number(value)
-        )
-    ) {
-
-        return "—";
-
-    }
-
-
-    return Number(value) < 10
-        ? Number(value).toFixed(1)
-        : Math.round(
-            Number(value)
-        );
-
-}
-
-
-/* =========================================================
-   POLLUTION TRACKER
-   ========================================================= */
-
-async function togglePollutionTracker() {
-
-    pollutionTrackerEnabled =
-        !pollutionTrackerEnabled;
-
-
-    pollutionTrackerBtn?.classList.toggle(
-        "active",
-        pollutionTrackerEnabled
-    );
-
-
-    pollutionTrackerBtn?.setAttribute(
-        "aria-pressed",
-        String(
-            pollutionTrackerEnabled
-        )
-    );
-
-
-    pollutionMapLegend?.classList.toggle(
-        "show",
-        pollutionTrackerEnabled
-    );
-
-
-    if (
-        !pollutionTrackerEnabled
-    ) {
-
-        clearPollutionZones();
-
-
-        if (
-            mapStatus
-        ) {
-
-            mapStatus.textContent =
-                "Ready";
-
-        }
-
-
-        return;
-
-    }
-
-
-    const target =
-        searchedPollutionLocation ||
-        userLocation;
-
-
-    if (
-        !target
-    ) {
-
-        if (
-            mapStatus
-        ) {
-
-            mapStatus.textContent =
-                "Choose a location first";
-
-        }
-
-
-        return;
-
-    }
-
-
-    try {
-
-        if (
-            mapStatus
-        ) {
-
-            mapStatus.textContent =
-                `Loading ${pollutionRangeKm} km pollution zones...`;
-
-        }
-
-
-        await loadPollutionZones(
-            target.lat,
-            target.lng
-        );
-
-
-        if (
-            mapStatus
-        ) {
-
-            mapStatus.textContent =
-                `Pollution ${pollutionRangeKm} km`;
-
-        }
-
-    }
-    catch (
-        error
-    ) {
-
-        console.error(
-            "[ChronicAI] Pollution tracker error:",
-            error
-        );
-
-
-        if (
-            mapStatus
-        ) {
-
-            mapStatus.textContent =
-                "Pollution unavailable";
-
-        }
-
-    }
-
-}
-
-
-/* =========================================================
-   LOAD POLLUTION ZONES
-   ========================================================= */
-
-async function loadPollutionZones(
-    centerLat,
-    centerLng
-) {
-
-    clearPollutionZones();
-
-
-    const spread =
-        pollutionRangeKm === 1
-            ? 0.08
-            : 0.25;
-
-
-    const points = [
-
-        [
-            centerLat + spread,
-            centerLng - spread
-        ],
-
-        [
-            centerLat + spread,
-            centerLng
-        ],
-
-        [
-            centerLat + spread,
-            centerLng + spread
-        ],
-
-        [
-            centerLat,
-            centerLng - spread
-        ],
-
-        [
-            centerLat,
-            centerLng
-        ],
-
-        [
-            centerLat,
-            centerLng + spread
-        ],
-
-        [
-            centerLat - spread,
-            centerLng - spread
-        ],
-
-        [
-            centerLat - spread,
-            centerLng
-        ],
-
-        [
-            centerLat - spread,
-            centerLng + spread
-        ]
-
-    ];
-
-
-    const latitudes =
-        points
-            .map(
-                point =>
-                    point[0].toFixed(4)
-            )
-            .join(",");
-
-
-    const longitudes =
-        points
-            .map(
-                point =>
-                    point[1].toFixed(4)
-            )
-            .join(",");
-
-
-    const params =
-        new URLSearchParams({
-
-            latitude:
-                latitudes,
-
-            longitude:
-                longitudes,
-
-            current:
-                [
-                    "us_aqi",
-                    "pm2_5",
-                    "pm10",
-                    "nitrogen_dioxide",
-                    "ozone",
-                    "carbon_monoxide"
-                ].join(","),
-
-            timezone:
-                "auto"
-
-        });
-
-
-    const response =
-        await fetch(
-            RESOURCE_CONFIG.airQualityApi +
-            "?" +
-            params.toString()
-        );
-
-
-    if (
-        !response.ok
-    ) {
-
-        throw new Error(
-            `Pollution API HTTP ${response.status}`
-        );
-
-    }
-
-
-    const data =
-        await response.json();
-
-
-    const locations =
-        Array.isArray(data)
-            ? data
-            : [data];
-
-
-    locations.forEach(
-        (
-            item,
-            index
-        ) => {
-
-            const current =
-                item.current ||
-                {};
-
-
-            const fallback =
-                points[
-                    index
-                ] ||
-                points[
-                    points.length - 1
-                ];
-
-
-            const zone = {
-
-                lat:
-                    Number(
-                        item.latitude ??
-                        fallback[0]
-                    ),
-
-                lng:
-                    Number(
-                        item.longitude ??
-                        fallback[1]
-                    ),
-
-                aqi:
-                    Number(
-                        current.us_aqi ??
-                        NaN
-                    ),
-
-                pm25:
-                    Number(
-                        current.pm2_5 ??
-                        NaN
-                    ),
-
-                pm10:
-                    Number(
-                        current.pm10 ??
-                        NaN
-                    ),
-
-                no2:
-                    Number(
-                        current.nitrogen_dioxide ??
-                        NaN
-                    ),
-
-                o3:
-                    Number(
-                        current.ozone ??
-                        NaN
-                    ),
-
-                co:
-                    Number(
-                        current.carbon_monoxide ??
-                        NaN
-                    )
-
-            };
+        try {
+
+            /*
+             * Nominatim should also ideally be called
+             * through your backend in production.
+             *
+             * This implementation uses the public endpoint
+             * only for location search.
+             */
+
+            const url =
+                "https://nominatim.openstreetmap.org/search?" +
+                new URLSearchParams({
+                    q: query,
+                    format: "json",
+                    limit: "1"
+                });
+
+
+            const response =
+                await fetch(url, {
+                    headers: {
+                        Accept:
+                            "application/json"
+                    }
+                });
+
+
+            if (!response.ok) {
+                throw new Error(
+                    `HTTP ${response.status}`
+                );
+            }
+
+
+            const results =
+                await response.json();
 
 
             if (
-                Number.isFinite(
-                    zone.lat
-                ) &&
-                Number.isFinite(
-                    zone.lng
-                )
+                !Array.isArray(results) ||
+                !results.length
             ) {
 
-                drawPollutionZone(
-                    zone
+                throw new Error(
+                    "Location not found"
                 );
-
             }
 
-        }
-    );
 
-}
+            const place =
+                results[0];
 
 
-/* =========================================================
-   DRAW POLLUTION ZONE
-   ========================================================= */
+            const lat =
+                Number(place.lat);
 
-function drawPollutionZone(
-    zone
-) {
 
-    if (
-        !map
-    ) {
+            const lon =
+                Number(place.lon);
 
-        return;
 
-    }
-
-
-    const category =
-        getPollutionMapCategory(
-            zone.aqi
-        );
-
-
-    const circle =
-        L.circle(
-            [
-                zone.lat,
-                zone.lng
-            ],
-            {
-
-                radius:
-                    pollutionRangeKm *
-                    1000,
-
-                color:
-                    category.color,
-
-                fillColor:
-                    category.color,
-
-                fillOpacity:
-                    0.15,
-
-                opacity:
-                    0.78,
-
-                weight:
-                    1.5
-
-            }
-        );
-
-
-    circle.bindPopup(
-        `
-            <div
-                class="pollution-zone-popup"
-            >
-
-                <h4>
-                    Pollution Zone
-                </h4>
-
-                <div>
-                    AQI:
-                    <strong>
-                        ${
-                            Number.isFinite(
-                                zone.aqi
-                            )
-                                ? Math.round(
-                                    zone.aqi
-                                )
-                                : "—"
-                        }
-                    </strong>
-                </div>
-
-                <div
-                    class="pollution-condition"
-                    style="color:${category.color}"
-                >
-                    ${category.label}
-                </div>
-
-                <div
-                    class="pollution-popup-details"
-                >
-
-                    Radius:
-                    ${pollutionRangeKm} km
-
-                    <br>
-
-                    PM2.5:
-                    ${formatAirValue(
-                        zone.pm25
-                    )}
-                    µg/m³
-
-                    <br>
-
-                    PM10:
-                    ${formatAirValue(
-                        zone.pm10
-                    )}
-                    µg/m³
-
-                    <br>
-
-                    NO₂:
-                    ${formatAirValue(
-                        zone.no2
-                    )}
-                    µg/m³
-
-                    <br>
-
-                    O₃:
-                    ${formatAirValue(
-                        zone.o3
-                    )}
-                    µg/m³
-
-                    <br>
-
-                    CO:
-                    ${formatAirValue(
-                        zone.co
-                    )}
-                    µg/m³
-
-                    <br><br>
-
-                    Model-estimated air quality.
-
-                </div>
-
-            </div>
-        `
-    );
-
-
-    circle.addTo(
-        map
-    );
-
-
-    pollutionZoneLayers.push(
-        circle
-    );
-
-}
-
-
-/* =========================================================
-   POLLUTION CATEGORY
-   ========================================================= */
-
-function getPollutionMapCategory(
-    aqi
-) {
-
-    if (
-        !Number.isFinite(
-            Number(aqi)
-        )
-    ) {
-
-        return {
-
-            label:
-                "Unavailable",
-
-            color:
-                "#64748b"
-
-        };
-
-    }
-
-
-    if (
-        aqi <= 50
-    ) {
-
-        return {
-
-            label:
-                "Low Pollution",
-
-            color:
-                "#22c55e"
-
-        };
-
-    }
-
-
-    if (
-        aqi <= 100
-    ) {
-
-        return {
-
-            label:
-                "Moderate Pollution",
-
-            color:
-                "#eab308"
-
-        };
-
-    }
-
-
-    return {
-
-        label:
-            "High Pollution",
-
-        color:
-            "#ef4444"
-
-    };
-
-}
-
-
-/* =========================================================
-   CLEAR POLLUTION
-   ========================================================= */
-
-function clearPollutionZones() {
-
-    pollutionZoneLayers.forEach(
-        layer => {
-
-            try {
-
-                map?.removeLayer(
-                    layer
+            if (
+                !Number.isFinite(lat) ||
+                !Number.isFinite(lon)
+            ) {
+                throw new Error(
+                    "Invalid coordinates"
                 );
-
             }
-            catch {}
-
-        }
-    );
 
 
-    pollutionZoneLayers =
-        [];
-
-}
-
-
-/* =========================================================
-   SEARCH POLLUTION LOCATION
-   ========================================================= */
-
-async function searchPollutionLocation() {
-
-    const query =
-        String(
-            pollutionPlaceInput?.value ||
-            ""
-        ).trim();
+            if (status) {
+                status.textContent =
+                    place.display_name ||
+                    query;
+            }
 
 
-    if (
-        !query
-    ) {
+            if (map) {
 
-        setPollutionLocationStatus(
-            "Enter a city or area first.",
-            "error"
-        );
-
-        return;
-
-    }
+                map.setView(
+                    [lat, lon],
+                    12
+                );
+            }
 
 
-    if (
-        pollutionPlaceSearchBtn
-    ) {
-
-        pollutionPlaceSearchBtn.disabled =
-            true;
-
-    }
-
-
-    setPollutionLocationStatus(
-        "Finding location...",
-        "normal"
-    );
-
-
-    if (
-        pollutionLocationResult
-    ) {
-
-        pollutionLocationResult.innerHTML =
-            `
-                <div
-                    class="pollution-location-empty"
-                >
-
-                    <div
-                        class="pollution-location-empty-icon"
-                    >
-
-                        <i
-                            class="fa-solid fa-spinner fa-spin"
-                        ></i>
-
-                    </div>
-
-                    <h3>
-                        Searching...
-                    </h3>
-
-                    <p>
-                        Finding the location and
-                        loading pollution data.
-                    </p>
-
-                </div>
-            `;
-
-    }
-
-
-    try {
-
-        const place =
-            await geocodePlace(
-                query
-            );
-
-
-        if (
-            !place
-        ) {
-
-            throw new Error(
-                "Location not found."
-            );
-
-        }
-
-
-        const lat =
-            Number(
-                place.lat
-            );
-
-
-        const lng =
-            Number(
-                place.lon
-            );
-
-
-        if (
-            !Number.isFinite(lat) ||
-            !Number.isFinite(lng)
-        ) {
-
-            throw new Error(
-                "Invalid location returned."
-            );
-
-        }
-
-
-        const air =
-            await fetchAirForPlace(
+            await loadAirQuality(
                 lat,
-                lng
+                lon
             );
 
 
-        searchedPollutionLocation = {
-
-            lat,
-
-            lng,
-
-            name:
-                place.name ||
-                query,
-
-            displayName:
-                place.display_name ||
-                query,
-
-            air
-
-        };
+            renderPollutionSearchResult(
+                place
+            );
 
 
-        renderPollutionLocationResult(
-            searchedPollutionLocation
-        );
+        } catch (err) {
+
+            error(
+                "Pollution location search failed:",
+                err
+            );
 
 
-        setPollutionLocationStatus(
-            "Location pollution loaded successfully.",
-            "success"
-        );
-
-    }
-    catch (
-        error
-    ) {
-
-        console.error(
-            "[ChronicAI] Pollution search error:",
-            error
-        );
+            if (status) {
+                status.textContent =
+                    "Unable to find that location.";
+            }
 
 
-        if (
-            pollutionLocationResult
-        ) {
+            if (result) {
 
-            pollutionLocationResult.innerHTML =
-                `
-                    <div
-                        class="pollution-location-empty"
-                    >
+                result.innerHTML = `
+                    <div class="pollution-location-empty">
 
-                        <div
-                            class="pollution-location-empty-icon"
-                        >
-
-                            <i
-                                class="fa-solid fa-triangle-exclamation"
-                            ></i>
-
+                        <div class="pollution-location-empty-icon">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
                         </div>
 
                         <h3>
-                            Could not load pollution
+                            Location Not Found
                         </h3>
 
                         <p>
-                            Try another city,
-                            town or area name.
+                            Try a city name or nearby area.
                         </p>
 
                     </div>
                 `;
-
-        }
-
-
-        setPollutionLocationStatus(
-            error.message ||
-            "Unable to load pollution data.",
-            "error"
-        );
-
-    }
-    finally {
-
-        if (
-            pollutionPlaceSearchBtn
-        ) {
-
-            pollutionPlaceSearchBtn.disabled =
-                false;
-
-        }
-
-    }
-
-}
-
-
-/* =========================================================
-   GEOCODE
-   ========================================================= */
-
-async function geocodePlace(
-    query
-) {
-
-    const params =
-        new URLSearchParams({
-
-            q:
-                query,
-
-            format:
-                "jsonv2",
-
-            limit:
-                "1"
-
-        });
-
-
-    const response =
-        await fetch(
-            RESOURCE_CONFIG.geocodeApi +
-            "?" +
-            params.toString(),
-            {
-
-                headers:
-                    {
-                        "Accept":
-                            "application/json"
-                    }
-
             }
-        );
-
-
-    if (
-        !response.ok
-    ) {
-
-        throw new Error(
-            `Location search HTTP ${response.status}`
-        );
-
+        }
     }
 
 
-    const data =
-        await response.json();
-
-
-    if (
-        !Array.isArray(data) ||
-        !data.length
+    function renderPollutionSearchResult(
+        place
     ) {
 
-        return null;
-
-    }
-
-
-    return data[0];
-
-}
+        const result =
+            $("pollutionLocationResult");
 
 
-/* =========================================================
-   AIR FOR SEARCHED LOCATION
-   ========================================================= */
-
-async function fetchAirForPlace(
-    latitude,
-    longitude
-) {
-
-    const params =
-        new URLSearchParams({
-
-            latitude:
-                String(latitude),
-
-            longitude:
-                String(longitude),
-
-            current:
-                [
-                    "us_aqi",
-                    "european_aqi",
-                    "pm2_5",
-                    "pm10",
-                    "nitrogen_dioxide",
-                    "ozone",
-                    "carbon_monoxide"
-                ].join(","),
-
-            timezone:
-                "auto"
-
-        });
+        if (!result) {
+            return;
+        }
 
 
-    const response =
-        await fetch(
-            RESOURCE_CONFIG.airQualityApi +
-            "?" +
-            params.toString()
-        );
+        result.innerHTML = `
+            <div class="pollution-location-result-card">
 
+                <div class="pollution-location-result-icon">
+                    <i class="fa-solid fa-location-dot"></i>
+                </div>
 
-    if (
-        !response.ok
-    ) {
+                <div>
 
-        throw new Error(
-            `Air quality HTTP ${response.status}`
-        );
+                    <span class="air-small-title">
+                        SELECTED LOCATION
+                    </span>
 
-    }
-
-
-    const data =
-        await response.json();
-
-
-    const current =
-        data.current ||
-        {};
-
-
-    return {
-
-        aqi:
-            Number(
-                current.us_aqi ??
-                current.european_aqi ??
-                NaN
-            ),
-
-        pm25:
-            Number(
-                current.pm2_5 ??
-                NaN
-            ),
-
-        pm10:
-            Number(
-                current.pm10 ??
-                NaN
-            ),
-
-        no2:
-            Number(
-                current.nitrogen_dioxide ??
-                NaN
-            ),
-
-        o3:
-            Number(
-                current.ozone ??
-                NaN
-            ),
-
-        co:
-            Number(
-                current.carbon_monoxide ??
-                NaN
-            )
-
-    };
-
-}
-
-
-/* =========================================================
-   POLLUTION SEARCH RESULT
-   ========================================================= */
-
-function renderPollutionLocationResult(
-    location
-) {
-
-    if (
-        !pollutionLocationResult
-    ) {
-
-        return;
-
-    }
-
-
-    const air =
-        location.air;
-
-
-    const category =
-        getAQICategory(
-            air.aqi
-        );
-
-
-    pollutionLocationResult.innerHTML =
-        `
-            <div
-                class="pollution-place-result"
-            >
-
-                <div
-                    class="pollution-place-summary"
-                >
-
-                    <h3
-                        class="pollution-place-name"
-                    >
-                        ${escapeHtml(
-                            location.name
+                    <h3>
+                        ${escapeHTML(
+                            place.display_name
                         )}
                     </h3>
 
-                    <div
-                        class="pollution-place-address"
-                    >
-                        ${escapeHtml(
-                            location.displayName
-                        )}
-                    </div>
-
-                    <div
-                        class="pollution-place-condition ${category.className}"
-                    >
-                        ${category.label}
-                    </div>
-
-                    <div
-                        class="pollution-place-aqi"
-                    >
-
-                        AQI
-
-                        <strong>
-                            ${
-                                Number.isFinite(
-                                    air.aqi
-                                )
-                                    ? Math.round(
-                                        air.aqi
-                                    )
-                                    : "—"
-                            }
-                        </strong>
-
-                    </div>
-
-                    <button
-                        type="button"
-                        id="showSearchedPollutionOnMap"
-                        class="pollution-map-place-btn"
-                    >
-
-                        <i
-                            class="fa-solid fa-map-location-dot"
-                        ></i>
-
-                        Show on Map
-
-                    </button>
-
-                </div>
-
-
-                <div
-                    class="pollution-place-values"
-                >
-
-                    <div
-                        class="pollution-place-values-grid"
-                    >
-
-                        ${createPollutionValue(
-                            "PM2.5",
-                            air.pm25
-                        )}
-
-                        ${createPollutionValue(
-                            "PM10",
-                            air.pm10
-                        )}
-
-                        ${createPollutionValue(
-                            "NO₂",
-                            air.no2
-                        )}
-
-                        ${createPollutionValue(
-                            "O₃",
-                            air.o3
-                        )}
-
-                        ${createPollutionValue(
-                            "CO",
-                            air.co
-                        )}
-
-                        <div
-                            class="pollution-place-value"
-                        >
-
-                            <span>
-                                Safety
-                            </span>
-
-                            <strong>
-                                ${escapeHtml(
-                                    category.safety
-                                )}
-                            </strong>
-
-                            <small>
-                                indicator
-                            </small>
-
-                        </div>
-
-                    </div>
+                    <p>
+                        Air quality information
+                        is shown below.
+                    </p>
 
                 </div>
 
             </div>
         `;
-
-
-    document
-        .getElementById(
-            "showSearchedPollutionOnMap"
-        )
-        ?.addEventListener(
-            "click",
-            showSearchedPollutionOnMap
-        );
-
-}
-
-
-function createPollutionValue(
-    label,
-    value
-) {
-
-    return `
-        <div
-            class="pollution-place-value"
-        >
-
-            <span>
-                ${escapeHtml(
-                    label
-                )}
-            </span>
-
-            <strong>
-                ${formatAirValue(
-                    value
-                )}
-            </strong>
-
-            <small>
-                µg/m³
-            </small>
-
-        </div>
-    `;
-
-}
-
-
-/* =========================================================
-   SHOW SEARCHED LOCATION
-   ========================================================= */
-
-async function showSearchedPollutionOnMap() {
-
-    if (
-        !searchedPollutionLocation ||
-        !map
-    ) {
-
-        return;
-
     }
 
 
-    const location =
-        searchedPollutionLocation;
+    /* ============================================================
+       AIR QUALITY
+       ============================================================ */
 
-
-    map.setView(
-        [
-            location.lat,
-            location.lng
-        ],
-        12,
-        {
-            animate:
-                true
-        }
-    );
-
-
-    clearSearchedMarker();
-
-
-    const icon =
-        L.divIcon(
-            {
-
-                className:
-                    "searched-pollution-marker",
-
-                html:
-                    `
-                        <div style="
-                            width:20px;
-                            height:20px;
-                            border-radius:50%;
-                            background:#ffffff;
-                            border:5px solid #8b5cf6;
-                            box-shadow:
-                                0 0 0 8px rgba(139,92,246,.17),
-                                0 0 25px rgba(139,92,246,.65);
-                        "></div>
-                    `,
-
-                iconSize:
-                    [
-                        20,
-                        20
-                    ],
-
-                iconAnchor:
-                    [
-                        10,
-                        10
-                    ]
-
-            }
-        );
-
-
-    searchedLocationMarker =
-        L.marker(
-            [
-                location.lat,
-                location.lng
-            ],
-            {
-
-                icon:
-                    icon,
-
-                zIndexOffset:
-                    4000
-
-            }
-        )
-        .addTo(
-            map
-        )
-        .bindPopup(
-            `
-                <strong>
-                    ${escapeHtml(
-                        location.name
-                    )}
-                </strong>
-
-                <br><br>
-
-                AQI:
-                ${
-                    Number.isFinite(
-                        location.air.aqi
-                    )
-                        ? Math.round(
-                            location.air.aqi
-                        )
-                        : "—"
-                }
-
-                <br>
-
-                ${escapeHtml(
-                    getAQICategory(
-                        location.air.aqi
-                    ).label
-                )}
-            `
-        )
-        .openPopup();
-
-
-    pollutionTrackerEnabled =
-        true;
-
-
-    pollutionTrackerBtn?.classList.add(
-        "active"
-    );
-
-
-    pollutionTrackerBtn?.setAttribute(
-        "aria-pressed",
-        "true"
-    );
-
-
-    pollutionMapLegend?.classList.add(
-        "show"
-    );
-
-
-    try {
-
-        if (
-            mapStatus
-        ) {
-
-            mapStatus.textContent =
-                `Loading ${pollutionRangeKm} km pollution...`;
-
-        }
-
-
-        await loadPollutionZones(
-            location.lat,
-            location.lng
-        );
-
-
-        if (
-            mapStatus
-        ) {
-
-            mapStatus.textContent =
-                `Pollution map — ${location.name}`;
-
-        }
-
-    }
-    catch (
-        error
+    async function loadAirQuality(
+        lat,
+        lon
     ) {
 
-        console.error(
-            "[ChronicAI] Pollution map error:",
-            error
-        );
+        lastAirQualityLocation = {
+            lat,
+            lon
+        };
 
 
-        if (
-            mapStatus
-        ) {
+        setAirQualityLoading();
 
-            mapStatus.textContent =
-                "Pollution map unavailable";
-
-        }
-
-    }
-
-}
-
-
-/* =========================================================
-   CLEAR SEARCHED MARKER
-   ========================================================= */
-
-function clearSearchedMarker() {
-
-    if (
-        searchedLocationMarker
-    ) {
 
         try {
 
-            map?.removeLayer(
-                searchedLocationMarker
+            /*
+             * Primary backend route.
+             *
+             * Your server should proxy the actual
+             * air-quality provider.
+             */
+
+            const endpoint =
+                "/api/air-quality";
+
+
+            const params =
+                new URLSearchParams({
+                    lat: String(lat),
+                    lon: String(lon)
+                });
+
+
+            const response =
+                await fetch(
+                    `${endpoint}?${params.toString()}`,
+                    {
+                        headers: {
+                            Accept:
+                                "application/json"
+                        }
+                    }
+                );
+
+
+            if (!response.ok) {
+
+                throw new Error(
+                    `Air quality HTTP ${response.status}`
+                );
+            }
+
+
+            const data =
+                await response.json();
+
+
+            const normalized =
+                normalizeAirQuality(data);
+
+
+            renderAirQuality(
+                normalized
             );
 
+
+            if (pollutionEnabled) {
+                renderPollutionZones();
+            }
+
+
+        } catch (err) {
+
+            error(
+                "Air quality request failed:",
+                err
+            );
+
+
+            setAirQualityError();
         }
-        catch {}
-
-
-        searchedLocationMarker =
-            null;
-
     }
 
-}
+
+    function normalizeAirQuality(data) {
+
+        const source =
+            data?.data ||
+            data?.result ||
+            data ||
+            {};
 
 
-/* =========================================================
-   POLLUTION SEARCH STATUS
-   ========================================================= */
+        const aqi =
+            Number(
+                source.aqi ??
+                source.us_aqi ??
+                source.AQI ??
+                source.current?.aqi
+            );
 
-function setPollutionLocationStatus(
-    message,
-    type
-) {
 
-    if (
-        !pollutionLocationStatus
+        const pm25 =
+            Number(
+                source.pm25 ??
+                source.pm2_5 ??
+                source["pm2.5"] ??
+                source.current?.pm2_5
+            );
+
+
+        const pm10 =
+            Number(
+                source.pm10 ??
+                source.current?.pm10
+            );
+
+
+        const no2 =
+            Number(
+                source.no2 ??
+                source.current?.no2
+            );
+
+
+        const o3 =
+            Number(
+                source.o3 ??
+                source.current?.o3
+            );
+
+
+        const co =
+            Number(
+                source.co ??
+                source.current?.co
+            );
+
+
+        return {
+            aqi: finiteOrNull(aqi),
+            pm25: finiteOrNull(pm25),
+            pm10: finiteOrNull(pm10),
+            no2: finiteOrNull(no2),
+            o3: finiteOrNull(o3),
+            co: finiteOrNull(co),
+            updatedAt:
+                source.updatedAt ||
+                source.timestamp ||
+                source.time ||
+                new Date().toISOString()
+        };
+    }
+
+
+    function finiteOrNull(value) {
+
+        return Number.isFinite(value)
+            ? value
+            : null;
+    }
+
+
+    function renderAirQuality(data) {
+
+        const aqi =
+            data.aqi;
+
+
+        setText(
+            "aqiValue",
+            aqi !== null
+                ? Math.round(aqi)
+                : "—"
+        );
+
+
+        setText(
+            "pm25Value",
+            formatNumber(data.pm25)
+        );
+
+
+        setText(
+            "pm10Value",
+            formatNumber(data.pm10)
+        );
+
+
+        setText(
+            "no2Value",
+            formatNumber(data.no2)
+        );
+
+
+        setText(
+            "o3Value",
+            formatNumber(data.o3)
+        );
+
+
+        setText(
+            "coValue",
+            formatNumber(data.co)
+        );
+
+
+        const condition =
+            getAQICondition(aqi);
+
+
+        setText(
+            "aqiCondition",
+            condition.title
+        );
+
+
+        setText(
+            "aqiDescription",
+            condition.description
+        );
+
+
+        const aqiCircle =
+            $("aqiCircle");
+
+
+        if (aqiCircle) {
+
+            aqiCircle.className =
+                `aqi-circle ${condition.className}`;
+        }
+
+
+        const oxygenIcon =
+            $("oxygenSafetyIcon");
+
+
+        if (oxygenIcon) {
+
+            oxygenIcon.className =
+                `oxygen-safety-icon ${condition.className}`;
+        }
+
+
+        setText(
+            "oxygenSafetyLevel",
+            condition.oxygenLevel
+        );
+
+
+        setText(
+            "oxygenSafetyDescription",
+            condition.oxygenDescription
+        );
+
+
+        const status =
+            $("airQualityStatus");
+
+
+        if (status) {
+
+            status.className =
+                `air-quality-status ${condition.className}`;
+
+            status.innerHTML = `
+                <span class="air-status-dot"></span>
+                ${escapeHTML(
+                    condition.title
+                )}
+            `;
+        }
+
+
+        const updated =
+            $("airQualityUpdated");
+
+
+        if (updated) {
+
+            const date =
+                new Date(
+                    data.updatedAt
+                );
+
+
+            if (
+                Number.isNaN(
+                    date.getTime()
+                )
+            ) {
+
+                updated.textContent =
+                    "Air quality data updated.";
+
+            } else {
+
+                updated.textContent =
+                    `Updated ${date.toLocaleString()}`;
+            }
+        }
+    }
+
+
+    function getAQICondition(aqi) {
+
+        if (
+            !Number.isFinite(aqi)
+        ) {
+
+            return {
+                title: "Unavailable",
+                description:
+                    "Air quality data is currently unavailable.",
+                className: "good",
+                oxygenLevel: "Unavailable",
+                oxygenDescription:
+                    "Pollution-based safety indicator unavailable."
+            };
+        }
+
+
+        if (aqi <= 50) {
+
+            return {
+                title: "Good",
+                description:
+                    "Air quality is generally considered good.",
+                className: "good",
+                oxygenLevel: "Good",
+                oxygenDescription:
+                    "Low pollution burden based on the reported AQI."
+            };
+        }
+
+
+        if (aqi <= 100) {
+
+            return {
+                title: "Moderate",
+                description:
+                    "Air quality is acceptable for most people.",
+                className: "moderate",
+                oxygenLevel: "Moderate",
+                oxygenDescription:
+                    "Moderate pollution burden based on the reported AQI."
+            };
+        }
+
+
+        if (aqi <= 150) {
+
+            return {
+                title: "Caution",
+                description:
+                    "Sensitive people may experience effects.",
+                className: "caution",
+                oxygenLevel: "Caution",
+                oxygenDescription:
+                    "Increased pollution burden based on the reported AQI."
+            };
+        }
+
+
+        if (aqi <= 200) {
+
+            return {
+                title: "Poor",
+                description:
+                    "Health effects may occur with prolonged exposure.",
+                className: "poor",
+                oxygenLevel: "Poor",
+                oxygenDescription:
+                    "High pollution burden based on the reported AQI."
+            };
+        }
+
+
+        return {
+            title: "High Risk",
+            description:
+                "Air quality is unhealthy and exposure should be reduced.",
+            className: "high-risk",
+            oxygenLevel: "High Risk",
+            oxygenDescription:
+                "Very high pollution burden based on the reported AQI."
+        };
+    }
+
+
+    function formatNumber(value) {
+
+        return Number.isFinite(value)
+            ? value.toFixed(1)
+            : "—";
+    }
+
+
+    function setText(
+        id,
+        value
     ) {
 
-        return;
+        const element =
+            $(id);
 
+        if (element) {
+            element.textContent =
+                value;
+        }
     }
 
 
-    pollutionLocationStatus.textContent =
-        message;
+    function setAirQualityWaiting() {
+
+        setText(
+            "aqiValue",
+            "—"
+        );
+
+        setText(
+            "aqiCondition",
+            "Waiting for location"
+        );
+
+        setText(
+            "aqiDescription",
+            "Turn on your location to check air quality."
+        );
+
+        setText(
+            "oxygenSafetyLevel",
+            "—"
+        );
+    }
 
 
-    pollutionLocationStatus.classList.remove(
-        "error",
-        "success"
+    function setAirQualityLoading() {
+
+        const status =
+            $("airQualityStatus");
+
+        if (status) {
+
+            status.className =
+                "air-quality-status loading";
+
+            status.innerHTML = `
+                <span class="air-status-dot"></span>
+                Loading
+            `;
+        }
+    }
+
+
+    function setAirQualityError() {
+
+        setText(
+            "aqiValue",
+            "—"
+        );
+
+        setText(
+            "aqiCondition",
+            "Unavailable"
+        );
+
+        setText(
+            "aqiDescription",
+            "Air quality data could not be loaded."
+        );
+
+        setText(
+            "oxygenSafetyLevel",
+            "Unavailable"
+        );
+
+
+        const status =
+            $("airQualityStatus");
+
+        if (status) {
+
+            status.className =
+                "air-quality-status poor";
+
+            status.innerHTML = `
+                <span class="air-status-dot"></span>
+                Unavailable
+            `;
+        }
+    }
+
+
+    /* ============================================================
+       OPTIONAL LIVE LOCATION WATCH
+       ============================================================ */
+
+    function startLocationWatch() {
+
+        if (
+            !navigator.geolocation ||
+            locationWatchId !== null
+        ) {
+            return;
+        }
+
+
+        locationWatchId =
+            navigator.geolocation.watchPosition(
+                (position) => {
+
+                    const lat =
+                        Number(
+                            position.coords.latitude
+                        );
+
+                    const lon =
+                        Number(
+                            position.coords.longitude
+                        );
+
+
+                    if (
+                        !Number.isFinite(lat) ||
+                        !Number.isFinite(lon)
+                    ) {
+                        return;
+                    }
+
+
+                    currentLocation = {
+                        lat,
+                        lon,
+                        accuracy:
+                            Number(
+                                position.coords.accuracy
+                            ) || null
+                    };
+
+
+                    updateUserMarker();
+                },
+
+                (err) => {
+
+                    warn(
+                        "Live location update failed:",
+                        err
+                    );
+                },
+
+                {
+                    enableHighAccuracy: true,
+                    maximumAge: 30000,
+                    timeout: 15000
+                }
+            );
+    }
+
+
+    function stopLocationWatch() {
+
+        if (
+            locationWatchId !== null &&
+            navigator.geolocation
+        ) {
+
+            navigator.geolocation.clearWatch(
+                locationWatchId
+            );
+
+            locationWatchId = null;
+        }
+    }
+
+
+    /* ============================================================
+       GLOBAL CLEANUP
+       ============================================================ */
+
+    window.addEventListener(
+        "beforeunload",
+        () => {
+            stopLocationWatch();
+        }
     );
 
 
-    if (
-        type === "error"
-    ) {
+    /* ============================================================
+       DEBUG API
+       ============================================================ */
 
-        pollutionLocationStatus.classList.add(
-            "error"
-        );
+    window.ChronicAIResourceCenter = {
 
-    }
+        getLocation() {
+            return currentLocation;
+        },
 
+        getResources() {
+            return resourcesData;
+        },
 
-    if (
-        type === "success"
-    ) {
+        reload() {
+            return loadNearbyResources();
+        },
 
-        pollutionLocationStatus.classList.add(
-            "success"
-        );
+        locate() {
+            return requestUserLocation();
+        },
 
-    }
+        startLocationWatch() {
+            startLocationWatch();
+        },
 
-}
-
-
-/* =========================================================
-   AUTO AIR QUALITY REFRESH
-   ========================================================= */
-
-setInterval(
-    () => {
-
-        const target =
-            searchedPollutionLocation ||
-            userLocation;
-
-
-        if (
-            !target
-        ) {
-
-            return;
-
+        stopLocationWatch() {
+            stopLocationWatch();
         }
+    };
 
-
-        loadAirQuality(
-            target.lat,
-            target.lng
-        );
-
-
-        if (
-            pollutionTrackerEnabled
-        ) {
-
-            loadPollutionZones(
-                target.lat,
-                target.lng
-            );
-
-        }
-
-    },
-    RESOURCE_CONFIG.airRefreshMs
-);
-
-
-/* =========================================================
-   ESCAPE HTML
-   ========================================================= */
-
-function escapeHtml(
-    value
-) {
-
-    const div =
-        document.createElement(
-            "div"
-        );
-
-
-    div.textContent =
-        String(
-            value ??
-            ""
-        );
-
-
-    return div.innerHTML;
-
-}
+})();
