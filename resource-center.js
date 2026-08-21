@@ -67,6 +67,10 @@ let pollutionTrackerEnabled = false;
 
 let pollutionRangeKm = 1;
 
+let resourceRequestId = 0;
+
+let resourceLoading = false;
+
 
 /* =========================================================
    DOM
