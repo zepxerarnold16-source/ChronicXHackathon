@@ -6111,531 +6111,6 @@ document.addEventListener("DOMContentLoaded", () => {
         "Voice output: Browser SpeechSynthesis"
     );
 
-/* =========================================================
-   CHRONICAI REAL-TIME VOICE LAYER
-   ---------------------------------------------------------
-   Phase 1 frontend:
-   - Explicit voice state machine
-   - WebSocket streaming transport when /api/realtime exists
-   - 100ms microphone chunks
-   - Streaming transcript / response support
-   - Sentence-level TTS while response is arriving
-   - Barge-in detection with safe microphone ownership
-   - Automatic fallback to the existing /api/transcribe route
-
-   WebSocket protocol expected from server:
-     client -> {type:"start", sessionId, language}
-     client -> binary audio chunks (webm/opus)
-     client -> {type:"stop"}
-     server -> {type:"transcript", text, final:boolean}
-     server -> {type:"text_delta", text}
-     server -> {type:"response_done"}
-     server -> {type:"error", message}
-
-   This keeps the current backend working. True streaming requires
-   implementing /api/realtime on server.js.
-========================================================= */
-(function installRealtimeVoiceLayer(){
-
-    const REALTIME_WS_PATH = "/api/realtime";
-    const REALTIME_CHUNK_MS = 100;
-    const REALTIME_SPEECH_THRESHOLD = 0.032;
-    const REALTIME_SILENCE_MS = 700;
-    const REALTIME_COOLDOWN_MS = 650;
-
-    let realtimeEnabled = true;
-    let realtimeSocket = null;
-    let realtimeSessionId = null;
-    let realtimeUsingSocket = false;
-    let realtimeRecorder = null;
-    let realtimeStarting = false;
-    let realtimeStopping = false;
-    let realtimeLastSoundAt = 0;
-    let realtimeSpeechStarted = false;
-    let realtimeVADFrame = null;
-    let realtimeFallbackTimer = null;
-    let realtimeResponseBuffer = "";
-    let realtimeSentenceBuffer = "";
-    let realtimeSpeechQueue = [];
-    let realtimeCurrentAssistantMessage = null;
-
-    function realtimeState(next){
-        window.__chronicAIRealtimeState = next;
-        updateVoiceUI({
-            LISTENING: "Listening… speak naturally",
-            THINKING: "Thinking…",
-            SPEAKING: "Speaking…",
-            INTERRUPTED: "Listening…",
-            CONNECTING: "Connecting real-time voice…",
-            OFF: ""
-        }[next] || "");
-    }
-
-    function realtimeWsUrl(){
-        const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-        return protocol + "//" + location.host + REALTIME_WS_PATH;
-    }
-
-    function realtimeCanUseWebSocket(){
-        return realtimeEnabled && "WebSocket" in window;
-    }
-
-    function realtimeResetRecorder(){
-        if (realtimeRecorder){
-            try {
-                realtimeRecorder.ondataavailable = null;
-                realtimeRecorder.onerror = null;
-                realtimeRecorder.onstop = null;
-                if (realtimeRecorder.state !== "inactive") realtimeRecorder.stop();
-            } catch {}
-        }
-        realtimeRecorder = null;
-    }
-
-    function realtimeCloseSocket(){
-        if (!realtimeSocket) return;
-        try { realtimeSocket.onopen = null; } catch {}
-        try { realtimeSocket.onmessage = null; } catch {}
-        try { realtimeSocket.onerror = null; } catch {}
-        try { realtimeSocket.onclose = null; } catch {}
-        try { realtimeSocket.close(); } catch {}
-        realtimeSocket = null;
-        realtimeUsingSocket = false;
-    }
-
-    function realtimeStopVAD(){
-        if (realtimeVADFrame){
-            cancelAnimationFrame(realtimeVADFrame);
-            realtimeVADFrame = null;
-        }
-    }
-
-    function realtimeStartVAD(){
-        realtimeStopVAD();
-        if (!analyser || !audioData) return;
-
-        const check = () => {
-            if (!voiceMode || !realtimeUsingSocket || !realtimeRecorder || realtimeRecorder.state === "inactive") return;
-
-            analyser.getByteTimeDomainData(audioData);
-            let sum = 0;
-            for (let i = 0; i < audioData.length; i++){
-                const v = (audioData[i] - 128) / 128;
-                sum += v * v;
-            }
-            const rms = Math.sqrt(sum / audioData.length);
-            const now = Date.now();
-
-            if (rms > REALTIME_SPEECH_THRESHOLD){
-                realtimeSpeechStarted = true;
-                realtimeLastSoundAt = now;
-                if (window.__chronicAIRealtimeState !== "LISTENING") realtimeState("LISTENING");
-
-                /* Barge-in: if the user speaks over TTS, stop narration. */
-                if (isSpeaking){
-                    realtimeInterruptForUser();
-                }
-            } else if (
-                realtimeSpeechStarted &&
-                now - realtimeLastSoundAt > REALTIME_SILENCE_MS
-            ){
-                realtimeSpeechStarted = false;
-                if (realtimeSocket?.readyState === WebSocket.OPEN){
-                    try { realtimeSocket.send(JSON.stringify({type:"turn_end"})); } catch {}
-                    realtimeState("THINKING");
-                }
-            }
-
-            realtimeVADFrame = requestAnimationFrame(check);
-        };
-
-        realtimeVADFrame = requestAnimationFrame(check);
-    }
-
-    function realtimeInterruptForUser(){
-        /* Cancel only narration. Keep the realtime microphone alive. */
-        speechGeneration++;
-        speechQueue = [];
-        realtimeSpeechQueue = [];
-        realtimeSentenceBuffer = "";
-        activeNarrationText = "";
-        stopStopCommandListener();
-        try { speechSynthesis.cancel(); } catch {}
-        stopSpeakingUI();
-        realtimeState("INTERRUPTED");
-    }
-
-    function realtimeSpeakNext(language){
-        if (!voiceMode) return;
-
-        if (!realtimeSpeechQueue.length){
-            if (window.__chronicAIRealtimeResponseDone){
-                realtimeState("LISTENING");
-                window.__chronicAIRealtimeResponseDone = false;
-            }
-            return;
-        }
-
-        const sentence = realtimeSpeechQueue.shift();
-        const utterance = new SpeechSynthesisUtterance(sentence);
-        const finalLanguage = normalizeLanguage(language) || detectLanguageFromText(sentence) || "en-IN";
-        utterance.lang = finalLanguage;
-
-        const selectedVoice = chooseVoice(finalLanguage);
-        if (selectedVoice) utterance.voice = selectedVoice;
-        utterance.rate = finalLanguage === "bn-IN" ? 0.94 : 0.98;
-        utterance.pitch = 1.05;
-        utterance.volume = 1;
-
-        const generation = ++speechGeneration;
-        isSpeaking = true;
-        activeNarrationText = cleanForSpeech(sentence).toLowerCase();
-        aiOrb?.classList.add("speaking");
-        voiceWave?.classList.add("show");
-        realtimeState("SPEAKING");
-
-        utterance.onstart = () => {
-            if (generation !== speechGeneration || !voiceMode) return;
-            isSpeaking = true;
-        };
-
-        utterance.onend = () => {
-            if (generation !== speechGeneration || !voiceMode) return;
-            isSpeaking = false;
-            activeNarrationText = "";
-            aiOrb?.classList.remove("speaking");
-            voiceWave?.classList.remove("show");
-            realtimeSpeakNext(finalLanguage);
-        };
-
-        utterance.onerror = event => {
-            if (generation !== speechGeneration || !voiceMode) return;
-            isSpeaking = false;
-            activeNarrationText = "";
-            aiOrb?.classList.remove("speaking");
-            voiceWave?.classList.remove("show");
-            if (event?.error !== "canceled" && event?.error !== "interrupted"){
-                console.warn("Realtime TTS error:", event);
-            }
-            realtimeSpeakNext(finalLanguage);
-        };
-
-        try{
-            speechSynthesis.resume();
-            speechSynthesis.speak(utterance);
-        } catch (error){
-            console.warn("Realtime speech failed:", error);
-            isSpeaking = false;
-            activeNarrationText = "";
-            realtimeSpeakNext(finalLanguage);
-        }
-    }
-
-    function realtimeSpeakDelta(delta, language){
-        realtimeSentenceBuffer += String(delta || "");
-        const regex = /[.!?।]+(?:\s+|$)/g;
-        let match;
-        let consumed = 0;
-
-        while ((match = regex.exec(realtimeSentenceBuffer))){
-            const end = match.index + match[0].length;
-            const sentence = realtimeSentenceBuffer.slice(consumed, end).trim();
-            consumed = end;
-            if (sentence) realtimeSpeechQueue.push(sentence);
-        }
-
-        if (consumed > 0) realtimeSentenceBuffer = realtimeSentenceBuffer.slice(consumed);
-        if (!isSpeaking) realtimeSpeakNext(language);
-    }
-
-    function realtimeAppendAssistantDelta(delta){
-        const text = String(delta || "");
-        if (!text) return;
-        realtimeResponseBuffer += text;
-
-        if (!realtimeCurrentAssistantMessage){
-            realtimeCurrentAssistantMessage = document.createElement("div");
-            realtimeCurrentAssistantMessage.className = "message ai";
-            const avatar = document.createElement("div");
-            avatar.className = "message-avatar";
-            avatar.innerHTML = '<i class="fa-solid fa-sparkles"></i>';
-            const body = document.createElement("div");
-            body.className = "message-body";
-            const bubble = document.createElement("div");
-            bubble.className = "message-bubble";
-            const meta = document.createElement("div");
-            meta.className = "message-meta";
-            meta.innerHTML = '<span>now</span>';
-            body.append(bubble, meta);
-            realtimeCurrentAssistantMessage.append(avatar, body);
-            chatContainer?.insertBefore(realtimeCurrentAssistantMessage, typing || null);
-            welcome && (welcome.style.display = "none");
-        }
-
-        const bubble = realtimeCurrentAssistantMessage.querySelector(".message-bubble");
-        if (bubble) bubble.innerHTML = formatMessage(realtimeResponseBuffer);
-        scrollBottom();
-    }
-
-    function realtimeCommitAssistantMessage(){
-        const text = realtimeResponseBuffer.trim();
-        if (text){
-            messages.push({role:"ai", content:text, time:Date.now()});
-            saveMessages();
-            addRecent(text.slice(0, 100));
-        }
-        realtimeResponseBuffer = "";
-        realtimeSentenceBuffer = "";
-        realtimeCurrentAssistantMessage = null;
-    }
-
-    function realtimeHandleMessage(event){
-        let data = event.data;
-        if (typeof data !== "string") return;
-
-        try { data = JSON.parse(data); } catch { return; }
-        const type = data?.type;
-
-        if (type === "ready"){
-            realtimeState("LISTENING");
-            return;
-        }
-
-        if (type === "transcript"){
-            const text = String(data.text || "").trim();
-            if (!text) return;
-            if (isLikelyNarrationEcho(text.toLowerCase())) return;
-
-            if (chatInput){
-                chatInput.value = text;
-                resize();
-            }
-
-            updateVoiceUI(data.final ? "Heard: " + text.slice(0,55) : "Hearing: " + text.slice(0,55));
-            if (data.final) realtimeState("THINKING");
-            return;
-        }
-
-        if (type === "text_delta"){
-            realtimeState("SPEAKING");
-            realtimeAppendAssistantDelta(data.text);
-            realtimeSpeakDelta(data.text, data.language || detectedLanguage);
-            return;
-        }
-
-        if (type === "response_done"){
-            realtimeCommitAssistantMessage();
-            window.__chronicAIRealtimeResponseDone = true;
-            /* Speak any final fragment without waiting for punctuation. */
-            const tail = realtimeSentenceBuffer.trim();
-            realtimeSentenceBuffer = "";
-            if (tail) realtimeSpeechQueue.push(tail);
-            if (!isSpeaking) realtimeSpeakNext(detectedLanguage);
-            else realtimeState("SPEAKING");
-            return;
-        }
-
-        if (type === "error"){
-            console.error("Realtime server error:", data.message);
-            showToast(data.message || "Realtime voice error.");
-            realtimeFallbackToLegacy();
-        }
-    }
-
-    function realtimeFallbackToLegacy(){
-        realtimeUsingSocket = false;
-        realtimeCloseSocket();
-        realtimeResetRecorder();
-        realtimeStopVAD();
-        if (voiceMode && !isSpeaking && !processingVoice){
-            clearTimeout(realtimeFallbackTimer);
-            realtimeFallbackTimer = setTimeout(() => {
-                if (voiceMode && !isSpeaking && !processingVoice) startMicrophone();
-            }, REALTIME_COOLDOWN_MS);
-        }
-    }
-
-    async function realtimeStartRecorder(){
-        if (!microphoneStream) throw new Error("Microphone stream unavailable.");
-
-        const mimeType = getSupportedMimeType();
-        realtimeRecorder = mimeType
-            ? new MediaRecorder(microphoneStream, {mimeType})
-            : new MediaRecorder(microphoneStream);
-
-        realtimeRecorder.ondataavailable = event => {
-            if (!event.data || !event.data.size) return;
-            if (realtimeSocket?.readyState === WebSocket.OPEN){
-                try { realtimeSocket.send(event.data); } catch (error){ console.warn("Realtime audio send failed", error); }
-            }
-        };
-
-        realtimeRecorder.onerror = error => {
-            console.error("Realtime recorder error:", error);
-            showToast("Real-time microphone error.");
-            realtimeFallbackToLegacy();
-        };
-
-        realtimeRecorder.start(REALTIME_CHUNK_MS);
-        realtimeStartVAD();
-    }
-
-    async function startRealtimeVoice(){
-        if (realtimeStarting || !voiceMode) return false;
-        if (!realtimeCanUseWebSocket()) return false;
-
-        realtimeStarting = true;
-        realtimeSessionId = crypto?.randomUUID?.() || String(Date.now()) + Math.random();
-        realtimeState("CONNECTING");
-
-        try{
-            /* Reuse the same microphone stream, but do not create a MediaRecorder turn-by-turn. */
-            if (!microphoneStream){
-                microphoneStream = await navigator.mediaDevices.getUserMedia({
-                    audio:{
-                        echoCancellation:true,
-                        noiseSuppression:true,
-                        autoGainControl:true,
-                        channelCount:1
-                    }
-                });
-            }
-
-            setupAudioMeter();
-
-            realtimeSocket = new WebSocket(realtimeWsUrl());
-            realtimeSocket.binaryType = "arraybuffer";
-
-            await new Promise((resolve, reject) => {
-                const timeout = setTimeout(() => reject(new Error("Realtime server connection timed out.")), 5000);
-                realtimeSocket.onopen = () => {
-                    clearTimeout(timeout);
-                    try{
-                        realtimeSocket.send(JSON.stringify({
-                            type:"start",
-                            sessionId:realtimeSessionId,
-                            language:detectedLanguage || null,
-                            audioFormat:"webm/opus"
-                        }));
-                    } catch {}
-                    resolve();
-                };
-                realtimeSocket.onerror = () => {
-                    clearTimeout(timeout);
-                    reject(new Error("Realtime endpoint is unavailable."));
-                };
-            });
-
-            realtimeSocket.onmessage = realtimeHandleMessage;
-            realtimeSocket.onclose = () => {
-                realtimeUsingSocket = false;
-                realtimeStopVAD();
-                realtimeResetRecorder();
-                if (voiceMode && !realtimeStopping && !isSpeaking) realtimeFallbackToLegacy();
-            };
-
-            realtimeSocket.onerror = () => {
-                if (voiceMode) realtimeFallbackToLegacy();
-            };
-
-            realtimeUsingSocket = true;
-            await realtimeStartRecorder();
-            realtimeState("LISTENING");
-            return true;
-        } catch (error){
-            console.warn("Realtime voice unavailable; using legacy voice pipeline:", error);
-            realtimeCloseSocket();
-            realtimeResetRecorder();
-            realtimeStopVAD();
-            return false;
-        } finally {
-            realtimeStarting = false;
-        }
-    }
-
-    function stopRealtimeVoice(){
-        realtimeStopping = true;
-        clearTimeout(realtimeFallbackTimer);
-        realtimeStopVAD();
-        realtimeSpeechQueue = [];
-        realtimeSentenceBuffer = "";
-        realtimeResetRecorder();
-        if (realtimeSocket?.readyState === WebSocket.OPEN){
-            try { realtimeSocket.send(JSON.stringify({type:"stop"})); } catch {}
-        }
-        realtimeCloseSocket();
-        realtimeUsingSocket = false;
-        realtimeStopping = false;
-    }
-
-    /* Replace the voice-mode entry points. */
-    const legacyStartVoiceMode = startVoiceMode;
-    const legacyStopVoiceMode = stopVoiceMode;
-
-    startVoiceMode = async function(){
-        if (voiceMode) return;
-
-        voiceMode = true;
-        detectedLanguage = null;
-        updateVoiceUI("Connecting real-time voice…");
-        unlockSpeechSynthesis();
-        showToast("Voice Assistant ON");
-
-        /* Try the real-time transport first. If /api/realtime is not
-           implemented, fall back to the already-tested recorder path. */
-        const connected = await startRealtimeVoice();
-        if (!connected){
-            voiceMode = false;
-            await legacyStartVoiceMode();
-        }
-    };
-
-    stopVoiceMode = function(){
-        stopRealtimeVoice();
-        legacyStopVoiceMode();
-    };
-
-    const legacyInterruptNarration = interruptNarration;
-    interruptNarration = function(resumeListening = true){
-        legacyInterruptNarration(resumeListening);
-        if (realtimeUsingSocket && resumeListening && voiceMode){
-            realtimeState("LISTENING");
-        }
-    };
-
-    /* If realtime is active, text submission should not start a second
-       microphone lifecycle. */
-    const originalSendMessage = sendMessage;
-    sendMessage = async function(){
-        if (realtimeUsingSocket){
-            /* User typed/sent something manually: stop realtime audio first. */
-            stopRealtimeVoice();
-        }
-        return originalSendMessage();
-    };
-
-    /* Rebind both existing voice buttons to the updated entry points. */
-    if (voiceButton){
-        voiceButton.onclick = async event => {
-            event?.stopPropagation();
-            if (voiceMode) stopVoiceMode();
-            else await startVoiceMode();
-        };
-    }
-    if (voiceToggle){
-        voiceToggle.onclick = async event => {
-            event?.stopPropagation();
-            if (voiceMode) stopVoiceMode();
-            else await startVoiceMode();
-        };
-    }
-
-    window.addEventListener("beforeunload", () => {
-        stopRealtimeVoice();
-    });
-
-})();
-
 });
 
 
@@ -7061,7 +6536,556 @@ document.addEventListener("DOMContentLoaded", () => {
     );
 
 
+/* =========================================================
+   CHRONICAI REAL-TIME VOICE LAYER
+   ---------------------------------------------------------
+   Phase 1 frontend:
+   - Explicit voice state machine
+   - WebSocket streaming transport when /api/realtime exists
+   - 100ms microphone chunks
+   - Streaming transcript / response support
+   - Sentence-level TTS while response is arriving
+   - Barge-in detection with safe microphone ownership
+   - Automatic fallback to the existing /api/transcribe route
 
+   WebSocket protocol expected from server:
+     client -> {type:"start", sessionId, language}
+     client -> binary audio chunks (webm/opus)
+     client -> {type:"stop"}
+     server -> {type:"transcript", text, final:boolean}
+     server -> {type:"text_delta", text}
+     server -> {type:"response_done"}
+     server -> {type:"error", message}
+
+   This keeps the current backend working. True streaming requires
+   implementing /api/realtime on server.js.
+========================================================= */
+(function installRealtimeVoiceLayer(){
+
+    const REALTIME_WS_PATH = "/api/realtime";
+    const REALTIME_CHUNK_MS = 100;
+    const REALTIME_SPEECH_THRESHOLD = 0.032;
+    const REALTIME_SILENCE_MS = 700;
+    const REALTIME_COOLDOWN_MS = 650;
+
+    let realtimeEnabled = true;
+    let realtimeSocket = null;
+    let realtimeSessionId = null;
+    let realtimeUsingSocket = false;
+    let realtimeRecorder = null;
+    let realtimeStarting = false;
+    let realtimeStopping = false;
+    let realtimeLastSoundAt = 0;
+    let realtimeSpeechStarted = false;
+    let realtimeVADFrame = null;
+    let realtimeFallbackTimer = null;
+    let realtimeResponseBuffer = "";
+    let realtimeSentenceBuffer = "";
+    let realtimeSpeechQueue = [];
+    let realtimeCurrentAssistantMessage = null;
+
+    function realtimeState(next){
+        window.__chronicAIRealtimeState = next;
+        updateVoiceUI({
+            LISTENING: "Listening… speak naturally",
+            THINKING: "Thinking…",
+            SPEAKING: "Speaking…",
+            INTERRUPTED: "Listening…",
+            CONNECTING: "Connecting real-time voice…",
+            OFF: ""
+        }[next] || "");
+    }
+
+    function realtimeWsUrl(){
+        const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+        return protocol + "//" + location.host + REALTIME_WS_PATH;
+    }
+
+    function realtimeCanUseWebSocket(){
+        return realtimeEnabled && "WebSocket" in window;
+    }
+
+    function realtimeResetRecorder(){
+        if (realtimeRecorder){
+            try {
+                realtimeRecorder.ondataavailable = null;
+                realtimeRecorder.onerror = null;
+                realtimeRecorder.onstop = null;
+                if (realtimeRecorder.state !== "inactive") realtimeRecorder.stop();
+            } catch {}
+        }
+        realtimeRecorder = null;
+    }
+
+    function realtimeCloseSocket(){
+        if (!realtimeSocket) return;
+        try { realtimeSocket.onopen = null; } catch {}
+        try { realtimeSocket.onmessage = null; } catch {}
+        try { realtimeSocket.onerror = null; } catch {}
+        try { realtimeSocket.onclose = null; } catch {}
+        try { realtimeSocket.close(); } catch {}
+        realtimeSocket = null;
+        realtimeUsingSocket = false;
+    }
+
+    function realtimeStopVAD(){
+        if (realtimeVADFrame){
+            cancelAnimationFrame(realtimeVADFrame);
+            realtimeVADFrame = null;
+        }
+    }
+
+    function realtimeStartVAD(){
+        realtimeStopVAD();
+        if (!analyser || !audioData) return;
+
+        const check = () => {
+            if (!voiceMode || !realtimeUsingSocket || !realtimeRecorder || realtimeRecorder.state === "inactive") return;
+
+            analyser.getByteTimeDomainData(audioData);
+            let sum = 0;
+            for (let i = 0; i < audioData.length; i++){
+                const v = (audioData[i] - 128) / 128;
+                sum += v * v;
+            }
+            const rms = Math.sqrt(sum / audioData.length);
+            const now = Date.now();
+
+            if (rms > REALTIME_SPEECH_THRESHOLD){
+                realtimeSpeechStarted = true;
+                realtimeLastSoundAt = now;
+                if (window.__chronicAIRealtimeState !== "LISTENING") realtimeState("LISTENING");
+
+                /* Barge-in: if the user speaks over TTS, stop narration. */
+                if (isSpeaking){
+                    realtimeInterruptForUser();
+                }
+            } else if (
+                realtimeSpeechStarted &&
+                now - realtimeLastSoundAt > REALTIME_SILENCE_MS
+            ){
+                realtimeSpeechStarted = false;
+                if (realtimeSocket?.readyState === WebSocket.OPEN){
+                    try {
+                        if (
+                            realtimeRecorder &&
+                            realtimeRecorder.state !== "inactive"
+                        ) {
+                            realtimeRecorder.requestData();
+                        }
+                    } catch {}
+
+                    setTimeout(() => {
+                        if (
+                            realtimeSocket?.readyState === WebSocket.OPEN
+                        ) {
+                            try {
+                                realtimeSocket.send(
+                                    JSON.stringify({
+                                        type:"turn_end"
+                                    })
+                                );
+                            } catch {}
+                        }
+                    }, 120);
+
+                    realtimeState("THINKING");
+                }
+            }
+
+            realtimeVADFrame = requestAnimationFrame(check);
+        };
+
+        realtimeVADFrame = requestAnimationFrame(check);
+    }
+
+    function realtimeInterruptForUser(){
+        /* Cancel only narration. Keep the realtime microphone alive. */
+        speechGeneration++;
+        speechQueue = [];
+        realtimeSpeechQueue = [];
+        realtimeSentenceBuffer = "";
+        activeNarrationText = "";
+        stopStopCommandListener();
+        try { speechSynthesis.cancel(); } catch {}
+        stopSpeakingUI();
+        realtimeState("INTERRUPTED");
+    }
+
+    function realtimeSpeakNext(language){
+        if (!voiceMode) return;
+
+        if (!realtimeSpeechQueue.length){
+            if (window.__chronicAIRealtimeResponseDone){
+                realtimeState("LISTENING");
+                window.__chronicAIRealtimeResponseDone = false;
+            }
+            return;
+        }
+
+        const sentence = realtimeSpeechQueue.shift();
+        const utterance = new SpeechSynthesisUtterance(sentence);
+        const finalLanguage = normalizeLanguage(language) || detectLanguageFromText(sentence) || "en-IN";
+        utterance.lang = finalLanguage;
+
+        const selectedVoice = chooseVoice(finalLanguage);
+        if (selectedVoice) utterance.voice = selectedVoice;
+        utterance.rate = finalLanguage === "bn-IN" ? 0.94 : 0.98;
+        utterance.pitch = 1.05;
+        utterance.volume = 1;
+
+        const generation = ++speechGeneration;
+        isSpeaking = true;
+        activeNarrationText = cleanForSpeech(sentence).toLowerCase();
+        aiOrb?.classList.add("speaking");
+        voiceWave?.classList.add("show");
+        realtimeState("SPEAKING");
+
+        utterance.onstart = () => {
+            if (generation !== speechGeneration || !voiceMode) return;
+            isSpeaking = true;
+        };
+
+        utterance.onend = () => {
+            if (generation !== speechGeneration || !voiceMode) return;
+            isSpeaking = false;
+            activeNarrationText = "";
+            aiOrb?.classList.remove("speaking");
+            voiceWave?.classList.remove("show");
+            realtimeSpeakNext(finalLanguage);
+        };
+
+        utterance.onerror = event => {
+            if (generation !== speechGeneration || !voiceMode) return;
+            isSpeaking = false;
+            activeNarrationText = "";
+            aiOrb?.classList.remove("speaking");
+            voiceWave?.classList.remove("show");
+            if (event?.error !== "canceled" && event?.error !== "interrupted"){
+                console.warn("Realtime TTS error:", event);
+            }
+            realtimeSpeakNext(finalLanguage);
+        };
+
+        try{
+            speechSynthesis.resume();
+            speechSynthesis.speak(utterance);
+        } catch (error){
+            console.warn("Realtime speech failed:", error);
+            isSpeaking = false;
+            activeNarrationText = "";
+            realtimeSpeakNext(finalLanguage);
+        }
+    }
+
+    function realtimeSpeakDelta(delta, language){
+        realtimeSentenceBuffer += String(delta || "");
+        const regex = /[.!?।]+(?:\s+|$)/g;
+        let match;
+        let consumed = 0;
+
+        while ((match = regex.exec(realtimeSentenceBuffer))){
+            const end = match.index + match[0].length;
+            const sentence = realtimeSentenceBuffer.slice(consumed, end).trim();
+            consumed = end;
+            if (sentence) realtimeSpeechQueue.push(sentence);
+        }
+
+        if (consumed > 0) realtimeSentenceBuffer = realtimeSentenceBuffer.slice(consumed);
+        if (!isSpeaking) realtimeSpeakNext(language);
+    }
+
+    function realtimeAppendAssistantDelta(delta){
+        const text = String(delta || "");
+        if (!text) return;
+        realtimeResponseBuffer += text;
+
+        if (!realtimeCurrentAssistantMessage){
+            realtimeCurrentAssistantMessage = document.createElement("div");
+            realtimeCurrentAssistantMessage.className = "message ai";
+            const avatar = document.createElement("div");
+            avatar.className = "message-avatar";
+            avatar.innerHTML = '<i class="fa-solid fa-sparkles"></i>';
+            const body = document.createElement("div");
+            body.className = "message-body";
+            const bubble = document.createElement("div");
+            bubble.className = "message-bubble";
+            const meta = document.createElement("div");
+            meta.className = "message-meta";
+            meta.innerHTML = '<span>now</span>';
+            body.append(bubble, meta);
+            realtimeCurrentAssistantMessage.append(avatar, body);
+            chatContainer?.insertBefore(realtimeCurrentAssistantMessage, typing || null);
+            welcome && (welcome.style.display = "none");
+        }
+
+        const bubble = realtimeCurrentAssistantMessage.querySelector(".message-bubble");
+        if (bubble) bubble.innerHTML = formatMessage(realtimeResponseBuffer);
+        scrollBottom();
+    }
+
+    function realtimeCommitAssistantMessage(){
+        const text = realtimeResponseBuffer.trim();
+        if (text){
+            messages.push({role:"ai", content:text, time:Date.now()});
+            saveMessages();
+            addRecent(text.slice(0, 100));
+        }
+        realtimeResponseBuffer = "";
+        realtimeSentenceBuffer = "";
+        realtimeCurrentAssistantMessage = null;
+    }
+
+    function realtimeHandleMessage(event){
+        let data = event.data;
+        if (typeof data !== "string") return;
+
+        try { data = JSON.parse(data); } catch { return; }
+        const type = data?.type;
+
+        if (type === "ready"){
+            realtimeState("LISTENING");
+            return;
+        }
+
+        if (type === "transcript"){
+            const text = String(data.text || "").trim();
+            if (!text) return;
+            if (isLikelyNarrationEcho(text.toLowerCase())) return;
+
+            if (chatInput){
+                chatInput.value = text;
+                resize();
+            }
+
+            updateVoiceUI(data.final ? "Heard: " + text.slice(0,55) : "Hearing: " + text.slice(0,55));
+            if (data.final) realtimeState("THINKING");
+            return;
+        }
+
+        if (type === "text_delta"){
+            realtimeState("SPEAKING");
+            realtimeAppendAssistantDelta(data.text);
+            realtimeSpeakDelta(data.text, data.language || detectedLanguage);
+            return;
+        }
+
+        if (type === "response_done"){
+            realtimeCommitAssistantMessage();
+            window.__chronicAIRealtimeResponseDone = true;
+            /* Speak any final fragment without waiting for punctuation. */
+            const tail = realtimeSentenceBuffer.trim();
+            realtimeSentenceBuffer = "";
+            if (tail) realtimeSpeechQueue.push(tail);
+            if (!isSpeaking) realtimeSpeakNext(detectedLanguage);
+            else realtimeState("SPEAKING");
+            return;
+        }
+
+        if (type === "error"){
+            console.error("Realtime server error:", data.message);
+            showToast(data.message || "Realtime voice error.");
+            realtimeFallbackToLegacy();
+        }
+    }
+
+    function realtimeFallbackToLegacy(){
+        realtimeUsingSocket = false;
+        realtimeCloseSocket();
+        realtimeResetRecorder();
+        realtimeStopVAD();
+        if (voiceMode && !isSpeaking && !processingVoice){
+            clearTimeout(realtimeFallbackTimer);
+            realtimeFallbackTimer = setTimeout(() => {
+                if (voiceMode && !isSpeaking && !processingVoice) startMicrophone();
+            }, REALTIME_COOLDOWN_MS);
+        }
+    }
+
+    async function realtimeStartRecorder(){
+        if (!microphoneStream) throw new Error("Microphone stream unavailable.");
+
+        const mimeType = getSupportedMimeType();
+        realtimeRecorder = mimeType
+            ? new MediaRecorder(microphoneStream, {mimeType})
+            : new MediaRecorder(microphoneStream);
+
+        realtimeRecorder.ondataavailable = event => {
+            if (!event.data || !event.data.size) return;
+            if (realtimeSocket?.readyState === WebSocket.OPEN){
+                try { realtimeSocket.send(event.data); } catch (error){ console.warn("Realtime audio send failed", error); }
+            }
+        };
+
+        realtimeRecorder.onerror = error => {
+            console.error("Realtime recorder error:", error);
+            showToast("Real-time microphone error.");
+            realtimeFallbackToLegacy();
+        };
+
+        realtimeRecorder.start(REALTIME_CHUNK_MS);
+        realtimeStartVAD();
+    }
+
+    async function startRealtimeVoice(){
+        if (realtimeStarting || !voiceMode) return false;
+        if (!realtimeCanUseWebSocket()) return false;
+
+        realtimeStarting = true;
+        realtimeSessionId = crypto?.randomUUID?.() || String(Date.now()) + Math.random();
+        realtimeState("CONNECTING");
+
+        try{
+            /* Reuse the same microphone stream, but do not create a MediaRecorder turn-by-turn. */
+            if (!microphoneStream){
+                microphoneStream = await navigator.mediaDevices.getUserMedia({
+                    audio:{
+                        echoCancellation:true,
+                        noiseSuppression:true,
+                        autoGainControl:true,
+                        channelCount:1
+                    }
+                });
+            }
+
+            setupAudioMeter();
+
+            realtimeSocket = new WebSocket(realtimeWsUrl());
+            realtimeSocket.binaryType = "arraybuffer";
+
+            await new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => reject(new Error("Realtime server connection timed out.")), 5000);
+                realtimeSocket.onopen = () => {
+                    clearTimeout(timeout);
+                    try{
+                        realtimeSocket.send(JSON.stringify({
+                            type:"start",
+                            sessionId:realtimeSessionId,
+                            language:detectedLanguage || null,
+                            audioFormat:(
+                                realtimeRecorder?.mimeType ||
+                                getSupportedMimeType() ||
+                                "audio/webm"
+                            )
+                        }));
+                    } catch {}
+                    resolve();
+                };
+                realtimeSocket.onerror = () => {
+                    clearTimeout(timeout);
+                    reject(new Error("Realtime endpoint is unavailable."));
+                };
+            });
+
+            realtimeSocket.onmessage = realtimeHandleMessage;
+            realtimeSocket.onclose = () => {
+                realtimeUsingSocket = false;
+                realtimeStopVAD();
+                realtimeResetRecorder();
+                if (voiceMode && !realtimeStopping && !isSpeaking) realtimeFallbackToLegacy();
+            };
+
+            realtimeSocket.onerror = () => {
+                if (voiceMode) realtimeFallbackToLegacy();
+            };
+
+            realtimeUsingSocket = true;
+            await realtimeStartRecorder();
+            realtimeState("LISTENING");
+            return true;
+        } catch (error){
+            console.warn("Realtime voice unavailable; using legacy voice pipeline:", error);
+            realtimeCloseSocket();
+            realtimeResetRecorder();
+            realtimeStopVAD();
+            return false;
+        } finally {
+            realtimeStarting = false;
+        }
+    }
+
+    function stopRealtimeVoice(){
+        realtimeStopping = true;
+        clearTimeout(realtimeFallbackTimer);
+        realtimeStopVAD();
+        realtimeSpeechQueue = [];
+        realtimeSentenceBuffer = "";
+        realtimeResetRecorder();
+        if (realtimeSocket?.readyState === WebSocket.OPEN){
+            try { realtimeSocket.send(JSON.stringify({type:"stop"})); } catch {}
+        }
+        realtimeCloseSocket();
+        realtimeUsingSocket = false;
+        realtimeStopping = false;
+    }
+
+    /* Replace the voice-mode entry points. */
+    const legacyStartVoiceMode = startVoiceMode;
+    const legacyStopVoiceMode = stopVoiceMode;
+
+    startVoiceMode = async function(){
+        if (voiceMode) return;
+
+        voiceMode = true;
+        detectedLanguage = null;
+        updateVoiceUI("Connecting real-time voice…");
+        unlockSpeechSynthesis();
+        showToast("Voice Assistant ON");
+
+        /* Try the real-time transport first. If /api/realtime is not
+           implemented, fall back to the already-tested recorder path. */
+        const connected = await startRealtimeVoice();
+        if (!connected){
+            voiceMode = false;
+            await legacyStartVoiceMode();
+        }
+    };
+
+    stopVoiceMode = function(){
+        stopRealtimeVoice();
+        legacyStopVoiceMode();
+    };
+
+    const legacyInterruptNarration = interruptNarration;
+    interruptNarration = function(resumeListening = true){
+        legacyInterruptNarration(resumeListening);
+        if (realtimeUsingSocket && resumeListening && voiceMode){
+            realtimeState("LISTENING");
+        }
+    };
+
+    /* If realtime is active, text submission should not start a second
+       microphone lifecycle. */
+    const originalSendMessage = sendMessage;
+    sendMessage = async function(){
+        if (realtimeUsingSocket){
+            /* User typed/sent something manually: stop realtime audio first. */
+            stopRealtimeVoice();
+        }
+        return originalSendMessage();
+    };
+
+    /* Rebind both existing voice buttons to the updated entry points. */
+    if (voiceButton){
+        voiceButton.onclick = async event => {
+            event?.stopPropagation();
+            if (voiceMode) stopVoiceMode();
+            else await startVoiceMode();
+        };
+    }
+    if (voiceToggle){
+        voiceToggle.onclick = async event => {
+            event?.stopPropagation();
+            if (voiceMode) stopVoiceMode();
+            else await startVoiceMode();
+        };
+    }
+
+    window.addEventListener("beforeunload", () => {
+        stopRealtimeVoice();
+    });
+
+})();
 
 
 })();
