@@ -6111,431 +6111,6 @@ document.addEventListener("DOMContentLoaded", () => {
         "Voice output: Browser SpeechSynthesis"
     );
 
-});
-
-
-/* =============================================================
-   CHRONICAI ASSISTANT — DRAG ANYWHERE
-   ============================================================= */
-
-(function setupAssistantDrag() {
-
-    const assistant =
-        document.querySelector(
-            ".assistant-dock"
-        );
-
-
-    if (!assistant) return;
-
-
-    const STORAGE_KEY =
-        "chronicai_assistant_position_v4";
-
-
-    let dragging = false;
-
-    let offsetX = 0;
-    let offsetY = 0;
-
-
-    function clampPosition(
-        x,
-        y
-    ) {
-
-        const rect =
-            assistant.getBoundingClientRect();
-
-
-        const margin = 8;
-
-
-        const maxX =
-            Math.max(
-                margin,
-                window.innerWidth -
-                rect.width -
-                margin
-            );
-
-
-        const maxY =
-            Math.max(
-                margin,
-                window.innerHeight -
-                rect.height -
-                margin
-            );
-
-
-        return {
-
-            x:
-                Math.max(
-                    margin,
-                    Math.min(
-                        x,
-                        maxX
-                    )
-                ),
-
-
-            y:
-                Math.max(
-                    margin,
-                    Math.min(
-                        y,
-                        maxY
-                    )
-                )
-
-        };
-
-    }
-
-
-    function setPosition(
-        x,
-        y,
-        save = true
-    ) {
-
-        const position =
-            clampPosition(
-                x,
-                y
-            );
-
-
-        assistant.style.left =
-            position.x + "px";
-
-
-        assistant.style.top =
-            position.y + "px";
-
-
-        assistant.style.right =
-            "auto";
-
-
-        assistant.style.bottom =
-            "auto";
-
-
-        assistant.style.transform =
-            "none";
-
-
-        if (save) {
-
-            localStorage.setItem(
-                STORAGE_KEY,
-                JSON.stringify(
-                    position
-                )
-            );
-
-        }
-
-    }
-
-
-    function defaultPosition() {
-
-        const rect =
-            assistant.getBoundingClientRect();
-
-
-        const mobile =
-            window.innerWidth <= 850;
-
-
-        const x =
-            window.innerWidth -
-            rect.width -
-            (
-                mobile
-                    ? 10
-                    : 24
-            );
-
-
-        const y =
-            window.innerHeight -
-            rect.height -
-            (
-                mobile
-                    ? 145
-                    : 132
-            );
-
-
-        setPosition(
-            x,
-            y,
-            false
-        );
-
-    }
-
-
-    function restore() {
-
-        try {
-
-            const saved =
-                JSON.parse(
-                    localStorage.getItem(
-                        STORAGE_KEY
-                    ) || "null"
-                );
-
-
-            if (
-                saved &&
-                Number.isFinite(saved.x) &&
-                Number.isFinite(saved.y)
-            ) {
-
-                setPosition(
-                    saved.x,
-                    saved.y,
-                    false
-                );
-
-                return;
-
-            }
-
-        } catch (error) {
-
-            console.warn(
-                "Assistant position restore failed:",
-                error
-            );
-
-        }
-
-
-        defaultPosition();
-
-    }
-
-
-    function startDrag(event) {
-
-        if (
-            event.pointerType === "mouse" &&
-            event.button !== 0
-        ) {
-
-            return;
-
-        }
-
-
-        /*
-           Do NOT drag when clicking voice button.
-        */
-
-        if (
-            event.target.closest(
-                ".voice-toggle"
-            ) ||
-            event.target.closest(
-                "#voiceButton"
-            )
-        ) {
-
-            return;
-
-        }
-
-
-        /*
-           Do not drag buttons,
-           inputs or interactive elements.
-        */
-
-        if (
-            event.target.closest(
-                "button, input, textarea, select, a"
-            )
-        ) {
-
-            return;
-
-        }
-
-
-        const rect =
-            assistant.getBoundingClientRect();
-
-
-        offsetX =
-            event.clientX -
-            rect.left;
-
-
-        offsetY =
-            event.clientY -
-            rect.top;
-
-
-        dragging = true;
-
-
-        assistant.classList.add(
-            "dragging"
-        );
-
-
-        try {
-
-            assistant.setPointerCapture(
-                event.pointerId
-            );
-
-        } catch {}
-
-
-        event.preventDefault();
-
-    }
-
-
-    function moveDrag(event) {
-
-        if (!dragging) return;
-
-
-        setPosition(
-            event.clientX -
-                offsetX,
-
-            event.clientY -
-                offsetY,
-
-            true
-        );
-
-
-        event.preventDefault();
-
-    }
-
-
-    function stopDrag(event) {
-
-        if (!dragging) return;
-
-
-        dragging = false;
-
-
-        assistant.classList.remove(
-            "dragging"
-        );
-
-
-        try {
-
-            assistant.releasePointerCapture(
-                event.pointerId
-            );
-
-        } catch {}
-
-
-        event.preventDefault();
-
-    }
-
-
-    assistant.addEventListener(
-        "pointerdown",
-        startDrag,
-        {
-            passive: false
-        }
-    );
-
-
-    assistant.addEventListener(
-        "pointermove",
-        moveDrag,
-        {
-            passive: false
-        }
-    );
-
-
-    assistant.addEventListener(
-        "pointerup",
-        stopDrag,
-        {
-            passive: false
-        }
-    );
-
-
-    assistant.addEventListener(
-        "pointercancel",
-        stopDrag,
-        {
-            passive: false
-        }
-    );
-
-
-    window.addEventListener(
-        "resize",
-        () => {
-
-            const rect =
-                assistant.getBoundingClientRect();
-
-
-            setPosition(
-                rect.left,
-                rect.top,
-                false
-            );
-
-            try {
-                const position = {
-                    x: parseFloat(assistant.style.left),
-                    y: parseFloat(assistant.style.top)
-                };
-
-                if (
-                    Number.isFinite(position.x) &&
-                    Number.isFinite(position.y)
-                ) {
-                    localStorage.setItem(
-                        STORAGE_KEY,
-                        JSON.stringify(position)
-                    );
-                }
-            } catch {}
-
-        }
-    );
-
-
-    requestAnimationFrame(
-        () => {
-
-            requestAnimationFrame(
-                restore
-            );
-
-        }
-    );
-
-
 /* =========================================================
    CHRONICAI REAL-TIME VOICE LAYER
    ---------------------------------------------------------
@@ -7060,6 +6635,433 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
 })();
+
+});
+
+
+/* =============================================================
+   CHRONICAI ASSISTANT — DRAG ANYWHERE
+   ============================================================= */
+
+(function setupAssistantDrag() {
+
+    const assistant =
+        document.querySelector(
+            ".assistant-dock"
+        );
+
+
+    if (!assistant) return;
+
+
+    const STORAGE_KEY =
+        "chronicai_assistant_position_v4";
+
+
+    let dragging = false;
+
+    let offsetX = 0;
+    let offsetY = 0;
+
+
+    function clampPosition(
+        x,
+        y
+    ) {
+
+        const rect =
+            assistant.getBoundingClientRect();
+
+
+        const margin = 8;
+
+
+        const maxX =
+            Math.max(
+                margin,
+                window.innerWidth -
+                rect.width -
+                margin
+            );
+
+
+        const maxY =
+            Math.max(
+                margin,
+                window.innerHeight -
+                rect.height -
+                margin
+            );
+
+
+        return {
+
+            x:
+                Math.max(
+                    margin,
+                    Math.min(
+                        x,
+                        maxX
+                    )
+                ),
+
+
+            y:
+                Math.max(
+                    margin,
+                    Math.min(
+                        y,
+                        maxY
+                    )
+                )
+
+        };
+
+    }
+
+
+    function setPosition(
+        x,
+        y,
+        save = true
+    ) {
+
+        const position =
+            clampPosition(
+                x,
+                y
+            );
+
+
+        assistant.style.left =
+            position.x + "px";
+
+
+        assistant.style.top =
+            position.y + "px";
+
+
+        assistant.style.right =
+            "auto";
+
+
+        assistant.style.bottom =
+            "auto";
+
+
+        assistant.style.transform =
+            "none";
+
+
+        if (save) {
+
+            localStorage.setItem(
+                STORAGE_KEY,
+                JSON.stringify(
+                    position
+                )
+            );
+
+        }
+
+    }
+
+
+    function defaultPosition() {
+
+        const rect =
+            assistant.getBoundingClientRect();
+
+
+        const mobile =
+            window.innerWidth <= 850;
+
+
+        const x =
+            window.innerWidth -
+            rect.width -
+            (
+                mobile
+                    ? 10
+                    : 24
+            );
+
+
+        const y =
+            window.innerHeight -
+            rect.height -
+            (
+                mobile
+                    ? 145
+                    : 132
+            );
+
+
+        setPosition(
+            x,
+            y,
+            false
+        );
+
+    }
+
+
+    function restore() {
+
+        try {
+
+            const saved =
+                JSON.parse(
+                    localStorage.getItem(
+                        STORAGE_KEY
+                    ) || "null"
+                );
+
+
+            if (
+                saved &&
+                Number.isFinite(saved.x) &&
+                Number.isFinite(saved.y)
+            ) {
+
+                setPosition(
+                    saved.x,
+                    saved.y,
+                    false
+                );
+
+                return;
+
+            }
+
+        } catch (error) {
+
+            console.warn(
+                "Assistant position restore failed:",
+                error
+            );
+
+        }
+
+
+        defaultPosition();
+
+    }
+
+
+    function startDrag(event) {
+
+        if (
+            event.pointerType === "mouse" &&
+            event.button !== 0
+        ) {
+
+            return;
+
+        }
+
+
+        /*
+           Do NOT drag when clicking voice button.
+        */
+
+        if (
+            event.target.closest(
+                ".voice-toggle"
+            ) ||
+            event.target.closest(
+                "#voiceButton"
+            )
+        ) {
+
+            return;
+
+        }
+
+
+        /*
+           Do not drag buttons,
+           inputs or interactive elements.
+        */
+
+        if (
+            event.target.closest(
+                "button, input, textarea, select, a"
+            )
+        ) {
+
+            return;
+
+        }
+
+
+        const rect =
+            assistant.getBoundingClientRect();
+
+
+        offsetX =
+            event.clientX -
+            rect.left;
+
+
+        offsetY =
+            event.clientY -
+            rect.top;
+
+
+        dragging = true;
+
+
+        assistant.classList.add(
+            "dragging"
+        );
+
+
+        try {
+
+            assistant.setPointerCapture(
+                event.pointerId
+            );
+
+        } catch {}
+
+
+        event.preventDefault();
+
+    }
+
+
+    function moveDrag(event) {
+
+        if (!dragging) return;
+
+
+        setPosition(
+            event.clientX -
+                offsetX,
+
+            event.clientY -
+                offsetY,
+
+            true
+        );
+
+
+        event.preventDefault();
+
+    }
+
+
+    function stopDrag(event) {
+
+        if (!dragging) return;
+
+
+        dragging = false;
+
+
+        assistant.classList.remove(
+            "dragging"
+        );
+
+
+        try {
+
+            assistant.releasePointerCapture(
+                event.pointerId
+            );
+
+        } catch {}
+
+
+        event.preventDefault();
+
+    }
+
+
+    assistant.addEventListener(
+        "pointerdown",
+        startDrag,
+        {
+            passive: false
+        }
+    );
+
+
+    assistant.addEventListener(
+        "pointermove",
+        moveDrag,
+        {
+            passive: false
+        }
+    );
+
+
+    assistant.addEventListener(
+        "pointerup",
+        stopDrag,
+        {
+            passive: false
+        }
+    );
+
+
+    assistant.addEventListener(
+        "pointercancel",
+        stopDrag,
+        {
+            passive: false
+        }
+    );
+
+
+    window.addEventListener(
+        "resize",
+        () => {
+
+            const rect =
+                assistant.getBoundingClientRect();
+
+
+            setPosition(
+                rect.left,
+                rect.top,
+                false
+            );
+
+            try {
+                const position = {
+                    x: parseFloat(assistant.style.left),
+                    y: parseFloat(assistant.style.top)
+                };
+
+                if (
+                    Number.isFinite(position.x) &&
+                    Number.isFinite(position.y)
+                ) {
+                    localStorage.setItem(
+                        STORAGE_KEY,
+                        JSON.stringify(position)
+                    );
+                }
+            } catch {}
+
+        }
+    );
+
+
+    requestAnimationFrame(
+        () => {
+
+            requestAnimationFrame(
+                restore
+            );
+
+        }
+    );
+
+
+
 
 
 })();
