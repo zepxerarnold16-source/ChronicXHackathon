@@ -6794,6 +6794,192 @@ function normalizeRealtimeHistory(history) {
         .filter(Boolean);
 }
 
+function detectRealtimeAudioContainer(buffer) {
+    if (!buffer || buffer.length < 4) {
+        return null;
+    }
+
+    // WebM / Matroska EBML signature.
+    if (
+        buffer[0] === 0x1a &&
+        buffer[1] === 0x45 &&
+        buffer[2] === 0xdf &&
+        buffer[3] === 0xa3
+    ) {
+        return {
+            mimeType: "audio/webm",
+            extension: "webm"
+        };
+    }
+
+    // Ogg container signature.
+    if (
+        buffer[0] === 0x4f &&
+        buffer[1] === 0x67 &&
+        buffer[2] === 0x67 &&
+        buffer[3] === 0x53
+    ) {
+        return {
+            mimeType: "audio/ogg",
+            extension: "ogg"
+        };
+    }
+
+    // WAV / RIFF.
+    if (
+        buffer.length >= 12 &&
+        buffer.toString("ascii", 0, 4) === "RIFF" &&
+        buffer.toString("ascii", 8, 12) === "WAVE"
+    ) {
+        return {
+            mimeType: "audio/wav",
+            extension: "wav"
+        };
+    }
+
+    // MP4/M4A usually contains ftyp at byte offset 4.
+    if (
+        buffer.length >= 12 &&
+        buffer.toString("ascii", 4, 8) === "ftyp"
+    ) {
+        return {
+            mimeType: "audio/mp4",
+            extension: "mp4"
+        };
+    }
+
+    return null;
+}
+
+function normalizeRealtimeMimeType(mimeType, detected) {
+    const supplied = cleanText(mimeType).toLowerCase();
+
+    // Never send "audio/webm/opus" to the transcription API.
+    // "opus" is a codec, not a MIME subtype.
+    if (
+        supplied.includes("webm") ||
+        detected?.mimeType === "audio/webm"
+    ) {
+        return {
+            mimeType: "audio/webm",
+            extension: "webm"
+        };
+    }
+
+    if (
+        supplied.includes("ogg") ||
+        detected?.mimeType === "audio/ogg"
+    ) {
+        return {
+            mimeType: "audio/ogg",
+            extension: "ogg"
+        };
+    }
+
+    if (
+        supplied.includes("wav") ||
+        detected?.mimeType === "audio/wav"
+    ) {
+        return {
+            mimeType: "audio/wav",
+            extension: "wav"
+        };
+    }
+
+    if (
+        supplied.includes("mp4") ||
+        supplied.includes("m4a") ||
+        detected?.mimeType === "audio/mp4"
+    ) {
+        return {
+            mimeType: "audio/mp4",
+            extension: "mp4"
+        };
+    }
+
+    return detected || {
+        mimeType: "audio/webm",
+        extension: "webm"
+    };
+}
+
+function detectRealtimeAudioContainer(buffer) {
+    if (!buffer || buffer.length < 4) return null;
+
+    if (
+        buffer[0] === 0x1a &&
+        buffer[1] === 0x45 &&
+        buffer[2] === 0xdf &&
+        buffer[3] === 0xa3
+    ) {
+        return { mimeType: "audio/webm", extension: "webm" };
+    }
+
+    if (
+        buffer[0] === 0x4f &&
+        buffer[1] === 0x67 &&
+        buffer[2] === 0x67 &&
+        buffer[3] === 0x53
+    ) {
+        return { mimeType: "audio/ogg", extension: "ogg" };
+    }
+
+    if (
+        buffer.length >= 12 &&
+        buffer.toString("ascii", 0, 4) === "RIFF" &&
+        buffer.toString("ascii", 8, 12) === "WAVE"
+    ) {
+        return { mimeType: "audio/wav", extension: "wav" };
+    }
+
+    if (
+        buffer.length >= 12 &&
+        buffer.toString("ascii", 4, 8) === "ftyp"
+    ) {
+        return { mimeType: "audio/mp4", extension: "mp4" };
+    }
+
+    return null;
+}
+
+function normalizeRealtimeMimeType(mimeType, detected) {
+    const supplied = cleanText(mimeType).toLowerCase();
+
+    if (
+        supplied.includes("webm") ||
+        detected?.mimeType === "audio/webm"
+    ) {
+        return { mimeType: "audio/webm", extension: "webm" };
+    }
+
+    if (
+        supplied.includes("ogg") ||
+        detected?.mimeType === "audio/ogg"
+    ) {
+        return { mimeType: "audio/ogg", extension: "ogg" };
+    }
+
+    if (
+        supplied.includes("wav") ||
+        detected?.mimeType === "audio/wav"
+    ) {
+        return { mimeType: "audio/wav", extension: "wav" };
+    }
+
+    if (
+        supplied.includes("mp4") ||
+        supplied.includes("m4a") ||
+        detected?.mimeType === "audio/mp4"
+    ) {
+        return { mimeType: "audio/mp4", extension: "mp4" };
+    }
+
+    return detected || {
+        mimeType: "audio/webm",
+        extension: "webm"
+    };
+}
+
 async function transcribeRealtimeAudio(audioBuffer, mimeType = "audio/webm") {
     if (!hasGroqKey() || !groq) {
         throw new Error("GROQ_API_KEY is missing.");
@@ -6807,24 +6993,42 @@ async function transcribeRealtimeAudio(audioBuffer, mimeType = "audio/webm") {
         throw new Error("Realtime audio turn is too large.");
     }
 
-    let extension = "webm";
+    const detected =
+        detectRealtimeAudioContainer(audioBuffer);
 
-    if (mimeType.includes("ogg")) extension = "ogg";
-    else if (mimeType.includes("mp4")) extension = "mp4";
-    else if (mimeType.includes("mpeg") || mimeType.includes("mp3")) extension = "mp3";
-    else if (mimeType.includes("wav")) extension = "wav";
+    if (!detected) {
+        console.error(
+            "[Realtime] Invalid audio container. First bytes:",
+            audioBuffer.subarray(0, 16).toString("hex")
+        );
+
+        throw new Error(
+            "The realtime audio container is invalid. Please try speaking again."
+        );
+    }
+
+    const format =
+        normalizeRealtimeMimeType(
+            mimeType,
+            detected
+        );
+
+    console.log(
+        `[Realtime] Transcribing ${format.mimeType}, ${audioBuffer.length} bytes`
+    );
 
     const audioFile = new File(
         [audioBuffer],
-        `chronicai-realtime-${Date.now()}.${extension}`,
-        { type: mimeType }
+        `chronicai-realtime-${Date.now()}.${format.extension}`,
+        { type: format.mimeType }
     );
 
-    const result = await groq.audio.transcriptions.create({
-        file: audioFile,
-        model: "whisper-large-v3-turbo",
-        response_format: "json"
-    });
+    const result =
+        await groq.audio.transcriptions.create({
+            file: audioFile,
+            model: "whisper-large-v3-turbo",
+            response_format: "json"
+        });
 
     return cleanText(result?.text || "");
 }
@@ -6993,6 +7197,10 @@ async function processRealtimeTurn(ws, session) {
             type: "status",
             state: "transcribing"
         });
+
+        console.log(
+            `[Realtime] Turn received: ${audio.length} bytes, format=${session.audioFormat}`
+        );
 
         const transcript =
             await transcribeRealtimeAudio(
@@ -7215,10 +7423,26 @@ function attachRealtimeWebSocket(server) {
                                     message?.audioFormat
                                 ) || "webm/opus";
 
+                            // Store a valid media MIME type.
+                            // "webm/opus" is not a valid MIME type; Opus is the codec.
                             session.audioFormat =
-                                rawFormat.startsWith("audio/")
-                                    ? rawFormat
-                                    : `audio/${rawFormat}`;
+                                rawFormat
+                                    .replace(/;.*$/, "")
+                                    .replace(
+                                        /^webm\/opus$/i,
+                                        "audio/webm"
+                                    )
+                                    .replace(
+                                        /^ogg\/opus$/i,
+                                        "audio/ogg"
+                                    );
+
+                            if (
+                                !session.audioFormat.startsWith("audio/")
+                            ) {
+                                session.audioFormat =
+                                    `audio/${session.audioFormat}`;
+                            }
 
                             realtimeSend(ws, {
                                 type: "started",
