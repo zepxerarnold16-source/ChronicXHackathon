@@ -121,6 +121,232 @@ app.use(
 );
 
 // ============================================================
+// CHRONICAI NEARBY RESOURCES API
+// Server-side Overpass proxy
+// ============================================================
+
+const resourceCache = new Map();
+
+function buildResourceQuery(lat, lng, radiusMeters) {
+    return `
+[out:json][timeout:20];
+
+(
+    nwr["amenity"="hospital"]
+        (around:${radiusMeters},${lat},${lng});
+
+    nwr["amenity"="police"]
+        (around:${radiusMeters},${lat},${lng});
+
+    nwr["amenity"="fire_station"]
+        (around:${radiusMeters},${lat},${lng});
+
+    nwr["office"="government"]
+        (around:${radiusMeters},${lat},${lng});
+
+    nwr["amenity"="social_centre"]
+        (around:${radiusMeters},${lat},${lng});
+
+    nwr["amenity"="community_centre"]
+        (around:${radiusMeters},${lat},${lng});
+);
+
+out center tags;
+`;
+}
+
+app.get("/api/resources", async (req, res) => {
+    try {
+        const lat = Number(req.query.lat);
+        const lng = Number(req.query.lng);
+
+        let radiusKm = Number(req.query.radius);
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+            return res.status(400).json({
+                success: false,
+                error: "Invalid latitude or longitude."
+            });
+        }
+
+        if (!Number.isFinite(radiusKm)) {
+            radiusKm = 5;
+        }
+
+        // Protect Overpass from huge requests.
+        radiusKm = Math.min(
+            Math.max(radiusKm, 1),
+            25
+        );
+
+        const radiusMeters = Math.round(radiusKm * 1000);
+
+        // Round coordinates so nearby requests can share cache.
+        const cacheKey =
+            `${lat.toFixed(3)}:${lng.toFixed(3)}:${radiusKm}`;
+
+        const cached = resourceCache.get(cacheKey);
+
+        // Five-minute cache.
+        if (
+            cached &&
+            Date.now() - cached.timestamp < 5 * 60 * 1000
+        ) {
+            return res.json({
+                ...cached.data,
+                cached: true
+            });
+        }
+
+        const query =
+            buildResourceQuery(
+                lat,
+                lng,
+                radiusMeters
+            );
+
+        const endpoints = [
+            "https://overpass-api.de/api/interpreter",
+            "https://overpass.kumi.systems/api/interpreter"
+        ];
+
+        let lastError = null;
+
+        for (const endpoint of endpoints) {
+            try {
+                console.log(
+                    "[Resources] Querying:",
+                    endpoint
+                );
+
+                const controller =
+                    new AbortController();
+
+                const timeout =
+                    setTimeout(() => {
+                        controller.abort();
+                    }, 30000);
+
+                const response =
+                    await fetch(
+                        endpoint,
+                        {
+                            method: "POST",
+
+                            headers: {
+                                "Content-Type":
+                                    "application/x-www-form-urlencoded",
+
+                                "Accept":
+                                    "application/json",
+
+                                "User-Agent":
+                                    "ChronicAI/1.0"
+                            },
+
+                            body:
+                                new URLSearchParams({
+                                    data: query
+                                }),
+
+                            signal:
+                                controller.signal
+                        }
+                    );
+
+                clearTimeout(timeout);
+
+                if (!response.ok) {
+                    throw new Error(
+                        `Overpass HTTP ${response.status}`
+                    );
+                }
+
+                const overpassData =
+                    await response.json();
+
+                const result = {
+                    success: true,
+
+                    elements:
+                        Array.isArray(
+                            overpassData.elements
+                        )
+                            ? overpassData.elements
+                            : [],
+
+                    cached: false,
+
+                    timestamp:
+                        new Date().toISOString()
+                };
+
+                resourceCache.set(
+                    cacheKey,
+                    {
+                        timestamp: Date.now(),
+                        data: result
+                    }
+                );
+
+                // Prevent unlimited cache growth.
+                if (resourceCache.size > 100) {
+                    const firstKey =
+                        resourceCache
+                            .keys()
+                            .next()
+                            .value;
+
+                    resourceCache.delete(firstKey);
+                }
+
+                return res.json(result);
+
+            } catch (error) {
+                lastError = error;
+
+                console.warn(
+                    "[Resources] Overpass endpoint failed:",
+                    endpoint,
+                    error?.message || error
+                );
+            }
+        }
+
+        // If live Overpass failed, return cached data if available.
+        if (cached) {
+            return res.json({
+                ...cached.data,
+                cached: true
+            });
+        }
+
+        console.error(
+            "[Resources] All Overpass endpoints failed:",
+            lastError
+        );
+
+        return res.status(502).json({
+            success: false,
+            error:
+                "Nearby resource service is temporarily unavailable."
+        });
+
+    } catch (error) {
+        console.error(
+            "[Resources] Server error:",
+            error
+        );
+
+        return res.status(500).json({
+            success: false,
+            error:
+                "Unable to load nearby resources."
+        });
+    }
+});
+
+// ============================================================
 // GENERAL HELPERS
 // ============================================================
 
