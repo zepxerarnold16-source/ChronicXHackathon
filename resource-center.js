@@ -4,121 +4,109 @@
 
    Architecture:
 
-   Browser
-      ↓
-   /api/resources
-      ↓
-   Render backend
-      ↓
-   Overpass API
+       Browser
+          |
+          | GET /api/resources
+          v
+       ChronicAI Render Server
+          |
+          | server-side request
+          v
+       Overpass / OpenStreetMap
 
    IMPORTANT:
-   Do NOT call Overpass directly from this browser file.
-   ============================================================ */
+   Never fetch Overpass directly from the browser.
+   This avoids browser CORS problems.
+
+============================================================ */
 
 (() => {
     "use strict";
 
-    /* ============================================================
+    /* =========================================================
        CONFIGURATION
-       ============================================================ */
+    ========================================================= */
 
     const CONFIG = {
         DEFAULT_RADIUS_KM: 5,
+
         MAX_RADIUS_KM: 50,
 
-        RESOURCE_ENDPOINTS: [
-            "/api/resources",
-            "/api/nearby-resources",
-            "/api/overpass/resources"
-        ],
+        RESOURCE_ENDPOINT: "/api/resources",
 
-        LOCATION_TIMEOUT: 15000,
-        LOCATION_MAX_AGE: 30000,
+        REQUEST_TIMEOUT_MS: 30000,
 
-        MAP_DEFAULT_ZOOM: 13,
+        LOCATION_TIMEOUT_MS: 15000,
 
-        SEARCH_DEBOUNCE_MS: 350,
+        LOCATION_MAX_AGE_MS: 30000,
 
-        ENABLE_CONSOLE_LOGS: true
+        DEFAULT_ZOOM: 13,
+
+        RESOURCE_ZOOM: 14,
+
+        MAX_RESOURCES_DISPLAYED: 300,
+
+        ENABLE_BROWSER_FALLBACK: true
     };
 
 
-    /* ============================================================
+    /* =========================================================
        GLOBAL STATE
-       ============================================================ */
+    ========================================================= */
 
     let map = null;
+
     let userMarker = null;
 
+    let userAccuracyCircle = null;
+
     let resourceMarkers = [];
-    let pollutionLayers = [];
-
-    let currentLocation = null;
-
-    let currentResourceType = "all";
-    let currentDistanceKm = CONFIG.DEFAULT_RADIUS_KM;
 
     let resourcesData = [];
 
+    let filteredResources = [];
+
+    let currentPosition = null;
+
+    let currentFilter = "all";
+
+    let currentDistanceKm =
+        CONFIG.DEFAULT_RADIUS_KM;
+
     let resourceRequestId = 0;
-
-    let locationRequestId = 0;
-
-    let pollutionEnabled = false;
-    let pollutionRangeKm = 1;
-
-    let lastAirQualityLocation = null;
-
-    let locationWatchId = null;
 
     let isLoadingResources = false;
 
+    let pollutionEnabled = false;
 
-    /* ============================================================
+    let pollutionRangeKm = 1;
+
+    let pollutionLayers = [];
+
+
+    /* =========================================================
        DOM HELPERS
-       ============================================================ */
+    ========================================================= */
 
-    const $ = (id) => document.getElementById(id);
-
-    function qs(selector, parent = document) {
-        return parent.querySelector(selector);
-    }
-
-    function qsa(selector, parent = document) {
-        return Array.from(parent.querySelectorAll(selector));
+    function $(id) {
+        return document.getElementById(id);
     }
 
 
-    /* ============================================================
-       LOGGING
-       ============================================================ */
-
-    function log(...args) {
-        if (CONFIG.ENABLE_CONSOLE_LOGS) {
-            console.log("[ChronicAI]", ...args);
-        }
-    }
-
-    function warn(...args) {
-        console.warn("[ChronicAI]", ...args);
-    }
-
-    function error(...args) {
-        console.error("[ChronicAI]", ...args);
-    }
-
-
-    /* ============================================================
-       SAFE HTML
-       ============================================================ */
-
-    function escapeHTML(value) {
-        if (value === null || value === undefined) {
+    function safeText(value) {
+        if (
+            value === null ||
+            value === undefined
+        ) {
             return "";
         }
 
-        return String(value)
+        return String(value);
+    }
+
+
+    function escapeHtml(value) {
+        return safeText(value)
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;")
@@ -127,131 +115,196 @@
     }
 
 
-    /* ============================================================
+    /* =========================================================
+       DOM REFERENCES
+    ========================================================= */
+
+    const locateBtn =
+        $("locateBtn");
+
+    const refreshBtn =
+        $("refreshBtn");
+
+    const centerMapBtn =
+        $("centerMapBtn");
+
+    const resourceMap =
+        $("resourceMap");
+
+    const resourceList =
+        $("resourceList");
+
+    const resourceCount =
+        $("resourceCount");
+
+    const locationStatus =
+        $("locationStatus");
+
+    const mapStatus =
+        $("mapStatus");
+
+    const distanceFilter =
+        $("distanceFilter");
+
+    const filterButtons =
+        document.querySelectorAll(
+            ".filter-btn"
+        );
+
+    const pollutionTrackerBtn =
+        $("pollutionTrackerBtn");
+
+    const pollutionMapLegend =
+        $("pollutionMapLegend");
+
+    const pollutionRangeButtons =
+        document.querySelectorAll(
+            ".pollution-range-btn"
+        );
+
+
+    /* =========================================================
        INITIALIZATION
-       ============================================================ */
+    ========================================================= */
 
-    document.addEventListener("DOMContentLoaded", () => {
-        initializeResourceCenter();
-    });
+    document.addEventListener(
+        "DOMContentLoaded",
+        initialize
+    );
 
 
-    function initializeResourceCenter() {
-        log("Initializing Resource Center...");
+    function initialize() {
+
+        console.log(
+            "[ChronicAI] Resource Center initializing..."
+        );
 
         initializeMap();
-        bindEvents();
-        initializeUI();
 
-        log("Resource Center initialized.");
+        attachEventListeners();
+
+        updateResourceCount(0);
+
+        setMapStatus("Ready");
+
+        console.log(
+            "[ChronicAI] Resource Center initialized."
+        );
     }
 
 
-    /* ============================================================
+    /* =========================================================
        MAP
-       ============================================================ */
+    ========================================================= */
 
     function initializeMap() {
-        const mapElement = $("resourceMap");
 
-        if (!mapElement) {
-            warn("resourceMap element not found.");
-            return;
-        }
-
-        if (typeof L === "undefined") {
-            error("Leaflet is not loaded.");
-            return;
-        }
-
-        try {
-            map = L.map("resourceMap", {
-                zoomControl: true,
-                attributionControl: true
-            }).setView(
-                [22.5726, 88.3639],
-                CONFIG.MAP_DEFAULT_ZOOM
+        if (!resourceMap) {
+            console.error(
+                "[ChronicAI] #resourceMap not found."
             );
 
-            L.tileLayer(
-                "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-                {
-                    maxZoom: 19,
-                    attribution: "&copy; OpenStreetMap contributors"
-                }
-            ).addTo(map);
-
-            setMapStatus("Ready");
-
-        } catch (err) {
-            error("Map initialization failed:", err);
+            return;
         }
+
+        if (
+            typeof L === "undefined"
+        ) {
+            console.error(
+                "[ChronicAI] Leaflet is not loaded."
+            );
+
+            setMapStatus(
+                "Map unavailable"
+            );
+
+            return;
+        }
+
+        map = L.map(
+            resourceMap,
+            {
+                zoomControl: true
+            }
+        ).setView(
+            [20.5937, 78.9629],
+            5
+        );
+
+
+        L.tileLayer(
+            "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            {
+                maxZoom: 19,
+
+                attribution:
+                    '&copy; OpenStreetMap contributors'
+            }
+        ).addTo(map);
+
+
+        setMapStatus("Ready");
+
+        setTimeout(() => {
+
+            try {
+                map.invalidateSize();
+            } catch (error) {
+                console.warn(
+                    "[ChronicAI] Map resize failed:",
+                    error
+                );
+            }
+
+        }, 300);
     }
 
 
-    /* ============================================================
-       EVENTS
-       ============================================================ */
+    /* =========================================================
+       EVENT LISTENERS
+    ========================================================= */
 
-    function bindEvents() {
-
-        const locateBtn = $("locateBtn");
+    function attachEventListeners() {
 
         if (locateBtn) {
+
             locateBtn.addEventListener(
                 "click",
-                requestUserLocation
+                handleLocate
             );
         }
 
 
-        const refreshBtn = $("refreshBtn");
-
         if (refreshBtn) {
+
             refreshBtn.addEventListener(
                 "click",
                 () => {
-                    if (!currentLocation) {
-                        requestUserLocation();
+
+                    if (!currentPosition) {
+
+                        handleLocate();
+
                         return;
                     }
 
-                    loadNearbyResources();
+                    loadNearbyResources(
+                        currentPosition.lat,
+                        currentPosition.lng
+                    );
                 }
             );
         }
 
 
-        const centerBtn = $("centerMapBtn");
+        if (centerMapBtn) {
 
-        if (centerBtn) {
-            centerBtn.addEventListener(
+            centerMapBtn.addEventListener(
                 "click",
-                centerMapOnUser
+                centerOnUser
             );
         }
 
-
-        qsa(".filter-btn").forEach((button) => {
-
-            button.addEventListener("click", () => {
-
-                qsa(".filter-btn").forEach((btn) => {
-                    btn.classList.remove("active");
-                });
-
-                button.classList.add("active");
-
-                currentResourceType =
-                    button.dataset.type || "all";
-
-                renderResourceList();
-                renderResourceMarkers();
-            });
-        });
-
-
-        const distanceFilter = $("distanceFilter");
 
         if (distanceFilter) {
 
@@ -259,164 +312,120 @@
                 "change",
                 () => {
 
-                    const value =
-                        Number(distanceFilter.value);
+                    currentDistanceKm =
+                        Number(
+                            distanceFilter.value
+                        ) ||
+                        CONFIG.DEFAULT_RADIUS_KM;
 
-                    if (
-                        Number.isFinite(value) &&
-                        value > 0
-                    ) {
-                        currentDistanceKm = value;
-                    }
+                    if (currentPosition) {
 
-                    if (currentLocation) {
-                        loadNearbyResources();
+                        loadNearbyResources(
+                            currentPosition.lat,
+                            currentPosition.lng
+                        );
                     }
                 }
             );
         }
 
 
-        const pollutionBtn =
-            $("pollutionTrackerBtn");
-
-        if (pollutionBtn) {
-
-            pollutionBtn.addEventListener(
-                "click",
-                togglePollutionTracker
-            );
-        }
-
-
-        qsa(".pollution-range-btn").forEach(
-            (button) => {
+        filterButtons.forEach(
+            button => {
 
                 button.addEventListener(
                     "click",
                     () => {
 
-                        const range =
-                            Number(button.dataset.range);
+                        filterButtons.forEach(
+                            btn =>
+                                btn.classList.remove(
+                                    "active"
+                                )
+                        );
 
-                        if (!Number.isFinite(range)) {
-                            return;
-                        }
+                        button.classList.add(
+                            "active"
+                        );
 
-                        pollutionRangeKm = range;
+                        currentFilter =
+                            button.dataset.type ||
+                            "all";
 
-                        qsa(
-                            ".pollution-range-btn"
-                        ).forEach((btn) => {
-                            btn.classList.remove(
-                                "active"
-                            );
-                        });
-
-                        button.classList.add("active");
-
-                        if (
-                            pollutionEnabled &&
-                            currentLocation
-                        ) {
-                            renderPollutionZones();
-                        }
+                        renderResources();
                     }
                 );
             }
         );
 
 
-        const airRefresh =
-            $("refreshAirQuality");
+        if (pollutionTrackerBtn) {
 
-        if (airRefresh) {
-
-            airRefresh.addEventListener(
+            pollutionTrackerBtn.addEventListener(
                 "click",
-                () => {
+                togglePollutionTracker
+            );
+        }
 
-                    if (currentLocation) {
-                        loadAirQuality(
-                            currentLocation.lat,
-                            currentLocation.lon
+
+        pollutionRangeButtons.forEach(
+            button => {
+
+                button.addEventListener(
+                    "click",
+                    () => {
+
+                        pollutionRangeButtons.forEach(
+                            btn =>
+                                btn.classList.remove(
+                                    "active"
+                                )
                         );
-                    } else {
-                        requestUserLocation();
+
+                        button.classList.add(
+                            "active"
+                        );
+
+                        pollutionRangeKm =
+                            Number(
+                                button.dataset.range
+                            ) || 1;
+
+                        if (
+                            pollutionEnabled &&
+                            currentPosition
+                        ) {
+
+                            drawPollutionZones();
+                        }
                     }
-                }
-            );
-        }
-
-
-        const pollutionSearchBtn =
-            $("pollutionPlaceSearchBtn");
-
-        if (pollutionSearchBtn) {
-
-            pollutionSearchBtn.addEventListener(
-                "click",
-                searchPollutionLocation
-            );
-        }
-
-
-        const pollutionInput =
-            $("pollutionPlaceInput");
-
-        if (pollutionInput) {
-
-            pollutionInput.addEventListener(
-                "keydown",
-                (event) => {
-
-                    if (event.key === "Enter") {
-                        event.preventDefault();
-                        searchPollutionLocation();
-                    }
-                }
-            );
-        }
-    }
-
-
-    /* ============================================================
-       UI INITIALIZATION
-       ============================================================ */
-
-    function initializeUI() {
-
-        setLocationStatus(
-            "Waiting for your location..."
+                );
+            }
         );
-
-        setMapStatus("Ready");
-
-        updateResourceCount(0);
-
-        setAirQualityWaiting();
     }
 
 
-    /* ============================================================
+    /* =========================================================
        LOCATION
-       ============================================================ */
+    ========================================================= */
 
-    function requestUserLocation() {
+    function handleLocate() {
 
-        if (!navigator.geolocation) {
+        if (
+            !navigator.geolocation
+        ) {
 
-            setLocationStatus(
-                "Geolocation is not supported by this browser."
+            showLocationStatus(
+                "Geolocation is not supported by this browser.",
+                "error"
             );
 
             return;
         }
 
 
-        const locateBtn = $("locateBtn");
-
         if (locateBtn) {
+
             locateBtn.disabled = true;
 
             locateBtn.innerHTML =
@@ -424,948 +433,1115 @@
         }
 
 
-        const requestId = ++locationRequestId;
-
-
-        setLocationStatus(
-            "Requesting your location..."
+        showLocationStatus(
+            "Requesting your location...",
+            "loading"
         );
 
 
         navigator.geolocation.getCurrentPosition(
-            async (position) => {
 
-                if (requestId !== locationRequestId) {
-                    return;
+            position => {
+
+                if (locateBtn) {
+
+                    locateBtn.disabled = false;
+
+                    locateBtn.innerHTML =
+                        '<i class="fa-solid fa-location-crosshairs"></i> Use My Location';
                 }
-
-
-                const latitude =
-                    Number(position.coords.latitude);
-
-                const longitude =
-                    Number(position.coords.longitude);
-
-
-                if (
-                    !Number.isFinite(latitude) ||
-                    !Number.isFinite(longitude)
-                ) {
-
-                    handleLocationError(
-                        new Error("Invalid coordinates")
-                    );
-
-                    return;
-                }
-
-
-                currentLocation = {
-                    lat: latitude,
-                    lon: longitude,
-                    accuracy:
-                        Number(position.coords.accuracy) || null
-                };
-
-
-                log(
-                    "Location obtained:",
-                    currentLocation
-                );
-
-
-                updateUserMarker();
-
-                setLocationStatus(
-                    `Location found (${latitude.toFixed(5)}, ${longitude.toFixed(5)})`
-                );
-
-
-                if (map) {
-
-                    map.setView(
-                        [latitude, longitude],
-                        Math.max(
-                            map.getZoom(),
-                            13
-                        )
-                    );
-                }
-
-
-                try {
-
-                    await loadNearbyResources();
-
-                } catch (err) {
-
-                    error(
-                        "Resource loading failed:",
-                        err
-                    );
-
-                } finally {
-
-                    try {
-                        await loadAirQuality(
-                            latitude,
-                            longitude
-                        );
-                    } catch (err) {
-                        warn(
-                            "Air quality loading failed:",
-                            err
-                        );
-                    }
-
-                    restoreLocateButton();
-                }
-            },
-
-
-            (geoError) => {
-
-                if (requestId !== locationRequestId) {
-                    return;
-                }
-
-                handleLocationError(geoError);
-                restoreLocateButton();
-            },
-
-
-            {
-                enableHighAccuracy: true,
-                timeout: CONFIG.LOCATION_TIMEOUT,
-                maximumAge: CONFIG.LOCATION_MAX_AGE
-            }
-        );
-    }
-
-
-    function handleLocationError(geoError) {
-
-        let message =
-            "Unable to determine your location.";
-
-        if (geoError) {
-
-            switch (geoError.code) {
-
-                case 1:
-                    message =
-                        "Location permission was denied.";
-                    break;
-
-                case 2:
-                    message =
-                        "Your location could not be determined.";
-                    break;
-
-                case 3:
-                    message =
-                        "Location request timed out.";
-                    break;
-            }
-        }
-
-
-        setLocationStatus(message);
-
-        setMapStatus("Location unavailable");
-
-        warn("Geolocation error:", geoError);
-    }
-
-
-    function restoreLocateButton() {
-
-        const locateBtn = $("locateBtn");
-
-        if (!locateBtn) {
-            return;
-        }
-
-        locateBtn.disabled = false;
-
-        locateBtn.innerHTML =
-            '<i class="fa-solid fa-location-crosshairs"></i> Use My Location';
-    }
-
-
-    /* ============================================================
-       USER MARKER
-       ============================================================ */
-
-    function updateUserMarker() {
-
-        if (!map || !currentLocation) {
-            return;
-        }
-
-
-        const {
-            lat,
-            lon
-        } = currentLocation;
-
-
-        if (userMarker) {
-
-            userMarker.setLatLng([
-                lat,
-                lon
-            ]);
-
-        } else {
-
-            userMarker = L.marker(
-                [lat, lon]
-            )
-                .addTo(map)
-                .bindPopup(
-                    "<strong>Your Location</strong>"
-                );
-        }
-    }
-
-
-    function centerMapOnUser() {
-
-        if (!currentLocation) {
-            requestUserLocation();
-            return;
-        }
-
-        if (!map) {
-            return;
-        }
-
-        map.setView(
-            [
-                currentLocation.lat,
-                currentLocation.lon
-            ],
-            Math.max(
-                map.getZoom(),
-                14
-            )
-        );
-
-        if (userMarker) {
-            userMarker.openPopup();
-        }
-    }
-
-
-    /* ============================================================
-       RESOURCE LOADING
-       ============================================================ */
-
-    async function loadNearbyResources() {
-
-        if (!currentLocation) {
-            warn(
-                "Cannot load resources without location."
-            );
-            return;
-        }
-
-
-        const requestId = ++resourceRequestId;
-
-
-        if (isLoadingResources) {
-            log(
-                "A previous resource request is still running."
-            );
-        }
-
-        isLoadingResources = true;
-
-
-        setMapStatus("Finding resources...");
-
-        showResourceLoading();
-
-
-        const {
-            lat,
-            lon
-        } = currentLocation;
-
-
-        try {
-
-            const resources =
-                await fetchResourcesFromBackend(
-                    lat,
-                    lon,
-                    currentDistanceKm
-                );
-
-
-            /*
-             * Ignore stale requests.
-             */
-
-            if (requestId !== resourceRequestId) {
-                return;
-            }
-
-
-            resourcesData =
-                normalizeResources(resources);
-
-
-            resourcesData =
-                resourcesData.filter(
-                    (resource) => {
-
-                        if (
-                            !Number.isFinite(
-                                resource.lat
-                            ) ||
-                            !Number.isFinite(
-                                resource.lon
-                            )
-                        ) {
-                            return false;
-                        }
-
-                        return (
-                            resource.distanceKm === null ||
-                            resource.distanceKm <=
-                            currentDistanceKm
-                        );
-                    }
-                );
-
-
-            resourcesData.sort(
-                (a, b) => {
-
-                    const da =
-                        Number.isFinite(
-                            a.distanceKm
-                        )
-                            ? a.distanceKm
-                            : Infinity;
-
-                    const db =
-                        Number.isFinite(
-                            b.distanceKm
-                        )
-                            ? b.distanceKm
-                            : Infinity;
-
-                    return da - db;
-                }
-            );
-
-
-            log(
-                "Normalized resources:",
-                resourcesData
-            );
-
-
-            renderResourceList();
-
-            renderResourceMarkers();
-
-            updateResourceCount(
-                getVisibleResources().length
-            );
-
-
-            if (resourcesData.length > 0) {
-
-                setMapStatus(
-                    `${resourcesData.length} resources found`
-                );
-
-                setLocationStatus(
-                    `Found ${resourcesData.length} nearby resources`
-                );
-
-            } else {
-
-                setMapStatus(
-                    "No resources found"
-                );
-
-                showNoResources();
-            }
-
-
-        } catch (err) {
-
-            if (requestId !== resourceRequestId) {
-                return;
-            }
-
-
-            error(
-                "Resource search failed:",
-                err
-            );
-
-
-            resourcesData = [];
-
-            clearResourceMarkers();
-
-            updateResourceCount(0);
-
-
-            showResourceError(err);
-
-
-            setMapStatus(
-                "Resource search unavailable"
-            );
-
-        } finally {
-
-            if (requestId === resourceRequestId) {
-                isLoadingResources = false;
-            }
-        }
-    }
-
-
-    /* ============================================================
-       BACKEND REQUEST
-       ============================================================ */
-
-    async function fetchResourcesFromBackend(
-        lat,
-        lon,
-        radiusKm
-    ) {
-
-        const params = new URLSearchParams({
-            lat: String(lat),
-            lon: String(lon),
-            radius: String(
-                Math.min(
-                    CONFIG.MAX_RADIUS_KM,
-                    radiusKm
-                )
-            )
-        });
-
-
-        let lastError = null;
-
-
-        for (
-            const endpoint
-            of CONFIG.RESOURCE_ENDPOINTS
-        ) {
-
-            try {
-
-                log(
-                    "Trying resource endpoint:",
-                    endpoint
-                );
-
-
-                const response =
-                    await fetch(
-                        `${endpoint}?${params.toString()}`,
-                        {
-                            method: "GET",
-                            headers: {
-                                Accept:
-                                    "application/json"
-                            },
-                            credentials: "same-origin"
-                        }
-                    );
-
-
-                if (!response.ok) {
-
-                    throw new Error(
-                        `HTTP ${response.status}`
-                    );
-                }
-
-
-                const data =
-                    await response.json();
-
-
-                if (!data) {
-                    throw new Error(
-                        "Empty server response"
-                    );
-                }
-
-
-                /*
-                 * Accept several backend response shapes.
-                 */
-
-                if (Array.isArray(data)) {
-                    return data;
-                }
-
-
-                if (Array.isArray(data.resources)) {
-                    return data.resources;
-                }
-
-
-                if (Array.isArray(data.elements)) {
-                    return data.elements;
-                }
-
-
-                if (
-                    data.data &&
-                    Array.isArray(data.data)
-                ) {
-                    return data.data;
-                }
-
-
-                throw new Error(
-                    "Backend returned no resources array"
-                );
-
-
-            } catch (err) {
-
-                lastError = err;
-
-                warn(
-                    `Endpoint ${endpoint} failed:`,
-                    err.message
-                );
-            }
-        }
-
-
-        throw (
-            lastError ||
-            new Error(
-                "No resource backend is available."
-            )
-        );
-    }
-
-
-    /* ============================================================
-       NORMALIZE RESOURCES
-       ============================================================ */
-
-    function normalizeResources(input) {
-
-        if (!Array.isArray(input)) {
-            return [];
-        }
-
-
-        return input
-            .map((raw) => {
-
-                const tags =
-                    raw.tags || {};
 
 
                 const lat =
                     Number(
-                        raw.lat ??
-                        raw.latitude ??
-                        raw.center?.lat
+                        position.coords.latitude
                     );
 
-
-                const lon =
+                const lng =
                     Number(
-                        raw.lon ??
-                        raw.lng ??
-                        raw.longitude ??
-                        raw.center?.lon
+                        position.coords.longitude
                     );
 
 
                 if (
                     !Number.isFinite(lat) ||
-                    !Number.isFinite(lon)
+                    !Number.isFinite(lng)
                 ) {
-                    return null;
+
+                    showLocationStatus(
+                        "Invalid location received.",
+                        "error"
+                    );
+
+                    return;
                 }
 
 
-                const name =
-                    firstNonEmpty(
-                        raw.name,
-                        tags.name,
-                        tags["official_name"],
-                        tags["short_name"],
-                        getDefaultResourceName(
-                            raw.type,
-                            tags
-                        )
+                currentPosition = {
+                    lat,
+                    lng,
+
+                    accuracy:
+                        Number(
+                            position.coords.accuracy
+                        ) || 0
+                };
+
+
+                console.log(
+                    "[ChronicAI] Location:",
+                    currentPosition
+                );
+
+
+                updateUserLocationOnMap();
+
+                centerOnUser();
+
+                showLocationStatus(
+                    `Location found: ${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+                    "success"
+                );
+
+
+                loadNearbyResources(
+                    lat,
+                    lng
+                );
+            },
+
+
+            error => {
+
+                if (locateBtn) {
+
+                    locateBtn.disabled = false;
+
+                    locateBtn.innerHTML =
+                        '<i class="fa-solid fa-location-crosshairs"></i> Use My Location';
+                }
+
+
+                console.error(
+                    "[ChronicAI] Geolocation error:",
+                    error
+                );
+
+
+                let message =
+                    "Unable to get your location.";
+
+                switch (error.code) {
+
+                    case error.PERMISSION_DENIED:
+
+                        message =
+                            "Location permission was denied. Please allow location access.";
+
+                        break;
+
+
+                    case error.POSITION_UNAVAILABLE:
+
+                        message =
+                            "Your location is currently unavailable.";
+
+                        break;
+
+
+                    case error.TIMEOUT:
+
+                        message =
+                            "Location request timed out. Please try again.";
+
+                        break;
+                }
+
+
+                showLocationStatus(
+                    message,
+                    "error"
+                );
+            },
+
+
+            {
+                enableHighAccuracy: true,
+
+                timeout:
+                    CONFIG.LOCATION_TIMEOUT_MS,
+
+                maximumAge:
+                    CONFIG.LOCATION_MAX_AGE_MS
+            }
+        );
+    }
+
+
+    /* =========================================================
+       UPDATE USER LOCATION ON MAP
+    ========================================================= */
+
+    function updateUserLocationOnMap() {
+
+        if (
+            !map ||
+            !currentPosition
+        ) {
+            return;
+        }
+
+
+        const {
+            lat,
+            lng,
+            accuracy
+        } = currentPosition;
+
+
+        if (userMarker) {
+
+            userMarker.setLatLng(
+                [lat, lng]
+            );
+
+        } else {
+
+            userMarker =
+                L.marker(
+                    [lat, lng]
+                )
+                .addTo(map)
+                .bindPopup(
+                    "<strong>Your Location</strong>"
+                );
+        }
+
+
+        if (userAccuracyCircle) {
+
+            userAccuracyCircle.setLatLng(
+                [lat, lng]
+            );
+
+            userAccuracyCircle.setRadius(
+                accuracy || 50
+            );
+
+        } else {
+
+            userAccuracyCircle =
+                L.circle(
+                    [lat, lng],
+                    {
+                        radius:
+                            accuracy || 50,
+
+                        color: "#38bdf8",
+
+                        fillColor: "#38bdf8",
+
+                        fillOpacity: 0.12,
+
+                        weight: 1
+                    }
+                ).addTo(map);
+        }
+    }
+
+
+    /* =========================================================
+       CENTER MAP
+    ========================================================= */
+
+    function centerOnUser() {
+
+        if (
+            !map ||
+            !currentPosition
+        ) {
+
+            showLocationStatus(
+                "Get your location first.",
+                "error"
+            );
+
+            return;
+        }
+
+
+        map.setView(
+            [
+                currentPosition.lat,
+                currentPosition.lng
+            ],
+            CONFIG.RESOURCE_ZOOM,
+            {
+                animate: true
+            }
+        );
+    }
+
+
+    /* =========================================================
+       LOAD NEARBY RESOURCES
+    ========================================================= */
+
+    async function loadNearbyResources(
+        lat,
+        lng
+    ) {
+
+        /*
+         * IMPORTANT:
+         * request ID prevents an old request from
+         * overwriting a newer request.
+         */
+
+        const requestId =
+            ++resourceRequestId;
+
+
+        if (isLoadingResources) {
+
+            console.log(
+                "[ChronicAI] A resource request is already running."
+            );
+        }
+
+
+        isLoadingResources = true;
+
+
+        setMapStatus(
+            "Searching..."
+        );
+
+
+        setResourceLoadingState();
+
+
+        try {
+
+            const radiusKm =
+                Math.min(
+                    Math.max(
+                        Number(
+                            currentDistanceKm
+                        ) || 5,
+                        1
+                    ),
+                    CONFIG.MAX_RADIUS_KM
+                );
+
+
+            console.log(
+                "[ChronicAI] Resource search:",
+                {
+                    lat,
+                    lng,
+                    radiusKm,
+                    requestId
+                }
+            );
+
+
+            const resources =
+                await fetchResourcesFromBackend(
+                    lat,
+                    lng,
+                    radiusKm
+                );
+
+
+            /*
+             * Ignore an old response.
+             */
+
+            if (
+                requestId !==
+                resourceRequestId
+            ) {
+
+                console.log(
+                    "[ChronicAI] Ignoring stale resource response."
+                );
+
+                return;
+            }
+
+
+            resourcesData =
+                normalizeResources(
+                    resources,
+                    lat,
+                    lng
+                );
+
+
+            console.log(
+                `[ChronicAI] ${resourcesData.length} resources loaded.`
+            );
+
+
+            filteredResources =
+                resourcesData;
+
+
+            setMapStatus(
+                resourcesData.length
+                    ? "Resources found"
+                    : "No resources found"
+            );
+
+
+            renderResources();
+
+            renderResourceMarkers();
+
+
+            /*
+             * Also update air quality if the existing
+             * air-quality system exists.
+             */
+
+            try {
+
+                if (
+                    typeof window.updateAirQualityForLocation ===
+                    "function"
+                ) {
+
+                    window.updateAirQualityForLocation(
+                        lat,
+                        lng
                     );
+                }
+
+            } catch (airError) {
+
+                console.warn(
+                    "[ChronicAI] Air quality update failed:",
+                    airError
+                );
+            }
+
+        } catch (error) {
+
+            /*
+             * CRITICAL:
+             *
+             * Never reference an undeclared resourcesData
+             * after a failed request.
+             *
+             * Always keep it as an array.
+             */
+
+            console.error(
+                "[ChronicAI] Resource search failed:",
+                error
+            );
+
+
+            if (
+                requestId !==
+                resourceRequestId
+            ) {
+                return;
+            }
+
+
+            resourcesData = [];
+
+            filteredResources = [];
+
+
+            setMapStatus(
+                "Search unavailable"
+            );
+
+
+            renderResourceError(
+                error
+            );
+
+
+            /*
+             * Do NOT throw the error again.
+             *
+             * This prevents:
+             *
+             * Uncaught (in promise)
+             *
+             */
+
+            return;
+
+        } finally {
+
+            if (
+                requestId ===
+                resourceRequestId
+            ) {
+
+                isLoadingResources =
+                    false;
+            }
+        }
+    }
+
+
+    /* =========================================================
+       BACKEND RESOURCE REQUEST
+    ========================================================= */
+
+    async function fetchResourcesFromBackend(
+        lat,
+        lng,
+        radiusKm
+    ) {
+
+        const controller =
+            new AbortController();
+
+
+        const timeout =
+            setTimeout(
+                () => {
+                    controller.abort();
+                },
+                CONFIG.REQUEST_TIMEOUT_MS
+            );
+
+
+        try {
+
+            const params =
+                new URLSearchParams({
+
+                    lat:
+                        String(lat),
+
+                    lng:
+                        String(lng),
+
+                    radius:
+                        String(radiusKm)
+                });
+
+
+            const url =
+                `${CONFIG.RESOURCE_ENDPOINT}?${params.toString()}`;
+
+
+            const response =
+                await fetch(
+                    url,
+                    {
+                        method: "GET",
+
+                        headers: {
+                            "Accept":
+                                "application/json"
+                        },
+
+                        cache: "no-store",
+
+                        signal:
+                            controller.signal
+                    }
+                );
+
+
+            if (!response.ok) {
+
+                throw new Error(
+                    `Resource server HTTP ${response.status}`
+                );
+            }
+
+
+            const data =
+                await response.json();
+
+
+            /*
+             * Accept several common backend formats.
+             */
+
+            if (
+                Array.isArray(data)
+            ) {
+
+                return data;
+            }
+
+
+            if (
+                Array.isArray(
+                    data.resources
+                )
+            ) {
+
+                return data.resources;
+            }
+
+
+            if (
+                Array.isArray(
+                    data.elements
+                )
+            ) {
+
+                return data.elements;
+            }
+
+
+            throw new Error(
+                "Resource server returned an invalid response."
+            );
+
+        } catch (error) {
+
+            if (
+                error.name ===
+                "AbortError"
+            ) {
+
+                throw new Error(
+                    "Resource search timed out."
+                );
+            }
+
+
+            throw error;
+
+        } finally {
+
+            clearTimeout(
+                timeout
+            );
+        }
+    }
+
+
+    /* =========================================================
+       NORMALIZE RESOURCE DATA
+    ========================================================= */
+
+    function normalizeResources(
+        input,
+        userLat,
+        userLng
+    ) {
+
+        if (
+            !Array.isArray(input)
+        ) {
+
+            return [];
+        }
+
+
+        const output = [];
+
+
+        input.forEach(
+            (raw, index) => {
+
+                if (!raw) {
+                    return;
+                }
+
+
+                /*
+                 * Support backend format.
+                 */
+
+                let lat =
+                    Number(
+                        raw.lat ??
+                        raw.latitude ??
+                        raw.center?.lat ??
+                        raw.geometry?.lat
+                    );
+
+
+                let lng =
+                    Number(
+                        raw.lng ??
+                        raw.lon ??
+                        raw.longitude ??
+                        raw.center?.lon ??
+                        raw.geometry?.lon
+                    );
+
+
+                /*
+                 * Support raw Overpass elements.
+                 */
+
+                if (
+                    !Number.isFinite(lat) ||
+                    !Number.isFinite(lng)
+                ) {
+
+                    if (
+                        raw.type &&
+                        raw.lat !== undefined &&
+                        raw.lon !== undefined
+                    ) {
+
+                        lat =
+                            Number(raw.lat);
+
+                        lng =
+                            Number(raw.lon);
+                    }
+                }
+
+
+                if (
+                    !Number.isFinite(lat) ||
+                    !Number.isFinite(lng)
+                ) {
+
+                    return;
+                }
+
+
+                const tags =
+                    raw.tags || {};
+
+
+                const name =
+                    raw.name ||
+                    tags.name ||
+                    tags["official_name"] ||
+                    "Unnamed Resource";
 
 
                 const type =
                     normalizeResourceType(
                         raw.type ||
                         raw.category ||
+                        raw.resourceType ||
                         tags.amenity ||
-                        tags.office ||
                         tags.emergency ||
+                        tags.office ||
                         tags.building ||
                         ""
                     );
 
 
-                const phone =
-                    firstNonEmpty(
-                        raw.phone,
-                        raw.telephone,
-                        tags.phone,
-                        tags["contact:phone"]
+                const distance =
+                    calculateDistanceKm(
+                        userLat,
+                        userLng,
+                        lat,
+                        lng
                     );
 
 
-                const address =
-                    firstNonEmpty(
-                        raw.address,
-                        tags["addr:full"],
-                        buildAddress(tags)
-                    );
-
-
-                let distanceKm =
-                    Number(
-                        raw.distanceKm ??
-                        raw.distance ??
-                        raw.distance_km
-                    );
-
-
-                if (
-                    !Number.isFinite(
-                        distanceKm
-                    ) &&
-                    currentLocation
-                ) {
-
-                    distanceKm =
-                        calculateDistanceKm(
-                            currentLocation.lat,
-                            currentLocation.lon,
-                            lat,
-                            lon
-                        );
-                }
-
-
-                if (
-                    !Number.isFinite(
-                        distanceKm
-                    )
-                ) {
-                    distanceKm = null;
-                }
-
-
-                return {
+                output.push({
 
                     id:
-                        String(
-                            raw.id ??
-                            raw.osm_id ??
-                            `${lat}-${lon}-${name}`
-                        ),
+                        raw.id ??
+                        `${type}-${lat}-${lng}-${index}`,
 
                     name,
 
                     type,
 
+                    category:
+                        type,
+
                     lat,
 
-                    lon,
+                    lng,
 
-                    phone,
+                    distance,
 
-                    address,
+                    phone:
+                        raw.phone ||
+                        tags.phone ||
+                        tags["contact:phone"] ||
+                        "",
 
-                    distanceKm,
-
-                    website:
-                        firstNonEmpty(
-                            raw.website,
-                            tags.website,
-                            tags["contact:website"]
-                        ),
+                    address:
+                        raw.address ||
+                        tags["addr:full"] ||
+                        buildAddress(tags),
 
                     openingHours:
-                        firstNonEmpty(
-                            raw.openingHours,
-                            tags.opening_hours
+                        raw.openingHours ||
+                        tags.opening_hours ||
+                        "",
+
+                    website:
+                        raw.website ||
+                        tags.website ||
+                        "",
+
+                    emergency:
+                        Boolean(
+                            raw.emergency ||
+                            tags.emergency === "yes"
                         ),
 
-                    raw
-                };
-            })
-            .filter(Boolean);
+                    source:
+                        raw.source ||
+                        "OpenStreetMap"
+                });
+            }
+        );
+
+
+        /*
+         * Remove duplicates.
+         */
+
+        const unique =
+            new Map();
+
+
+        output.forEach(
+            resource => {
+
+                const key =
+                    `${resource.name.toLowerCase()}|` +
+                    `${resource.lat.toFixed(5)}|` +
+                    `${resource.lng.toFixed(5)}`;
+
+
+                if (
+                    !unique.has(key)
+                ) {
+
+                    unique.set(
+                        key,
+                        resource
+                    );
+                }
+            }
+        );
+
+
+        return Array.from(
+            unique.values()
+        )
+        .sort(
+            (a, b) =>
+                a.distance -
+                b.distance
+        )
+        .slice(
+            0,
+            CONFIG.MAX_RESOURCES_DISPLAYED
+        );
     }
 
 
-    function firstNonEmpty(...values) {
+    /* =========================================================
+       RESOURCE TYPE
+    ========================================================= */
 
-        for (const value of values) {
+    function normalizeResourceType(
+        value
+    ) {
 
-            if (
-                value !== undefined &&
-                value !== null &&
-                String(value).trim() !== ""
-            ) {
-                return String(value).trim();
-            }
+        const type =
+            safeText(value)
+                .toLowerCase()
+                .trim();
+
+
+        if (
+            type.includes("hospital") ||
+            type.includes("clinic") ||
+            type.includes("doctors") ||
+            type.includes("health") ||
+            type.includes("pharmacy")
+        ) {
+
+            return "hospital";
         }
 
-        return "";
+
+        if (
+            type.includes("police")
+        ) {
+
+            return "police";
+        }
+
+
+        if (
+            type.includes("fire")
+        ) {
+
+            return "fire";
+        }
+
+
+        if (
+            type.includes("government") ||
+            type.includes("townhall") ||
+            type.includes("courthouse") ||
+            type.includes("government_office") ||
+            type.includes("administrative")
+        ) {
+
+            return "government";
+        }
+
+
+        if (
+            type.includes("relief") ||
+            type.includes("shelter") ||
+            type.includes("food_bank") ||
+            type.includes("social")
+        ) {
+
+            return "relief";
+        }
+
+
+        return "government";
     }
 
 
-    function buildAddress(tags) {
+    /* =========================================================
+       ADDRESS
+    ========================================================= */
+
+    function buildAddress(
+        tags
+    ) {
 
         const parts = [
+
             tags["addr:housenumber"],
+
             tags["addr:street"],
+
             tags["addr:suburb"],
-            tags["addr:city"]
-        ].filter(Boolean);
+
+            tags["addr:city"],
+
+            tags["addr:postcode"]
+
+        ]
+        .filter(Boolean);
 
 
         return parts.join(", ");
     }
 
 
-    function getDefaultResourceName(
-        type,
-        tags
+    /* =========================================================
+       DISTANCE
+    ========================================================= */
+
+    function calculateDistanceKm(
+        lat1,
+        lon1,
+        lat2,
+        lon2
     ) {
 
-        const normalized =
-            normalizeResourceType(
-                type ||
-                tags?.amenity ||
-                ""
+        const R = 6371;
+
+
+        const dLat =
+            toRadians(
+                lat2 - lat1
             );
 
 
-        const names = {
-            hospital: "Hospital",
-            police: "Police Station",
-            fire: "Fire Station",
-            government: "Government Office",
-            relief: "Relief Center",
-            other: "Public Resource"
-        };
+        const dLon =
+            toRadians(
+                lon2 - lon1
+            );
 
 
-        return (
-            names[normalized] ||
-            "Public Resource"
-        );
+        const a =
+            Math.sin(
+                dLat / 2
+            ) ** 2 +
+
+            Math.cos(
+                toRadians(lat1)
+            ) *
+
+            Math.cos(
+                toRadians(lat2)
+            ) *
+
+            Math.sin(
+                dLon / 2
+            ) ** 2;
+
+
+        const c =
+            2 *
+            Math.atan2(
+                Math.sqrt(a),
+                Math.sqrt(1 - a)
+            );
+
+
+        return R * c;
     }
 
 
-    /* ============================================================
-       RESOURCE TYPE
-       ============================================================ */
+    function toRadians(
+        degrees
+    ) {
 
-    function normalizeResourceType(value) {
-
-        const text =
-            String(value || "")
-                .toLowerCase()
-                .trim();
-
-
-        if (
-            text.includes("hospital") ||
-            text.includes("clinic") ||
-            text.includes("health") ||
-            text.includes("doctors")
-        ) {
-            return "hospital";
-        }
-
-
-        if (
-            text.includes("police")
-        ) {
-            return "police";
-        }
-
-
-        if (
-            text.includes("fire")
-        ) {
-            return "fire";
-        }
-
-
-        if (
-            text.includes("government") ||
-            text.includes("government_office") ||
-            text.includes("townhall") ||
-            text.includes("public_service") ||
-            text.includes("post_office") ||
-            text.includes("administrative")
-        ) {
-            return "government";
-        }
-
-
-        if (
-            text.includes("relief") ||
-            text.includes("shelter") ||
-            text.includes("food_bank") ||
-            text.includes("social")
-        ) {
-            return "relief";
-        }
-
-
-        return "other";
+        return degrees *
+            Math.PI /
+            180;
     }
 
 
-    /* ============================================================
-       FILTERING
-       ============================================================ */
+    /* =========================================================
+       FILTER RESOURCES
+    ========================================================= */
 
     function getVisibleResources() {
 
-        return resourcesData.filter(
-            (resource) => {
-
-                if (
-                    currentResourceType !==
-                    "all"
-                ) {
+        return resourcesData
+            .filter(
+                resource => {
 
                     if (
+                        currentFilter !==
+                        "all" &&
                         resource.type !==
-                        currentResourceType
+                        currentFilter
                     ) {
+
                         return false;
                     }
-                }
 
 
-                if (
-                    Number.isFinite(
-                        resource.distanceKm
-                    )
-                ) {
-
-                    if (
-                        resource.distanceKm >
+                    return (
+                        resource.distance <=
                         currentDistanceKm
-                    ) {
-                        return false;
-                    }
+                    );
                 }
-
-
-                return true;
-            }
-        );
+            )
+            .sort(
+                (a, b) =>
+                    a.distance -
+                    b.distance
+            );
     }
 
 
-    /* ============================================================
-       RESOURCE LIST
-       ============================================================ */
+    /* =========================================================
+       RENDER RESOURCE LIST
+    ========================================================= */
 
-    function renderResourceList() {
+    function renderResources() {
 
-        const list =
-            $("resourceList");
-
-        if (!list) {
+        if (!resourceList) {
             return;
         }
 
 
-        const resources =
+        filteredResources =
             getVisibleResources();
 
 
         updateResourceCount(
-            resources.length
+            filteredResources.length
         );
 
 
-        if (!resources.length) {
+        if (
+            !filteredResources.length
+        ) {
 
-            list.innerHTML = `
+            resourceList.innerHTML = `
+
                 <div class="empty-state">
+
                     <div class="empty-icon">
                         <i class="fa-solid fa-location-dot"></i>
                     </div>
 
-                    <h4>No Resources Found</h4>
+                    <h4>
+                        No Resources Found
+                    </h4>
 
                     <p>
-                        No matching resources were found
-                        within ${escapeHTML(
-                            currentDistanceKm
-                        )} km.
+                        No resources were found within
+                        ${escapeHtml(currentDistanceKm)}
+                        km for the selected category.
                     </p>
+
+                    <button
+                        type="button"
+                        class="primary-resource-btn retry-resource-btn"
+                    >
+                        <i class="fa-solid fa-rotate"></i>
+                        Search Again
+                    </button>
+
                 </div>
+
             `;
+
+
+            const retry =
+                resourceList.querySelector(
+                    ".retry-resource-btn"
+                );
+
+
+            if (retry) {
+
+                retry.addEventListener(
+                    "click",
+                    () => {
+
+                        if (currentPosition) {
+
+                            loadNearbyResources(
+                                currentPosition.lat,
+                                currentPosition.lng
+                            );
+                        }
+                    }
+                );
+            }
+
 
             return;
         }
 
 
-        list.innerHTML =
-            resources
+        resourceList.innerHTML =
+            filteredResources
                 .map(
-                    createResourceCard
+                    renderResourceCard
                 )
                 .join("");
 
 
-        /*
-         * Add click handlers.
-         */
-
-        qsa(
-            "[data-resource-id]",
-            list
-        ).forEach((card) => {
-
-            card.addEventListener(
-                "click",
-                () => {
-
-                    const id =
-                        card.dataset.resourceId;
-
-                    focusResource(id);
-                }
-            );
-        });
+        attachResourceCardEvents();
     }
 
 
-    function createResourceCard(resource) {
+    /* =========================================================
+       RESOURCE CARD
+    ========================================================= */
+
+    function renderResourceCard(
+        resource
+    ) {
 
         const icon =
             getResourceIcon(
@@ -1373,187 +1549,176 @@
             );
 
 
-        const distance =
-            Number.isFinite(
-                resource.distanceKm
-            )
-                ? `${resource.distanceKm.toFixed(1)} km`
-                : "Distance unavailable";
+        const distanceText =
+            formatDistance(
+                resource.distance
+            );
 
 
-        const phoneHTML =
-            resource.phone
-                ? `
-                    <a
-                        href="tel:${escapeHTML(
-                            resource.phone
-                        )}"
-                        class="resource-contact-btn"
-                        onclick="event.stopPropagation()"
-                    >
-                        <i class="fa-solid fa-phone"></i>
-                        Call
-                    </a>
-                `
-                : "";
+        const phone =
+            safeText(
+                resource.phone
+            );
 
 
-        const directionsUrl =
+        const address =
+            safeText(
+                resource.address
+            );
+
+
+        const mapsUrl =
             createDirectionsUrl(
                 resource.lat,
-                resource.lon
+                resource.lng,
+                resource.name
             );
 
 
         return `
+
             <article
                 class="resource-item"
-                data-resource-id="${escapeHTML(
-                    resource.id
-                )}"
+                data-resource-id="${escapeHtml(resource.id)}"
             >
 
-                <div class="resource-item-icon ${escapeHTML(
-                    resource.type
-                )}">
+                <div
+                    class="resource-item-icon ${escapeHtml(resource.type)}"
+                >
                     <i class="${icon}"></i>
                 </div>
+
 
                 <div class="resource-item-content">
 
                     <div class="resource-item-top">
 
-                        <span class="resource-type">
-                            ${escapeHTML(
-                                formatResourceType(
-                                    resource.type
-                                )
-                            )}
-                        </span>
+                        <h4>
+                            ${escapeHtml(resource.name)}
+                        </h4>
 
                         <span class="resource-distance">
-                            ${escapeHTML(distance)}
+                            ${escapeHtml(distanceText)}
                         </span>
 
                     </div>
 
-                    <h4>
-                        ${escapeHTML(
-                            resource.name
+
+                    <span class="resource-type-label">
+                        ${escapeHtml(
+                            formatResourceType(
+                                resource.type
+                            )
                         )}
-                    </h4>
+                    </span>
+
 
                     ${
-                        resource.address
+                        address
                             ? `
-                                <p>
+                                <p class="resource-address">
                                     <i class="fa-solid fa-location-dot"></i>
-                                    ${escapeHTML(
-                                        resource.address
-                                    )}
+                                    ${escapeHtml(address)}
                                 </p>
-                            `
+                              `
                             : ""
                     }
 
-                    ${
-                        resource.openingHours
-                            ? `
-                                <p>
-                                    <i class="fa-solid fa-clock"></i>
-                                    ${escapeHTML(
-                                        resource.openingHours
-                                    )}
-                                </p>
-                            `
-                            : ""
-                    }
 
-                    <div class="resource-item-actions">
+                    <div class="resource-actions">
 
-                        ${
-                            phoneHTML
-                        }
+                        <button
+                            type="button"
+                            class="resource-action-btn view-resource-btn"
+                            data-id="${escapeHtml(resource.id)}"
+                        >
+                            <i class="fa-solid fa-map-marker-alt"></i>
+                            View
+                        </button>
+
 
                         <a
-                            href="${directionsUrl}"
+                            href="${escapeHtml(mapsUrl)}"
                             target="_blank"
                             rel="noopener noreferrer"
-                            class="resource-contact-btn"
-                            onclick="event.stopPropagation()"
+                            class="resource-action-btn"
                         >
                             <i class="fa-solid fa-route"></i>
                             Directions
                         </a>
+
+
+                        ${
+                            phone
+                                ? `
+                                    <a
+                                        href="tel:${escapeHtml(phone)}"
+                                        class="resource-action-btn"
+                                    >
+                                        <i class="fa-solid fa-phone"></i>
+                                        Call
+                                    </a>
+                                  `
+                                : ""
+                        }
 
                     </div>
 
                 </div>
 
             </article>
+
         `;
     }
 
 
-    function getResourceIcon(type) {
+    /* =========================================================
+       RESOURCE CARD EVENTS
+    ========================================================= */
 
-        const icons = {
+    function attachResourceCardEvents() {
 
-            hospital:
-                "fa-solid fa-hospital",
+        document
+            .querySelectorAll(
+                ".view-resource-btn"
+            )
+            .forEach(
+                button => {
 
-            police:
-                "fa-solid fa-shield-halved",
+                    button.addEventListener(
+                        "click",
+                        () => {
 
-            fire:
-                "fa-solid fa-fire-extinguisher",
-
-            government:
-                "fa-solid fa-building-columns",
-
-            relief:
-                "fa-solid fa-hand-holding-heart",
-
-            other:
-                "fa-solid fa-location-dot"
-        };
+                            const id =
+                                button.dataset.id;
 
 
-        return (
-            icons[type] ||
-            icons.other
-        );
+                            const resource =
+                                resourcesData.find(
+                                    item =>
+                                        String(
+                                            item.id
+                                        ) ===
+                                        String(id)
+                                );
+
+
+                            if (resource) {
+
+                                focusResource(
+                                    resource
+                                );
+                            }
+                        }
+                    );
+                }
+            );
     }
 
 
-    function formatResourceType(type) {
-
-        const labels = {
-
-            hospital: "Hospital",
-
-            police: "Police",
-
-            fire: "Fire",
-
-            government: "Government",
-
-            relief: "Relief",
-
-            other: "Public Resource"
-        };
-
-
-        return (
-            labels[type] ||
-            "Public Resource"
-        );
-    }
-
-
-    /* ============================================================
+    /* =========================================================
        MAP MARKERS
-       ============================================================ */
+    ========================================================= */
 
     function renderResourceMarkers() {
 
@@ -1565,99 +1730,106 @@
         clearResourceMarkers();
 
 
-        const resources =
+        const visible =
             getVisibleResources();
 
 
-        resources.forEach((resource) => {
+        visible.forEach(
+            resource => {
 
-            const marker =
-                L.marker([
-                    resource.lat,
-                    resource.lon
-                ]);
+                const marker =
+                    L.marker(
+                        [
+                            resource.lat,
+                            resource.lng
+                        ]
+                    );
 
 
-            const popup = `
-                <div class="resource-popup">
+                const directions =
+                    createDirectionsUrl(
+                        resource.lat,
+                        resource.lng,
+                        resource.name
+                    );
 
-                    <strong>
-                        ${escapeHTML(
-                            resource.name
-                        )}
-                    </strong>
 
-                    <div>
-                        ${escapeHTML(
-                            formatResourceType(
-                                resource.type
-                            )
-                        )}
+                marker.bindPopup(`
+
+                    <div class="resource-popup">
+
+                        <strong>
+                            ${escapeHtml(resource.name)}
+                        </strong>
+
+                        <div>
+                            ${escapeHtml(
+                                formatResourceType(
+                                    resource.type
+                                )
+                            )}
+                        </div>
+
+                        <div>
+                            ${escapeHtml(
+                                formatDistance(
+                                    resource.distance
+                                )
+                            )}
+                        </div>
+
+                        ${
+                            resource.address
+                                ? `
+                                    <div>
+                                        ${escapeHtml(
+                                            resource.address
+                                        )}
+                                    </div>
+                                  `
+                                : ""
+                        }
+
+                        <br>
+
+                        <a
+                            href="${escapeHtml(directions)}"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            Get Directions
+                        </a>
+
                     </div>
 
-                    ${
-                        Number.isFinite(
-                            resource.distanceKm
-                        )
-                            ? `
-                                <div>
-                                    ${resource.distanceKm.toFixed(1)}
-                                    km away
-                                </div>
-                            `
-                            : ""
-                    }
-
-                    ${
-                        resource.address
-                            ? `
-                                <div>
-                                    ${escapeHTML(
-                                        resource.address
-                                    )}
-                                </div>
-                            `
-                            : ""
-                    }
-
-                    <br>
-
-                    <a
-                        href="${createDirectionsUrl(
-                            resource.lat,
-                            resource.lon
-                        )}"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        Get Directions
-                    </a>
-
-                </div>
-            `;
+                `);
 
 
-            marker
-                .bindPopup(popup)
-                .addTo(map);
+                marker.addTo(map);
 
 
-            resourceMarkers.push({
-                id: resource.id,
-                marker
-            });
-        });
+                resourceMarkers.push(
+                    marker
+                );
+            }
+        );
     }
 
 
     function clearResourceMarkers() {
 
         resourceMarkers.forEach(
-            ({ marker }) => {
+            marker => {
 
                 try {
-                    marker.remove();
-                } catch (_) {}
+
+                    map.removeLayer(
+                        marker
+                    );
+
+                } catch (error) {
+                    // Ignore already removed markers.
+                }
             }
         );
 
@@ -1666,17 +1838,15 @@
     }
 
 
-    function focusResource(id) {
+    /* =========================================================
+       FOCUS RESOURCE
+    ========================================================= */
 
-        const resource =
-            resourcesData.find(
-                (item) =>
-                    String(item.id) ===
-                    String(id)
-            );
+    function focusResource(
+        resource
+    ) {
 
-
-        if (!resource || !map) {
+        if (!map) {
             return;
         }
 
@@ -1684,48 +1854,177 @@
         map.setView(
             [
                 resource.lat,
-                resource.lon
+                resource.lng
             ],
-            Math.max(
-                map.getZoom(),
-                16
-            )
+            16,
+            {
+                animate: true
+            }
         );
 
 
-        const entry =
+        const marker =
             resourceMarkers.find(
-                (item) =>
-                    String(item.id) ===
-                    String(id)
+                item => {
+
+                    const pos =
+                        item.getLatLng();
+
+
+                    return (
+                        Math.abs(
+                            pos.lat -
+                            resource.lat
+                        ) < 0.00001 &&
+
+                        Math.abs(
+                            pos.lng -
+                            resource.lng
+                        ) < 0.00001
+                    );
+                }
             );
 
 
-        if (entry) {
-            entry.marker.openPopup();
+        if (marker) {
+
+            marker.openPopup();
         }
     }
 
 
-    /* ============================================================
-       RESOURCE UI STATES
-       ============================================================ */
+    /* =========================================================
+       ICONS
+    ========================================================= */
 
-    function showResourceLoading() {
+    function getResourceIcon(
+        type
+    ) {
 
-        const list =
-            $("resourceList");
+        switch (type) {
 
-        if (!list) {
+            case "hospital":
+
+                return "fa-solid fa-hospital";
+
+            case "police":
+
+                return "fa-solid fa-shield-halved";
+
+            case "fire":
+
+                return "fa-solid fa-fire-extinguisher";
+
+            case "relief":
+
+                return "fa-solid fa-hand-holding-heart";
+
+            case "government":
+
+            default:
+
+                return "fa-solid fa-building-columns";
+        }
+    }
+
+
+    function formatResourceType(
+        type
+    ) {
+
+        switch (type) {
+
+            case "hospital":
+                return "Hospital / Health";
+
+            case "police":
+                return "Police Station";
+
+            case "fire":
+                return "Fire Station";
+
+            case "relief":
+                return "Relief / Shelter";
+
+            case "government":
+                return "Government Office";
+
+            default:
+                return "Public Resource";
+        }
+    }
+
+
+    /* =========================================================
+       DIRECTIONS
+    ========================================================= */
+
+    function createDirectionsUrl(
+        lat,
+        lng,
+        name
+    ) {
+
+        return (
+            "https://www.google.com/maps/dir/?api=1" +
+            `&destination=${encodeURIComponent(
+                `${lat},${lng}`
+            )}` +
+            `&destination_place_id=` +
+            encodeURIComponent(
+                name || ""
+            )
+        );
+    }
+
+
+    /* =========================================================
+       FORMAT DISTANCE
+    ========================================================= */
+
+    function formatDistance(
+        km
+    ) {
+
+        if (
+            !Number.isFinite(km)
+        ) {
+
+            return "Distance unknown";
+        }
+
+
+        if (km < 1) {
+
+            return `${Math.round(
+                km * 1000
+            )} m`;
+        }
+
+
+        return `${km.toFixed(1)} km`;
+    }
+
+
+    /* =========================================================
+       LOADING STATE
+    ========================================================= */
+
+    function setResourceLoadingState() {
+
+        if (!resourceList) {
             return;
         }
 
 
-        list.innerHTML = `
+        resourceList.innerHTML = `
+
             <div class="empty-state">
 
                 <div class="empty-icon">
+
                     <i class="fa-solid fa-spinner fa-spin"></i>
+
                 </div>
 
                 <h4>
@@ -1738,56 +2037,40 @@
                 </p>
 
             </div>
+
         `;
+
+
+        updateResourceCount(0);
     }
 
 
-    function showNoResources() {
+    /* =========================================================
+       ERROR STATE
+    ========================================================= */
 
-        const list =
-            $("resourceList");
+    function renderResourceError(
+        error
+    ) {
 
-        if (!list) {
+        if (!resourceList) {
             return;
         }
 
 
-        list.innerHTML = `
+        const message =
+            error?.message ||
+            "Unable to load nearby resources.";
+
+
+        resourceList.innerHTML = `
+
             <div class="empty-state">
 
                 <div class="empty-icon">
-                    <i class="fa-solid fa-map-location-dot"></i>
-                </div>
 
-                <h4>
-                    No Resources Found
-                </h4>
-
-                <p>
-                    Try increasing the search distance
-                    or changing the resource category.
-                </p>
-
-            </div>
-        `;
-    }
-
-
-    function showResourceError(err) {
-
-        const list =
-            $("resourceList");
-
-        if (!list) {
-            return;
-        }
-
-
-        list.innerHTML = `
-            <div class="empty-state">
-
-                <div class="empty-icon">
                     <i class="fa-solid fa-triangle-exclamation"></i>
+
                 </div>
 
                 <h4>
@@ -1795,151 +2078,133 @@
                 </h4>
 
                 <p>
-                    The resource server could not be reached.
-                    Please try Refresh in a moment.
+                    ${escapeHtml(message)}
                 </p>
 
+                <p>
+                    Please try again in a moment.
+                </p>
+
+                <button
+                    type="button"
+                    id="resourceRetryBtn"
+                    class="primary-resource-btn"
+                >
+
+                    <i class="fa-solid fa-rotate"></i>
+
+                    Retry Search
+
+                </button>
+
             </div>
+
         `;
 
 
-        /*
-         * Do NOT expose raw server/CORS errors
-         * to normal users.
-         */
+        updateResourceCount(0);
 
-        if (CONFIG.ENABLE_CONSOLE_LOGS) {
-            console.error(
-                "[ChronicAI] Resource backend error:",
-                err
+
+        const retry =
+            $("resourceRetryBtn");
+
+
+        if (retry) {
+
+            retry.addEventListener(
+                "click",
+                () => {
+
+                    if (currentPosition) {
+
+                        loadNearbyResources(
+                            currentPosition.lat,
+                            currentPosition.lng
+                        );
+                    }
+                }
             );
         }
     }
 
 
-    function updateResourceCount(count) {
+    /* =========================================================
+       RESOURCE COUNT
+    ========================================================= */
 
-        const element =
-            $("resourceCount");
+    function updateResourceCount(
+        count
+    ) {
 
-        if (element) {
-            element.textContent =
+        if (resourceCount) {
+
+            resourceCount.textContent =
                 String(count);
         }
     }
 
 
-    /* ============================================================
+    /* =========================================================
        MAP STATUS
-       ============================================================ */
+    ========================================================= */
 
-    function setMapStatus(message) {
+    function setMapStatus(
+        text
+    ) {
 
-        const element =
-            $("mapStatus");
+        if (mapStatus) {
 
-        if (element) {
-            element.textContent =
-                message;
+            mapStatus.textContent =
+                text;
         }
     }
 
 
-    function setLocationStatus(message) {
+    /* =========================================================
+       LOCATION STATUS
+    ========================================================= */
 
-        const element =
-            $("locationStatus");
+    function showLocationStatus(
+        text,
+        type = ""
+    ) {
 
-        if (!element) {
+        if (!locationStatus) {
             return;
         }
 
 
-        element.innerHTML = `
-            <i class="fa-solid fa-location-dot"></i>
-            ${escapeHTML(message)}
+        locationStatus.className =
+            "location-status";
+
+
+        if (type) {
+
+            locationStatus.classList.add(
+                type
+            );
+        }
+
+
+        locationStatus.innerHTML = `
+
+            <i class="fa-solid ${
+                type === "error"
+                    ? "fa-triangle-exclamation"
+                    : type === "success"
+                        ? "fa-circle-check"
+                        : "fa-location-dot"
+            }"></i>
+
+            ${escapeHtml(text)}
+
         `;
     }
 
 
-    /* ============================================================
-       DIRECTIONS
-       ============================================================ */
-
-    function createDirectionsUrl(
-        lat,
-        lon
-    ) {
-
-        return (
-            "https://www.google.com/maps/dir/?api=1" +
-            `&destination=${encodeURIComponent(
-                `${lat},${lon}`
-            )}`
-        );
-    }
-
-
-    /* ============================================================
-       DISTANCE
-       ============================================================ */
-
-    function calculateDistanceKm(
-        lat1,
-        lon1,
-        lat2,
-        lon2
-    ) {
-
-        const earthRadiusKm =
-            6371;
-
-
-        const dLat =
-            degreesToRadians(
-                lat2 - lat1
-            );
-
-
-        const dLon =
-            degreesToRadians(
-                lon2 - lon1
-            );
-
-
-        const a =
-            Math.sin(dLat / 2) ** 2 +
-            Math.cos(
-                degreesToRadians(lat1)
-            ) *
-            Math.cos(
-                degreesToRadians(lat2)
-            ) *
-            Math.sin(dLon / 2) ** 2;
-
-
-        const c =
-            2 *
-            Math.atan2(
-                Math.sqrt(a),
-                Math.sqrt(1 - a)
-            );
-
-
-        return earthRadiusKm * c;
-    }
-
-
-    function degreesToRadians(value) {
-        return value *
-            Math.PI /
-            180;
-    }
-
-
-    /* ============================================================
+    /* =========================================================
        POLLUTION TRACKER
-       ============================================================ */
+    ========================================================= */
 
     function togglePollutionTracker() {
 
@@ -1947,33 +2212,26 @@
             !pollutionEnabled;
 
 
-        const button =
-            $("pollutionTrackerBtn");
+        if (pollutionTrackerBtn) {
 
-
-        if (button) {
-
-            button.setAttribute(
+            pollutionTrackerBtn.setAttribute(
                 "aria-pressed",
                 String(
                     pollutionEnabled
                 )
             );
 
-            button.classList.toggle(
+
+            pollutionTrackerBtn.classList.toggle(
                 "active",
                 pollutionEnabled
             );
         }
 
 
-        const legend =
-            $("pollutionMapLegend");
+        if (pollutionMapLegend) {
 
-
-        if (legend) {
-
-            legend.classList.toggle(
+            pollutionMapLegend.classList.toggle(
                 "visible",
                 pollutionEnabled
             );
@@ -1982,99 +2240,152 @@
 
         if (pollutionEnabled) {
 
-            if (currentLocation) {
-                renderPollutionZones();
-            } else {
-                requestUserLocation();
-            }
+            drawPollutionZones();
 
         } else {
 
-            clearPollutionLayers();
+            clearPollutionZones();
         }
     }
 
 
-    function renderPollutionZones() {
+    /* =========================================================
+       POLLUTION ZONES
+    ========================================================= */
 
-        if (!map || !currentLocation) {
+    function drawPollutionZones() {
+
+        if (
+            !map ||
+            !currentPosition
+        ) {
+
             return;
         }
 
 
-        clearPollutionLayers();
+        clearPollutionZones();
 
 
         const center =
             [
-                currentLocation.lat,
-                currentLocation.lon
+                currentPosition.lat,
+                currentPosition.lng
             ];
 
 
         /*
-         * These are visualization zones based on
-         * the current modeled AQI, not direct sensor
+         * These are visualization zones, not sensor
          * measurements.
+         *
+         * Keep them clearly labeled as modeled.
          */
 
-        const aqi =
-            Number(
-                $("aqiValue")?.textContent
-            );
-
-
-        let baseClass =
-            "green";
-
-
-        if (
-            Number.isFinite(aqi)
-        ) {
-
-            if (aqi <= 50) {
-                baseClass = "green";
-            } else if (aqi <= 100) {
-                baseClass = "yellow";
-            } else {
-                baseClass = "red";
-            }
-        }
-
-
-        const radius =
-            pollutionRangeKm *
-            1000;
-
-
-        const circle =
-            L.circle(
-                center,
+        const zones =
+            [
                 {
-                    radius,
+                    radius:
+                        pollutionRangeKm *
+                        1000 *
+                        0.35,
 
                     className:
-                        `pollution-zone-${baseClass}`,
+                        "low"
+                },
 
-                    fillOpacity: 0.14,
+                {
+                    radius:
+                        pollutionRangeKm *
+                        1000 *
+                        0.68,
 
-                    weight: 1
+                    className:
+                        "moderate"
+                },
+
+                {
+                    radius:
+                        pollutionRangeKm *
+                        1000,
+
+                    className:
+                        "high"
                 }
-            ).addTo(map);
+            ];
 
 
-        pollutionLayers.push(circle);
+        zones.forEach(
+            zone => {
+
+                const circle =
+                    L.circle(
+                        center,
+                        {
+                            radius:
+                                zone.radius,
+
+                            color:
+                                pollutionColor(
+                                    zone.className
+                                ),
+
+                            fillColor:
+                                pollutionColor(
+                                    zone.className
+                                ),
+
+                            fillOpacity:
+                                0.08,
+
+                            weight: 1
+                        }
+                    )
+                    .addTo(map);
+
+
+                pollutionLayers.push(
+                    circle
+                );
+            }
+        );
     }
 
 
-    function clearPollutionLayers() {
+    function pollutionColor(
+        level
+    ) {
+
+        switch (level) {
+
+            case "low":
+                return "#22c55e";
+
+            case "moderate":
+                return "#eab308";
+
+            case "high":
+                return "#ef4444";
+
+            default:
+                return "#94a3b8";
+        }
+    }
+
+
+    function clearPollutionZones() {
 
         pollutionLayers.forEach(
-            (layer) => {
+            layer => {
 
                 try {
-                    layer.remove();
-                } catch (_) {}
+
+                    map.removeLayer(
+                        layer
+                    );
+
+                } catch (error) {
+                    // Ignore.
+                }
             }
         );
 
@@ -2083,855 +2394,58 @@
     }
 
 
-    /* ============================================================
-       POLLUTION LOCATION SEARCH
-       ============================================================ */
-
-    async function searchPollutionLocation() {
-
-        const input =
-            $("pollutionPlaceInput");
-
-
-        const status =
-            $("pollutionLocationStatus");
-
-
-        const result =
-            $("pollutionLocationResult");
-
-
-        if (!input) {
-            return;
-        }
-
-
-        const query =
-            input.value.trim();
-
-
-        if (!query) {
-
-            if (status) {
-                status.textContent =
-                    "Please enter a city or area.";
-            }
-
-            return;
-        }
-
-
-        if (status) {
-            status.textContent =
-                "Searching location...";
-        }
-
-
-        try {
-
-            /*
-             * Nominatim should also ideally be called
-             * through your backend in production.
-             *
-             * This implementation uses the public endpoint
-             * only for location search.
-             */
-
-            const url =
-                "https://nominatim.openstreetmap.org/search?" +
-                new URLSearchParams({
-                    q: query,
-                    format: "json",
-                    limit: "1"
-                });
-
-
-            const response =
-                await fetch(url, {
-                    headers: {
-                        Accept:
-                            "application/json"
-                    }
-                });
-
-
-            if (!response.ok) {
-                throw new Error(
-                    `HTTP ${response.status}`
-                );
-            }
-
-
-            const results =
-                await response.json();
-
-
-            if (
-                !Array.isArray(results) ||
-                !results.length
-            ) {
-
-                throw new Error(
-                    "Location not found"
-                );
-            }
-
-
-            const place =
-                results[0];
-
-
-            const lat =
-                Number(place.lat);
-
-
-            const lon =
-                Number(place.lon);
-
-
-            if (
-                !Number.isFinite(lat) ||
-                !Number.isFinite(lon)
-            ) {
-                throw new Error(
-                    "Invalid coordinates"
-                );
-            }
-
-
-            if (status) {
-                status.textContent =
-                    place.display_name ||
-                    query;
-            }
-
-
-            if (map) {
-
-                map.setView(
-                    [lat, lon],
-                    12
-                );
-            }
-
-
-            await loadAirQuality(
-                lat,
-                lon
-            );
-
-
-            renderPollutionSearchResult(
-                place
-            );
-
-
-        } catch (err) {
-
-            error(
-                "Pollution location search failed:",
-                err
-            );
-
-
-            if (status) {
-                status.textContent =
-                    "Unable to find that location.";
-            }
-
-
-            if (result) {
-
-                result.innerHTML = `
-                    <div class="pollution-location-empty">
-
-                        <div class="pollution-location-empty-icon">
-                            <i class="fa-solid fa-triangle-exclamation"></i>
-                        </div>
-
-                        <h3>
-                            Location Not Found
-                        </h3>
-
-                        <p>
-                            Try a city name or nearby area.
-                        </p>
-
-                    </div>
-                `;
-            }
-        }
-    }
-
-
-    function renderPollutionSearchResult(
-        place
-    ) {
-
-        const result =
-            $("pollutionLocationResult");
-
-
-        if (!result) {
-            return;
-        }
-
-
-        result.innerHTML = `
-            <div class="pollution-location-result-card">
-
-                <div class="pollution-location-result-icon">
-                    <i class="fa-solid fa-location-dot"></i>
-                </div>
-
-                <div>
-
-                    <span class="air-small-title">
-                        SELECTED LOCATION
-                    </span>
-
-                    <h3>
-                        ${escapeHTML(
-                            place.display_name
-                        )}
-                    </h3>
-
-                    <p>
-                        Air quality information
-                        is shown below.
-                    </p>
-
-                </div>
-
-            </div>
-        `;
-    }
-
-
-    /* ============================================================
-       AIR QUALITY
-       ============================================================ */
-
-    async function loadAirQuality(
-        lat,
-        lon
-    ) {
-
-        lastAirQualityLocation = {
-            lat,
-            lon
-        };
-
-
-        setAirQualityLoading();
-
-
-        try {
-
-            /*
-             * Primary backend route.
-             *
-             * Your server should proxy the actual
-             * air-quality provider.
-             */
-
-            const endpoint =
-                "/api/air-quality";
-
-
-            const params =
-                new URLSearchParams({
-                    lat: String(lat),
-                    lon: String(lon)
-                });
-
-
-            const response =
-                await fetch(
-                    `${endpoint}?${params.toString()}`,
-                    {
-                        headers: {
-                            Accept:
-                                "application/json"
-                        }
-                    }
-                );
-
-
-            if (!response.ok) {
-
-                throw new Error(
-                    `Air quality HTTP ${response.status}`
-                );
-            }
-
-
-            const data =
-                await response.json();
-
-
-            const normalized =
-                normalizeAirQuality(data);
-
-
-            renderAirQuality(
-                normalized
-            );
-
-
-            if (pollutionEnabled) {
-                renderPollutionZones();
-            }
-
-
-        } catch (err) {
-
-            error(
-                "Air quality request failed:",
-                err
-            );
-
-
-            setAirQualityError();
-        }
-    }
-
-
-    function normalizeAirQuality(data) {
-
-        const source =
-            data?.data ||
-            data?.result ||
-            data ||
-            {};
-
-
-        const aqi =
-            Number(
-                source.aqi ??
-                source.us_aqi ??
-                source.AQI ??
-                source.current?.aqi
-            );
-
-
-        const pm25 =
-            Number(
-                source.pm25 ??
-                source.pm2_5 ??
-                source["pm2.5"] ??
-                source.current?.pm2_5
-            );
-
-
-        const pm10 =
-            Number(
-                source.pm10 ??
-                source.current?.pm10
-            );
-
-
-        const no2 =
-            Number(
-                source.no2 ??
-                source.current?.no2
-            );
-
-
-        const o3 =
-            Number(
-                source.o3 ??
-                source.current?.o3
-            );
-
-
-        const co =
-            Number(
-                source.co ??
-                source.current?.co
-            );
-
-
-        return {
-            aqi: finiteOrNull(aqi),
-            pm25: finiteOrNull(pm25),
-            pm10: finiteOrNull(pm10),
-            no2: finiteOrNull(no2),
-            o3: finiteOrNull(o3),
-            co: finiteOrNull(co),
-            updatedAt:
-                source.updatedAt ||
-                source.timestamp ||
-                source.time ||
-                new Date().toISOString()
-        };
-    }
-
-
-    function finiteOrNull(value) {
-
-        return Number.isFinite(value)
-            ? value
-            : null;
-    }
-
-
-    function renderAirQuality(data) {
-
-        const aqi =
-            data.aqi;
-
-
-        setText(
-            "aqiValue",
-            aqi !== null
-                ? Math.round(aqi)
-                : "—"
-        );
-
-
-        setText(
-            "pm25Value",
-            formatNumber(data.pm25)
-        );
-
-
-        setText(
-            "pm10Value",
-            formatNumber(data.pm10)
-        );
-
-
-        setText(
-            "no2Value",
-            formatNumber(data.no2)
-        );
-
-
-        setText(
-            "o3Value",
-            formatNumber(data.o3)
-        );
-
-
-        setText(
-            "coValue",
-            formatNumber(data.co)
-        );
-
-
-        const condition =
-            getAQICondition(aqi);
-
-
-        setText(
-            "aqiCondition",
-            condition.title
-        );
-
-
-        setText(
-            "aqiDescription",
-            condition.description
-        );
-
-
-        const aqiCircle =
-            $("aqiCircle");
-
-
-        if (aqiCircle) {
-
-            aqiCircle.className =
-                `aqi-circle ${condition.className}`;
-        }
-
-
-        const oxygenIcon =
-            $("oxygenSafetyIcon");
-
-
-        if (oxygenIcon) {
-
-            oxygenIcon.className =
-                `oxygen-safety-icon ${condition.className}`;
-        }
-
-
-        setText(
-            "oxygenSafetyLevel",
-            condition.oxygenLevel
-        );
-
-
-        setText(
-            "oxygenSafetyDescription",
-            condition.oxygenDescription
-        );
-
-
-        const status =
-            $("airQualityStatus");
-
-
-        if (status) {
-
-            status.className =
-                `air-quality-status ${condition.className}`;
-
-            status.innerHTML = `
-                <span class="air-status-dot"></span>
-                ${escapeHTML(
-                    condition.title
-                )}
-            `;
-        }
-
-
-        const updated =
-            $("airQualityUpdated");
-
-
-        if (updated) {
-
-            const date =
-                new Date(
-                    data.updatedAt
-                );
-
-
-            if (
-                Number.isNaN(
-                    date.getTime()
-                )
-            ) {
-
-                updated.textContent =
-                    "Air quality data updated.";
-
-            } else {
-
-                updated.textContent =
-                    `Updated ${date.toLocaleString()}`;
-            }
-        }
-    }
-
-
-    function getAQICondition(aqi) {
-
-        if (
-            !Number.isFinite(aqi)
-        ) {
-
-            return {
-                title: "Unavailable",
-                description:
-                    "Air quality data is currently unavailable.",
-                className: "good",
-                oxygenLevel: "Unavailable",
-                oxygenDescription:
-                    "Pollution-based safety indicator unavailable."
-            };
-        }
-
-
-        if (aqi <= 50) {
-
-            return {
-                title: "Good",
-                description:
-                    "Air quality is generally considered good.",
-                className: "good",
-                oxygenLevel: "Good",
-                oxygenDescription:
-                    "Low pollution burden based on the reported AQI."
-            };
-        }
-
-
-        if (aqi <= 100) {
-
-            return {
-                title: "Moderate",
-                description:
-                    "Air quality is acceptable for most people.",
-                className: "moderate",
-                oxygenLevel: "Moderate",
-                oxygenDescription:
-                    "Moderate pollution burden based on the reported AQI."
-            };
-        }
-
-
-        if (aqi <= 150) {
-
-            return {
-                title: "Caution",
-                description:
-                    "Sensitive people may experience effects.",
-                className: "caution",
-                oxygenLevel: "Caution",
-                oxygenDescription:
-                    "Increased pollution burden based on the reported AQI."
-            };
-        }
-
-
-        if (aqi <= 200) {
-
-            return {
-                title: "Poor",
-                description:
-                    "Health effects may occur with prolonged exposure.",
-                className: "poor",
-                oxygenLevel: "Poor",
-                oxygenDescription:
-                    "High pollution burden based on the reported AQI."
-            };
-        }
-
-
-        return {
-            title: "High Risk",
-            description:
-                "Air quality is unhealthy and exposure should be reduced.",
-            className: "high-risk",
-            oxygenLevel: "High Risk",
-            oxygenDescription:
-                "Very high pollution burden based on the reported AQI."
-        };
-    }
-
-
-    function formatNumber(value) {
-
-        return Number.isFinite(value)
-            ? value.toFixed(1)
-            : "—";
-    }
-
-
-    function setText(
-        id,
-        value
-    ) {
-
-        const element =
-            $(id);
-
-        if (element) {
-            element.textContent =
-                value;
-        }
-    }
-
-
-    function setAirQualityWaiting() {
-
-        setText(
-            "aqiValue",
-            "—"
-        );
-
-        setText(
-            "aqiCondition",
-            "Waiting for location"
-        );
-
-        setText(
-            "aqiDescription",
-            "Turn on your location to check air quality."
-        );
-
-        setText(
-            "oxygenSafetyLevel",
-            "—"
-        );
-    }
-
-
-    function setAirQualityLoading() {
-
-        const status =
-            $("airQualityStatus");
-
-        if (status) {
-
-            status.className =
-                "air-quality-status loading";
-
-            status.innerHTML = `
-                <span class="air-status-dot"></span>
-                Loading
-            `;
-        }
-    }
-
-
-    function setAirQualityError() {
-
-        setText(
-            "aqiValue",
-            "—"
-        );
-
-        setText(
-            "aqiCondition",
-            "Unavailable"
-        );
-
-        setText(
-            "aqiDescription",
-            "Air quality data could not be loaded."
-        );
-
-        setText(
-            "oxygenSafetyLevel",
-            "Unavailable"
-        );
-
-
-        const status =
-            $("airQualityStatus");
-
-        if (status) {
-
-            status.className =
-                "air-quality-status poor";
-
-            status.innerHTML = `
-                <span class="air-status-dot"></span>
-                Unavailable
-            `;
-        }
-    }
-
-
-    /* ============================================================
-       OPTIONAL LIVE LOCATION WATCH
-       ============================================================ */
-
-    function startLocationWatch() {
-
-        if (
-            !navigator.geolocation ||
-            locationWatchId !== null
-        ) {
-            return;
-        }
-
-
-        locationWatchId =
-            navigator.geolocation.watchPosition(
-                (position) => {
-
-                    const lat =
-                        Number(
-                            position.coords.latitude
-                        );
-
-                    const lon =
-                        Number(
-                            position.coords.longitude
-                        );
-
-
-                    if (
-                        !Number.isFinite(lat) ||
-                        !Number.isFinite(lon)
-                    ) {
-                        return;
-                    }
-
-
-                    currentLocation = {
-                        lat,
-                        lon,
-                        accuracy:
-                            Number(
-                                position.coords.accuracy
-                            ) || null
-                    };
-
-
-                    updateUserMarker();
-                },
-
-                (err) => {
-
-                    warn(
-                        "Live location update failed:",
-                        err
-                    );
-                },
-
-                {
-                    enableHighAccuracy: true,
-                    maximumAge: 30000,
-                    timeout: 15000
-                }
-            );
-    }
-
-
-    function stopLocationWatch() {
-
-        if (
-            locationWatchId !== null &&
-            navigator.geolocation
-        ) {
-
-            navigator.geolocation.clearWatch(
-                locationWatchId
-            );
-
-            locationWatchId = null;
-        }
-    }
-
-
-    /* ============================================================
-       GLOBAL CLEANUP
-       ============================================================ */
-
-    window.addEventListener(
-        "beforeunload",
-        () => {
-            stopLocationWatch();
-        }
-    );
-
-
-    /* ============================================================
-       DEBUG API
-       ============================================================ */
+    /* =========================================================
+       PUBLIC API
+    ========================================================= */
 
     window.ChronicAIResourceCenter = {
 
-        getLocation() {
-            return currentLocation;
+        loadNearbyResources,
+
+        getResources: () =>
+            [...resourcesData],
+
+        getCurrentPosition: () =>
+            currentPosition
+                ? {
+                    ...currentPosition
+                }
+                : null,
+
+        refresh: () => {
+
+            if (
+                currentPosition
+            ) {
+
+                loadNearbyResources(
+                    currentPosition.lat,
+                    currentPosition.lng
+                );
+            }
         },
 
-        getResources() {
-            return resourcesData;
-        },
+        clear: () => {
 
-        reload() {
-            return loadNearbyResources();
-        },
+            resourcesData = [];
 
-        locate() {
-            return requestUserLocation();
-        },
+            filteredResources = [];
 
-        startLocationWatch() {
-            startLocationWatch();
-        },
+            clearResourceMarkers();
 
-        stopLocationWatch() {
-            stopLocationWatch();
+            updateResourceCount(0);
+
+            renderResources();
         }
     };
+
+
+    /* =========================================================
+       DEBUG INFORMATION
+    ========================================================= */
+
+    console.log(
+        "[ChronicAI] Resource Center ready."
+    );
 
 })();
