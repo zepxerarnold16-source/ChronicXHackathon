@@ -31,6 +31,8 @@
 // ============================================================
 
 import express from "express";
+import http from "http";
+import { WebSocketServer } from "ws";
 import cors from "cors";
 import dotenv from "dotenv";
 import fs from "fs";
@@ -6730,6 +6732,594 @@ app.use(
     )
 );
 
+
+// ============================================================
+// CHRONICAI REAL-TIME VOICE
+// ------------------------------------------------------------
+// Browser -> WebSocket -> buffered WebM/Opus turn
+// -> Groq Whisper -> streamed Groq response -> browser
+//
+// The frontend sends:
+//   { type:"start", sessionId, language, audioFormat }
+//   binary audio chunks
+//   { type:"turn_end" }
+//   { type:"stop" }
+//
+// The server returns:
+//   { type:"transcript", text, final:true }
+//   { type:"text_delta", text }
+//   { type:"response_done" }
+//   { type:"error", message }
+//
+// IMPORTANT:
+// WebM/Opus MediaRecorder chunks are buffered per user turn.
+// Whisper transcription happens at turn_end; the AI response itself
+// is streamed token-by-token. This gives a responsive realtime
+// conversation without pretending that Whisper is doing live partial
+// transcription.
+// ============================================================
+
+const REALTIME_MAX_AUDIO_BYTES = 15 * 1024 * 1024;
+const REALTIME_MAX_HISTORY = 20;
+const REALTIME_TURN_TIMEOUT_MS = 90_000;
+
+function realtimeSend(ws, payload) {
+    if (ws.readyState !== 1) return false;
+    try {
+        ws.send(JSON.stringify(payload));
+        return true;
+    } catch (error) {
+        console.warn("[Realtime] send failed:", error?.message || error);
+        return false;
+    }
+}
+
+function normalizeRealtimeHistory(history) {
+    if (!Array.isArray(history)) return [];
+
+    return history
+        .slice(-REALTIME_MAX_HISTORY)
+        .map(item => {
+            const role =
+                item?.role === "assistant"
+                    ? "assistant"
+                    : "user";
+
+            const content = cleanText(
+                item?.content ?? item?.text ?? ""
+            );
+
+            return content ? { role, content } : null;
+        })
+        .filter(Boolean);
+}
+
+async function transcribeRealtimeAudio(audioBuffer, mimeType = "audio/webm") {
+    if (!hasGroqKey() || !groq) {
+        throw new Error("GROQ_API_KEY is missing.");
+    }
+
+    if (!audioBuffer?.length) {
+        throw new Error("No audio was received.");
+    }
+
+    if (audioBuffer.length > REALTIME_MAX_AUDIO_BYTES) {
+        throw new Error("Realtime audio turn is too large.");
+    }
+
+    let extension = "webm";
+
+    if (mimeType.includes("ogg")) extension = "ogg";
+    else if (mimeType.includes("mp4")) extension = "mp4";
+    else if (mimeType.includes("mpeg") || mimeType.includes("mp3")) extension = "mp3";
+    else if (mimeType.includes("wav")) extension = "wav";
+
+    const audioFile = new File(
+        [audioBuffer],
+        `chronicai-realtime-${Date.now()}.${extension}`,
+        { type: mimeType }
+    );
+
+    const result = await groq.audio.transcriptions.create({
+        file: audioFile,
+        model: "whisper-large-v3-turbo",
+        response_format: "json"
+    });
+
+    return cleanText(result?.text || "");
+}
+
+async function streamRealtimeGroq({
+    history,
+    userText,
+    onDelta
+}) {
+    if (!hasGroqKey()) {
+        throw new Error("GROQ_API_KEY is missing.");
+    }
+
+    const messages = [
+        {
+            role: "system",
+            content: NORMAL_CHAT_PROMPT
+        },
+        ...normalizeRealtimeHistory(history),
+        {
+            role: "user",
+            content: userText
+        }
+    ];
+
+    const controller = new AbortController();
+    const timeout = setTimeout(
+        () => controller.abort(),
+        REALTIME_TURN_TIMEOUT_MS
+    );
+
+    try {
+        const response = await fetch(
+            GROQ_API_URL,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${GROQ_API_KEY}`,
+                    "Accept": "text/event-stream"
+                },
+                body: JSON.stringify({
+                    model: GROQ_TEXT_MODEL,
+                    messages,
+                    temperature: 0.55,
+                    max_completion_tokens: 1200,
+                    top_p: 1,
+                    stream: true
+                }),
+                signal: controller.signal
+            }
+        );
+
+        if (!response.ok) {
+            const raw = await response.text();
+            throw new Error(
+                `Groq realtime chat ${response.status}: ${getGroqErrorMessage(raw)}`
+            );
+        }
+
+        if (!response.body) {
+            throw new Error("Groq did not return a streaming response.");
+        }
+
+        const decoder = new TextDecoder();
+        const reader = response.body.getReader();
+
+        let buffer = "";
+        let answer = "";
+
+        const processEvent = async eventText => {
+            const lines = eventText.split(/\r?\n/);
+            const dataLines = [];
+
+            for (const line of lines) {
+                if (line.startsWith("data:")) {
+                    dataLines.push(line.slice(5).trimStart());
+                }
+            }
+
+            if (!dataLines.length) return;
+
+            const dataText = dataLines.join("\n").trim();
+            if (!dataText || dataText === "[DONE]") return;
+
+            let data;
+            try {
+                data = JSON.parse(dataText);
+            } catch {
+                return;
+            }
+
+            const delta =
+                data?.choices?.[0]?.delta?.content;
+
+            if (typeof delta === "string" && delta) {
+                answer += delta;
+                await onDelta(delta);
+            }
+        };
+
+        while (true) {
+            const { value, done } = await reader.read();
+
+            if (done) break;
+
+            buffer += decoder.decode(
+                value,
+                { stream: true }
+            );
+
+            const events = buffer.split(/\r?\n\r?\n/);
+            buffer = events.pop() || "";
+
+            for (const event of events) {
+                await processEvent(event);
+            }
+        }
+
+        buffer += decoder.decode();
+
+        if (buffer.trim()) {
+            await processEvent(buffer);
+        }
+
+        return answer.trim();
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+function createRealtimeSession(ws) {
+    return {
+        started: false,
+        sessionId: null,
+        language: null,
+        audioFormat: "audio/webm",
+        audioChunks: [],
+        audioBytes: 0,
+        history: [],
+        processing: false,
+        closed: false
+    };
+}
+
+async function processRealtimeTurn(ws, session) {
+    if (session.processing) return;
+
+    if (!session.audioChunks.length) {
+        realtimeSend(ws, {
+            type: "error",
+            message: "I didn't receive any speech."
+        });
+        return;
+    }
+
+    session.processing = true;
+
+    try {
+        const audio = Buffer.concat(session.audioChunks);
+
+        session.audioChunks = [];
+        session.audioBytes = 0;
+
+        realtimeSend(ws, {
+            type: "status",
+            state: "transcribing"
+        });
+
+        const transcript =
+            await transcribeRealtimeAudio(
+                audio,
+                session.audioFormat
+            );
+
+        if (!transcript) {
+            realtimeSend(ws, {
+                type: "error",
+                message: "I couldn't understand that."
+            });
+            return;
+        }
+
+        realtimeSend(ws, {
+            type: "transcript",
+            text: transcript,
+            final: true,
+            language: session.language || null
+        });
+
+        session.history.push({
+            role: "user",
+            content: transcript
+        });
+
+        session.history =
+            normalizeRealtimeHistory(
+                session.history
+            );
+
+        realtimeSend(ws, {
+            type: "status",
+            state: "thinking"
+        });
+
+        let answer = "";
+
+        answer = await streamRealtimeGroq({
+            history: session.history.slice(0, -1),
+            userText: transcript,
+            onDelta: async delta => {
+                if (session.closed) return;
+
+                realtimeSend(ws, {
+                    type: "text_delta",
+                    text: delta
+                });
+            }
+        });
+
+        if (answer) {
+            session.history.push({
+                role: "assistant",
+                content: answer
+            });
+
+            session.history =
+                normalizeRealtimeHistory(
+                    session.history
+                );
+        }
+
+        realtimeSend(ws, {
+            type: "response_done",
+            text: answer,
+            language: session.language || null
+        });
+    } catch (error) {
+        console.error(
+            "[Realtime] Turn failed:",
+            error?.message || error
+        );
+
+        realtimeSend(ws, {
+            type: "error",
+            message:
+                error?.name === "AbortError"
+                    ? "The AI response timed out. Please try again."
+                    : (
+                        error?.message ||
+                        "Realtime voice processing failed."
+                    )
+        });
+    } finally {
+        session.processing = false;
+    }
+}
+
+function attachRealtimeWebSocket(server) {
+    const realtimeWss =
+        new WebSocketServer({
+            noServer: true,
+            maxPayload: REALTIME_MAX_AUDIO_BYTES
+        });
+
+    server.on(
+        "upgrade",
+        (request, socket, head) => {
+            let pathname = "";
+
+            try {
+                pathname =
+                    new URL(
+                        request.url,
+                        "http://localhost"
+                    ).pathname;
+            } catch {
+                socket.destroy();
+                return;
+            }
+
+            if (pathname !== "/api/realtime") {
+                return;
+            }
+
+            realtimeWss.handleUpgrade(
+                request,
+                socket,
+                head,
+                ws => {
+                    realtimeWss.emit(
+                        "connection",
+                        ws,
+                        request
+                    );
+                }
+            );
+        }
+    );
+
+    realtimeWss.on(
+        "connection",
+        (ws, request) => {
+            const session =
+                createRealtimeSession(ws);
+
+            console.log(
+                "[Realtime] WebSocket connected:",
+                request.socket.remoteAddress || "unknown"
+            );
+
+            realtimeSend(ws, {
+                type: "ready",
+                protocol: 1
+            });
+
+            ws.on(
+                "message",
+                async (data, isBinary) => {
+                    try {
+                        if (session.closed) return;
+
+                        if (isBinary) {
+                            const chunk =
+                                Buffer.isBuffer(data)
+                                    ? data
+                                    : Buffer.from(data);
+
+                            if (!chunk.length) return;
+
+                            if (
+                                session.audioBytes +
+                                chunk.length >
+                                REALTIME_MAX_AUDIO_BYTES
+                            ) {
+                                realtimeSend(ws, {
+                                    type: "error",
+                                    message:
+                                        "Audio turn exceeded the 15 MB limit."
+                                });
+
+                                session.audioChunks = [];
+                                session.audioBytes = 0;
+                                return;
+                            }
+
+                            session.audioChunks.push(chunk);
+                            session.audioBytes += chunk.length;
+                            return;
+                        }
+
+                        let message;
+
+                        try {
+                            message = JSON.parse(
+                                data.toString()
+                            );
+                        } catch {
+                            realtimeSend(ws, {
+                                type: "error",
+                                message: "Invalid realtime message."
+                            });
+                            return;
+                        }
+
+                        const type =
+                            cleanText(
+                                message?.type
+                            ).toLowerCase();
+
+                        if (type === "start") {
+                            session.started = true;
+                            session.sessionId =
+                                cleanText(
+                                    message?.sessionId
+                                ) ||
+                                generateSecureId(
+                                    "RT-"
+                                );
+
+                            session.language =
+                                cleanText(
+                                    message?.language
+                                ) || null;
+
+                            const rawFormat =
+                                cleanText(
+                                    message?.audioFormat
+                                ) || "webm/opus";
+
+                            session.audioFormat =
+                                rawFormat.startsWith("audio/")
+                                    ? rawFormat
+                                    : `audio/${rawFormat}`;
+
+                            realtimeSend(ws, {
+                                type: "started",
+                                sessionId:
+                                    session.sessionId
+                            });
+
+                            return;
+                        }
+
+                        if (type === "turn_end") {
+                            await processRealtimeTurn(
+                                ws,
+                                session
+                            );
+                            return;
+                        }
+
+                        if (type === "stop") {
+                            session.closed = true;
+
+                            if (
+                                session.audioChunks.length &&
+                                !session.processing
+                            ) {
+                                session.closed = false;
+
+                                await processRealtimeTurn(
+                                    ws,
+                                    session
+                                );
+
+                                session.closed = true;
+                            }
+
+                            try {
+                                ws.close(
+                                    1000,
+                                    "Session stopped"
+                                );
+                            } catch {}
+
+                            return;
+                        }
+
+                        if (type === "ping") {
+                            realtimeSend(ws, {
+                                type: "pong"
+                            });
+                            return;
+                        }
+
+                        realtimeSend(ws, {
+                            type: "error",
+                            message:
+                                `Unknown realtime message type: ${type || "empty"}`
+                        });
+                    } catch (error) {
+                        console.error(
+                            "[Realtime] Message handler failed:",
+                            error?.message || error
+                        );
+
+                        realtimeSend(ws, {
+                            type: "error",
+                            message:
+                                "Realtime message processing failed."
+                        });
+                    }
+                }
+            );
+
+            ws.on(
+                "close",
+                () => {
+                    session.closed = true;
+                    session.audioChunks = [];
+                    session.audioBytes = 0;
+
+                    console.log(
+                        "[Realtime] WebSocket closed:",
+                        session.sessionId || "unknown"
+                    );
+                }
+            );
+
+            ws.on(
+                "error",
+                error => {
+                    console.warn(
+                        "[Realtime] WebSocket error:",
+                        error?.message || error
+                    );
+                }
+            );
+        }
+    );
+
+    return realtimeWss;
+}
+
 // ============================================================
 // API 404
 // ============================================================
@@ -6850,7 +7440,11 @@ process.on(
 // START SERVER
 // ============================================================
 
-app.listen(
+const httpServer = http.createServer(app);
+
+const realtimeWss = attachRealtimeWebSocket(httpServer);
+
+httpServer.listen(
     PORT,
     HOST,
     () => {
