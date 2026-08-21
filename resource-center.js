@@ -1188,99 +1188,1180 @@ function centerOnUser() {
    RESOURCES
 ========================================================= */
 
-async function loadNearbyResources() {
+/* =========================================================
+   CHRONICAI — RELIABLE NEARBY RESOURCE SEARCH
+   ========================================================= */
 
-    if (
-        !userLocation
-    ) {
+async function loadNearbyResources(options = {}) {
+
+    if (!userLocation) {
+
+        showResourceEmptyState(
+            "Location Required",
+            'Click "Use My Location" to find nearby civic resources.'
+        );
 
         return;
+    }
 
+    const latitude = Number(userLocation.lat);
+    const longitude = Number(userLocation.lng);
+
+    if (
+        !Number.isFinite(latitude) ||
+        !Number.isFinite(longitude)
+    ) {
+
+        showResourceEmptyState(
+            "Invalid Location",
+            "Your location could not be read correctly."
+        );
+
+        return;
     }
 
 
-    mapStatus.textContent =
-        "Searching resources...";
+    /*
+       Read the radius directly from the selector.
+
+       This is important because the user can change:
+       5 km → 10 km → 25 km → 50 km
+    */
+
+    if (distanceFilter) {
+
+        const selectedRadius =
+            Number(distanceFilter.value);
+
+        if (
+            Number.isFinite(selectedRadius) &&
+            selectedRadius > 0
+        ) {
+            currentRadius =
+                selectedRadius;
+        }
+    }
 
 
-    resourceList.innerHTML =
-        `
-            <div class="empty-state">
+    const radiusKm =
+        Number(currentRadius) || 5;
 
-                <div class="empty-icon">
+    const radiusMeters =
+        radiusKm * 1000;
 
-                    <i class="fa-solid fa-spinner fa-spin"></i>
 
-                </div>
+    /*
+       Every request receives its own ID.
 
-                <h4>
-                    Finding Nearby Resources
-                </h4>
+       If the user starts another search before the previous
+       one finishes, the old response is ignored.
+    */
 
-                <p>
-                    Searching around your location...
-                </p>
+    const requestId =
+        ++resourceRequestId;
 
-            </div>
-        `;
+
+    resourceLoading = true;
+
+
+    setResourceLoadingState(
+        `Searching within ${radiusKm} km...`
+    );
 
 
     try {
 
-        const data =
-            await fetchOverpassData(
-                userLocation.lat,
-                userLocation.lng,
-                currentRadius
-            );
-
-
-        resources =
-            normalizeResources(
-                data
-            );
-
-
-        saveResources(
-            resources
+        console.log(
+            "[ChronicAI] Resource search:",
+            {
+                latitude,
+                longitude,
+                radiusKm
+            }
         );
 
+
+        const resources =
+            await fetchOverpassData(
+                latitude,
+                longitude,
+                radiusMeters
+            );
+
+
+        /*
+           Do not allow an old request to overwrite a newer
+           request.
+        */
+
+        if (
+            requestId !== resourceRequestId
+        ) {
+
+            console.log(
+                "[ChronicAI] Ignoring stale resource response."
+            );
+
+            return;
+        }
+
+
+        let normalized =
+            normalizeResources(
+                resources,
+                latitude,
+                longitude
+            );
+
+
+        /*
+           Remove duplicates.
+        */
+
+        normalized =
+            removeDuplicateResources(
+                normalized
+            );
+
+
+        /*
+           Keep only resources inside the requested radius.
+        */
+
+        normalized =
+            normalized
+                .filter(
+                    resource =>
+                        Number(resource.distance) <=
+                        radiusKm
+                )
+                .sort(
+                    (a, b) =>
+                        Number(a.distance) -
+                        Number(b.distance)
+                );
+
+
+        resourcesData =
+            normalized;
+
+
+        /*
+           Save a useful cache.
+        */
+
+        saveResources(
+            normalized,
+            {
+                latitude,
+                longitude,
+                radiusKm
+            }
+        );
+
+
+        /*
+           Update map and list.
+        */
 
         renderMarkers();
 
         renderResources();
 
 
-        mapStatus.textContent =
-            resources.length
-                ? "Live resource data"
-                : "No live resources";
+        if (
+            normalized.length > 0
+        ) {
+
+            setResourceStatus(
+                `Live resources • ${normalized.length} found`
+            );
+
+            if (mapStatus) {
+                mapStatus.textContent =
+                    `${normalized.length} resources`;
+            }
+
+            console.log(
+                `[ChronicAI] Found ${normalized.length} resources.`
+            );
+
+        }
+        else {
+
+            setResourceStatus(
+                `No resources found within ${radiusKm} km`
+            );
+
+            showResourceEmptyState(
+                "No Resources Found",
+                `No mapped civic resources were found within ${radiusKm} km. Try 10 km, 25 km, or 50 km.`
+            );
+
+            if (mapStatus) {
+                mapStatus.textContent =
+                    "No resources";
+            }
+
+        }
 
     }
+    catch (error) {
 
-    catch (
-        error
-    ) {
-
-        console.warn(
-            "Resource search failed:",
+        console.error(
+            "[ChronicAI] Resource search failed:",
             error
         );
 
 
-        resources =
-            loadCachedResources();
+        /*
+           IMPORTANT:
+           Try cached resources before showing an error.
+        */
+
+        const cached =
+            loadCachedResources(
+                latitude,
+                longitude,
+                radiusKm
+            );
+
+
+        if (
+            cached.resources &&
+            cached.resources.length > 0
+        ) {
+
+            resourcesData =
+                cached.resources;
+
+            renderMarkers();
+            renderResources();
+
+
+            setResourceStatus(
+                `Cached resources • ${cached.resources.length} found`
+            );
+
+
+            if (mapStatus) {
+                mapStatus.textContent =
+                    "Cached resources";
+            }
+
+
+            return;
+        }
+
+
+        resourcesData =
+            [];
 
 
         renderMarkers();
-
         renderResources();
 
 
+        setResourceStatus(
+            "Resource service unavailable"
+        );
+
+
+        showResourceEmptyState(
+            "Unable to Load Resources",
+            "The live resource service could not be reached. Check your internet connection and try Refresh."
+        );
+
+
+        if (mapStatus) {
+            mapStatus.textContent =
+                "Offline";
+        }
+
+    }
+    finally {
+
+        /*
+           NEVER leave resourceLoading stuck at true.
+        */
+
+        resourceLoading =
+            false;
+
+    }
+}
+
+
+/* =========================================================
+   OVERPASS API
+   ========================================================= */
+
+async function fetchOverpassData(
+    latitude,
+    longitude,
+    radiusMeters
+) {
+
+    /*
+       Prevent absurd queries.
+    */
+
+    const safeRadius =
+        Math.min(
+            Math.max(
+                Number(radiusMeters) || 5000,
+                500
+            ),
+            50000
+        );
+
+
+    /*
+       IMPORTANT:
+       Search named places only.
+
+       This prevents enormous responses from Overpass.
+    */
+
+    const query = `
+[out:json][timeout:20];
+
+(
+    nwr["name"]["amenity"="hospital"]
+        (around:${safeRadius},${latitude},${longitude});
+
+    nwr["name"]["healthcare"="hospital"]
+        (around:${safeRadius},${latitude},${longitude});
+
+    nwr["name"]["amenity"="clinic"]
+        (around:${safeRadius},${latitude},${longitude});
+
+    nwr["name"]["healthcare"="clinic"]
+        (around:${safeRadius},${latitude},${longitude});
+
+    nwr["name"]["amenity"="doctors"]
+        (around:${safeRadius},${latitude},${longitude});
+
+    nwr["name"]["amenity"="police"]
+        (around:${safeRadius},${latitude},${longitude});
+
+    nwr["name"]["amenity"="fire_station"]
+        (around:${safeRadius},${latitude},${longitude});
+
+    nwr["name"]["office"="government"]
+        (around:${safeRadius},${latitude},${longitude});
+
+    nwr["name"]["amenity"="townhall"]
+        (around:${safeRadius},${latitude},${longitude});
+
+    nwr["name"]["amenity"="social_centre"]
+        (around:${safeRadius},${latitude},${longitude});
+
+    nwr["name"]["amenity"="community_centre"]
+        (around:${safeRadius},${latitude},${longitude});
+
+    nwr["name"]["amenity"="shelter"]
+        (around:${safeRadius},${latitude},${longitude});
+
+    nwr["name"]["amenity"="food_bank"]
+        (around:${safeRadius},${latitude},${longitude});
+);
+
+out center tags;
+`;
+
+
+    /*
+       Multiple Overpass servers.
+
+       If one is busy, another can answer.
+    */
+
+    const endpoints = [
+
+        "https://overpass-api.de/api/interpreter",
+
+        "https://overpass.kumi.systems/api/interpreter",
+
+        "https://overpass.private.coffee/api/interpreter"
+
+    ];
+
+
+    let lastError =
+        null;
+
+
+    for (
+        const endpoint of endpoints
+    ) {
+
+        /*
+           -------------------------------------------------
+           METHOD 1 — POST
+           -------------------------------------------------
+        */
+
+        try {
+
+            console.log(
+                "[ChronicAI] Trying Overpass POST:",
+                endpoint
+            );
+
+
+            const controller =
+                new AbortController();
+
+
+            const timeout =
+                setTimeout(
+                    () =>
+                        controller.abort(),
+                    25000
+                );
+
+
+            const response =
+                await fetch(
+                    endpoint,
+                    {
+                        method: "POST",
+
+                        mode: "cors",
+
+                        credentials: "omit",
+
+                        headers: {
+                            "Content-Type":
+                                "text/plain;charset=UTF-8"
+                        },
+
+                        body:
+                            query,
+
+                        signal:
+                            controller.signal
+                    }
+                );
+
+
+            clearTimeout(
+                timeout
+            );
+
+
+            if (
+                !response.ok
+            ) {
+
+                throw new Error(
+                    `Overpass POST HTTP ${response.status}`
+                );
+
+            }
+
+
+            const data =
+                await response.json();
+
+
+            if (
+                !data ||
+                !Array.isArray(
+                    data.elements
+                )
+            ) {
+
+                throw new Error(
+                    "Invalid Overpass response."
+                );
+
+            }
+
+
+            console.log(
+                "[ChronicAI] Overpass POST succeeded:",
+                data.elements.length
+            );
+
+
+            return data.elements;
+
+        }
+        catch (error) {
+
+            lastError =
+                error;
+
+            console.warn(
+                "[ChronicAI] Overpass POST failed:",
+                endpoint,
+                error
+            );
+
+        }
+
+
+        /*
+           -------------------------------------------------
+           METHOD 2 — GET
+           -------------------------------------------------
+        */
+
+        try {
+
+            console.log(
+                "[ChronicAI] Trying Overpass GET:",
+                endpoint
+            );
+
+
+            const controller =
+                new AbortController();
+
+
+            const timeout =
+                setTimeout(
+                    () =>
+                        controller.abort(),
+                    25000
+                );
+
+
+            const url =
+                endpoint +
+                "?data=" +
+                encodeURIComponent(
+                    query
+                );
+
+
+            const response =
+                await fetch(
+                    url,
+                    {
+                        method: "GET",
+
+                        mode: "cors",
+
+                        credentials: "omit",
+
+                        signal:
+                            controller.signal
+                    }
+                );
+
+
+            clearTimeout(
+                timeout
+            );
+
+
+            if (
+                !response.ok
+            ) {
+
+                throw new Error(
+                    `Overpass GET HTTP ${response.status}`
+                );
+
+            }
+
+
+            const data =
+                await response.json();
+
+
+            if (
+                !data ||
+                !Array.isArray(
+                    data.elements
+                )
+            ) {
+
+                throw new Error(
+                    "Invalid Overpass response."
+                );
+
+            }
+
+
+            console.log(
+                "[ChronicAI] Overpass GET succeeded:",
+                data.elements.length
+            );
+
+
+            return data.elements;
+
+        }
+        catch (error) {
+
+            lastError =
+                error;
+
+            console.warn(
+                "[ChronicAI] Overpass GET failed:",
+                endpoint,
+                error
+            );
+
+        }
+
+    }
+
+
+    /*
+       -----------------------------------------------------
+       LARGE SEARCH FALLBACK
+       -----------------------------------------------------
+
+       If 25/50 km fails, try 10 km.
+
+       A smaller query is much more likely to succeed on a
+       public Overpass server.
+    */
+
+    if (
+        safeRadius > 10000
+    ) {
+
+        console.warn(
+            "[ChronicAI] Large search failed. Retrying at 10 km."
+        );
+
+
+        try {
+
+            return await fetchOverpassData(
+                latitude,
+                longitude,
+                10000
+            );
+
+        }
+        catch (
+            fallbackError
+        ) {
+
+            lastError =
+                fallbackError;
+
+        }
+
+    }
+
+
+    throw (
+        lastError ||
+        new Error(
+            "All Overpass servers failed."
+        )
+    );
+}
+
+
+/* =========================================================
+   RESOURCE NORMALIZATION
+   ========================================================= */
+
+function normalizeResources(
+    elements,
+    userLat,
+    userLng
+) {
+
+    if (
+        !Array.isArray(elements)
+    ) {
+
+        return [];
+
+    }
+
+
+    return elements
+        .map(
+            element => {
+
+                const tags =
+                    element.tags ||
+                    {};
+
+
+                let lat =
+                    Number(
+                        element.lat
+                    );
+
+                let lng =
+                    Number(
+                        element.lon
+                    );
+
+
+                /*
+                   Ways/relations usually use center.
+                */
+
+                if (
+                    !Number.isFinite(lat) ||
+                    !Number.isFinite(lng)
+                ) {
+
+                    lat =
+                        Number(
+                            element.center?.lat
+                        );
+
+                    lng =
+                        Number(
+                            element.center?.lon
+                        );
+
+                }
+
+
+                if (
+                    !Number.isFinite(lat) ||
+                    !Number.isFinite(lng)
+                ) {
+
+                    return null;
+
+                }
+
+
+                const type =
+                    getResourceType(
+                        tags
+                    );
+
+
+                const name =
+                    tags.name ||
+                    tags["official_name"] ||
+                    tags["short_name"] ||
+                    getDefaultResourceName(
+                        type
+                    );
+
+
+                const distance =
+                    calculateDistance(
+                        userLat,
+                        userLng,
+                        lat,
+                        lng
+                    );
+
+
+                return {
+
+                    id:
+                        `${element.type}-${element.id}`,
+
+                    osmId:
+                        element.id,
+
+                    osmType:
+                        element.type,
+
+                    name,
+
+                    type,
+
+                    lat,
+
+                    lng,
+
+                    distance,
+
+                    phone:
+                        tags.phone ||
+                        tags["contact:phone"] ||
+                        tags["contact:mobile"] ||
+                        "",
+
+                    website:
+                        tags.website ||
+                        tags["contact:website"] ||
+                        "",
+
+                    address:
+                        buildAddress(
+                            tags
+                        ),
+
+                    openingHours:
+                        tags.opening_hours ||
+                        "",
+
+                    emergency:
+                        tags.emergency === "yes",
+
+                    icon:
+                        getResourceIcon(
+                            type
+                        )
+
+                };
+
+            }
+        )
+        .filter(
+            Boolean
+        );
+}
+
+
+/* =========================================================
+   RESOURCE TYPE
+   ========================================================= */
+
+function getResourceType(
+    tags
+) {
+
+    if (
+        tags.amenity === "hospital" ||
+        tags.healthcare === "hospital"
+    ) {
+
+        return "hospital";
+
+    }
+
+
+    if (
+        tags.amenity === "clinic" ||
+        tags.healthcare === "clinic" ||
+        tags.amenity === "doctors"
+    ) {
+
+        return "hospital";
+
+    }
+
+
+    if (
+        tags.amenity === "police"
+    ) {
+
+        return "police";
+
+    }
+
+
+    if (
+        tags.amenity === "fire_station"
+    ) {
+
+        return "fire";
+
+    }
+
+
+    if (
+        tags.office === "government" ||
+        tags.amenity === "townhall"
+    ) {
+
+        return "government";
+
+    }
+
+
+    if (
+        tags.amenity === "shelter" ||
+        tags.amenity === "food_bank" ||
+        tags.amenity === "social_centre" ||
+        tags.amenity === "community_centre"
+    ) {
+
+        return "relief";
+
+    }
+
+
+    return "government";
+}
+
+
+/* =========================================================
+   DEFAULT NAME
+   ========================================================= */
+
+function getDefaultResourceName(
+    type
+) {
+
+    switch (
+        type
+    ) {
+
+        case "hospital":
+            return "Hospital / Medical Center";
+
+        case "police":
+            return "Police Station";
+
+        case "fire":
+            return "Fire Station";
+
+        case "government":
+            return "Government Office";
+
+        case "relief":
+            return "Relief / Community Center";
+
+        default:
+            return "Civic Resource";
+
+    }
+
+}
+
+
+/* =========================================================
+   RESOURCE ICON
+   ========================================================= */
+
+function getResourceIcon(
+    type
+) {
+
+    switch (
+        type
+    ) {
+
+        case "hospital":
+            return "fa-hospital";
+
+        case "police":
+            return "fa-shield-halved";
+
+        case "fire":
+            return "fa-fire-extinguisher";
+
+        case "government":
+            return "fa-building-columns";
+
+        case "relief":
+            return "fa-hand-holding-heart";
+
+        default:
+            return "fa-location-dot";
+
+    }
+
+}
+
+
+/* =========================================================
+   ADDRESS
+   ========================================================= */
+
+function buildAddress(
+    tags
+) {
+
+    const parts = [];
+
+
+    if (
+        tags["addr:housenumber"]
+    ) {
+
+        parts.push(
+            tags["addr:housenumber"]
+        );
+
+    }
+
+
+    if (
+        tags["addr:street"]
+    ) {
+
+        parts.push(
+            tags["addr:street"]
+        );
+
+    }
+
+
+    if (
+        tags["addr:suburb"]
+    ) {
+
+        parts.push(
+            tags["addr:suburb"]
+        );
+
+    }
+
+
+    if (
+        tags["addr:city"]
+    ) {
+
+        parts.push(
+            tags["addr:city"]
+        );
+
+    }
+
+
+    if (
+        tags["addr:postcode"]
+    ) {
+
+        parts.push(
+            tags["addr:postcode"]
+        );
+
+    }
+
+
+    return parts.join(
+        ", "
+    );
+
+}
+
+
+/* =========================================================
+   DUPLICATE REMOVAL
+   ========================================================= */
+
+function removeDuplicateResources(
+    resources
+) {
+
+    const seen =
+        new Set();
+
+
+    return resources.filter(
+        resource => {
+
+            /*
+               Prefer OSM ID.
+            */
+
+            const key =
+                resource.id ||
+                `${resource.name}|${resource.lat.toFixed(5)}|${resource.lng.toFixed(5)}`;
+
+
+            if (
+                seen.has(key)
+            ) {
+
+                return false;
+
+            }
+
+
+            seen.add(
+                key
+            );
+
+
+            return true;
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   RESOURCE LOADING UI
+   ========================================================= */
+
+function setResourceLoadingState(
+    message
+) {
+
+    if (
+        resourceList
+    ) {
+
+        resourceList.innerHTML =
+            `
+            <div class="empty-state">
+
+                <div class="empty-icon">
+                    <i class="fa-solid fa-spinner fa-spin"></i>
+                </div>
+
+                <h4>
+                    Finding nearby resources
+                </h4>
+
+                <p>
+                    ${escapeHtml(message)}
+                </p>
+
+            </div>
+            `;
+
+    }
+
+
+    if (
+        resourceCount
+    ) {
+
+        resourceCount.textContent =
+            "…";
+
+    }
+
+
+    if (
+        mapStatus
+    ) {
+
         mapStatus.textContent =
-            resources.length
-                ? "Cached resources"
-                : "Offline";
+            "Searching";
+
+    }
+
+}
+
+
+/* =========================================================
+   RESOURCE STATUS
+   ========================================================= */
+
+function setResourceStatus(
+    message
+) {
+
+    if (
+        locationStatus
+    ) {
+
+        /*
+           Do not overwrite a successful GPS message with
+           resource status.
+
+           Only update map status here.
+        */
+
+    }
+
+
+    if (
+        mapStatus
+    ) {
+
+        mapStatus.textContent =
+            message;
 
     }
 
