@@ -1,33 +1,41 @@
 "use strict";
 
-
 /* =========================================================
    CHRONICAI RESOURCE CENTER
-========================================================= */
+   COMPLETE REPLACEMENT
+   ========================================================= */
 
 
 /* =========================================================
    CONFIG
-========================================================= */
+   ========================================================= */
 
 const RESOURCE_CONFIG = {
 
-    defaultZoom:
-        2,
+    defaultZoom: 2,
 
     savedLocationMaxAgeMs:
         5 * 60 * 1000,
 
-    overpassEndpoints: [
+    /*
+     * IMPORTANT:
+     *
+     * The browser must NOT call Overpass directly.
+     *
+     * Your Render backend must expose:
+     *
+     * GET /api/resources?lat=...&lng=...&radius=...
+     *
+     */
 
-        "https://overpass-api.de/api/interpreter",
-
-        "https://overpass.kumi.systems/api/interpreter"
-
-    ],
+    resourceApi:
+        "/api/resources",
 
     airQualityApi:
         "https://air-quality-api.open-meteo.com/v1/air-quality",
+
+    geocodeApi:
+        "https://nominatim.openstreetmap.org/search",
 
     airRefreshMs:
         15 * 60 * 1000
@@ -37,7 +45,7 @@ const RESOURCE_CONFIG = {
 
 /* =========================================================
    STATE
-========================================================= */
+   ========================================================= */
 
 let map = null;
 
@@ -67,14 +75,14 @@ let pollutionTrackerEnabled = false;
 
 let pollutionRangeKm = 1;
 
-let resourceRequestId = 0;
-
 let resourceLoading = false;
+
+let lastResourceSearch = 0;
 
 
 /* =========================================================
    DOM
-========================================================= */
+   ========================================================= */
 
 const locateBtn =
     document.getElementById(
@@ -148,7 +156,9 @@ const pollutionRangeButtons =
     );
 
 
-/* AIR QUALITY */
+/* =========================================================
+   AIR QUALITY DOM
+   ========================================================= */
 
 const airQualityStatus =
     document.getElementById(
@@ -240,7 +250,9 @@ const refreshAirQuality =
     );
 
 
-/* SEARCH LOCATION */
+/* =========================================================
+   POLLUTION SEARCH DOM
+   ========================================================= */
 
 const pollutionPlaceInput =
     document.getElementById(
@@ -268,7 +280,7 @@ const pollutionLocationResult =
 
 /* =========================================================
    RESOURCE TYPES
-========================================================= */
+   ========================================================= */
 
 const TYPE_CONFIG = {
 
@@ -282,6 +294,7 @@ const TYPE_CONFIG = {
 
     },
 
+
     police: {
 
         label:
@@ -291,6 +304,7 @@ const TYPE_CONFIG = {
             "fa-shield-halved"
 
     },
+
 
     fire: {
 
@@ -302,6 +316,7 @@ const TYPE_CONFIG = {
 
     },
 
+
     government: {
 
         label:
@@ -311,6 +326,7 @@ const TYPE_CONFIG = {
             "fa-building-columns"
 
     },
+
 
     relief: {
 
@@ -326,8 +342,8 @@ const TYPE_CONFIG = {
 
 
 /* =========================================================
-   INIT
-========================================================= */
+   INITIALIZATION
+   ========================================================= */
 
 document.addEventListener(
     "DOMContentLoaded",
@@ -347,9 +363,48 @@ document.addEventListener(
 
 /* =========================================================
    MAP
-========================================================= */
+   ========================================================= */
 
 function initializeMap() {
+
+    if (
+        typeof L === "undefined"
+    ) {
+
+        console.error(
+            "[ChronicAI] Leaflet is not loaded."
+        );
+
+        if (mapStatus) {
+
+            mapStatus.textContent =
+                "Map unavailable";
+
+        }
+
+        return;
+
+    }
+
+
+    const mapElement =
+        document.getElementById(
+            "resourceMap"
+        );
+
+
+    if (
+        !mapElement
+    ) {
+
+        console.error(
+            "[ChronicAI] #resourceMap not found."
+        );
+
+        return;
+
+    }
+
 
     map =
         L.map(
@@ -381,15 +436,19 @@ function initializeMap() {
     );
 
 
-    mapStatus.textContent =
-        "Ready";
+    if (mapStatus) {
+
+        mapStatus.textContent =
+            "Ready";
+
+    }
 
 }
 
 
 /* =========================================================
    EVENTS
-========================================================= */
+   ========================================================= */
 
 function bindEvents() {
 
@@ -415,19 +474,34 @@ function bindEvents() {
         "change",
         () => {
 
-            currentRadius =
+            const radius =
                 Number(
                     distanceFilter.value
                 );
 
 
             if (
+                Number.isFinite(radius) &&
+                radius > 0
+            ) {
+
+                currentRadius =
+                    radius;
+
+            }
+
+
+            if (
                 userLocation
             ) {
 
-                renderMarkers();
+                /*
+                 * Re-query because the selected
+                 * radius may be larger than the
+                 * previous query.
+                 */
 
-                renderResources();
+                loadNearbyResources();
 
             }
 
@@ -443,10 +517,13 @@ function bindEvents() {
                 () => {
 
                     filterButtons.forEach(
-                        item =>
+                        item => {
+
                             item.classList.remove(
                                 "active"
-                            )
+                            );
+
+                        }
                     );
 
 
@@ -456,7 +533,8 @@ function bindEvents() {
 
 
                     currentFilter =
-                        button.dataset.type;
+                        button.dataset.type ||
+                        "all";
 
 
                     renderMarkers();
@@ -469,8 +547,6 @@ function bindEvents() {
         }
     );
 
-
-    /* POLLUTION TRACKER */
 
     pollutionTrackerBtn?.addEventListener(
         "click",
@@ -489,10 +565,13 @@ function bindEvents() {
 
 
                     pollutionRangeButtons.forEach(
-                        item =>
+                        item => {
+
                             item.classList.remove(
                                 "active"
-                            )
+                            );
+
+                        }
                     );
 
 
@@ -504,7 +583,7 @@ function bindEvents() {
                     pollutionRangeKm =
                         Number(
                             button.dataset.range
-                        );
+                        ) || 1;
 
 
                     if (
@@ -516,7 +595,9 @@ function bindEvents() {
                             userLocation;
 
 
-                        if (target) {
+                        if (
+                            target
+                        ) {
 
                             loadPollutionZones(
                                 target.lat,
@@ -533,8 +614,6 @@ function bindEvents() {
         }
     );
 
-
-    /* AIR QUALITY */
 
     refreshAirQuality?.addEventListener(
         "click",
@@ -567,8 +646,6 @@ function bindEvents() {
     );
 
 
-    /* SEARCHED POLLUTION */
-
     pollutionPlaceSearchBtn?.addEventListener(
         "click",
         searchPollutionLocation
@@ -596,8 +673,8 @@ function bindEvents() {
 
 
 /* =========================================================
-   REFRESH
-========================================================= */
+   REFRESH EVERYTHING
+   ========================================================= */
 
 function refreshEverything() {
 
@@ -606,6 +683,7 @@ function refreshEverything() {
     ) {
 
         loadNearbyResources();
+
 
         loadAirQuality(
             userLocation.lat,
@@ -624,6 +702,7 @@ function refreshEverything() {
 
         }
 
+
         return;
 
     }
@@ -636,7 +715,7 @@ function refreshEverything() {
 
 /* =========================================================
    LOCATION
-========================================================= */
+   ========================================================= */
 
 function getUserLocation() {
 
@@ -653,8 +732,14 @@ function getUserLocation() {
     }
 
 
-    locateBtn.disabled =
-        true;
+    if (
+        locateBtn
+    ) {
+
+        locateBtn.disabled =
+            true;
+
+    }
 
 
     setLocationStatus(
@@ -667,22 +752,54 @@ function getUserLocation() {
 
         position => {
 
+            const latitude =
+                Number(
+                    position.coords.latitude
+                );
+
+
+            const longitude =
+                Number(
+                    position.coords.longitude
+                );
+
+
+            const accuracy =
+                Number(
+                    position.coords.accuracy || 0
+                );
+
+
+            if (
+                !Number.isFinite(latitude) ||
+                !Number.isFinite(longitude)
+            ) {
+
+                handleLocationError(
+                    {
+                        code:
+                            2,
+
+                        message:
+                            "Invalid location."
+                    }
+                );
+
+                return;
+
+            }
+
+
             userLocation = {
 
                 lat:
-                    Number(
-                        position.coords.latitude
-                    ),
+                    latitude,
 
                 lng:
-                    Number(
-                        position.coords.longitude
-                    ),
+                    longitude,
 
                 accuracy:
-                    Number(
-                        position.coords.accuracy || 0
-                    )
+                    accuracy
 
             };
 
@@ -692,52 +809,66 @@ function getUserLocation() {
             );
 
 
-            /*
-               Remove previously searched map marker
-               because user is returning to GPS location.
-            */
-
             clearSearchedMarker();
 
 
             updateUserMarker(
-                userLocation.lat,
-                userLocation.lng,
-                userLocation.accuracy
+                latitude,
+                longitude,
+                accuracy
             );
 
 
-            map.setView(
-                [
-                    userLocation.lat,
-                    userLocation.lng
-                ],
-                16,
-                {
-                    animate:
-                        true
-                }
-            );
+            if (
+                map
+            ) {
+
+                map.setView(
+                    [
+                        latitude,
+                        longitude
+                    ],
+                    16,
+                    {
+                        animate:
+                            true
+                    }
+                );
+
+            }
 
 
             setLocationStatus(
                 `Location detected ±${Math.round(
-                    userLocation.accuracy
+                    accuracy
                 )}m`,
                 "success"
             );
 
 
-            locateBtn.disabled =
-                false;
+            if (
+                locateBtn
+            ) {
 
+                locateBtn.disabled =
+                    false;
+
+            }
+
+
+            /*
+             * IMPORTANT:
+             *
+             * Resource loading is intentionally
+             * handled separately from location.
+             */
 
             loadNearbyResources();
 
 
             loadAirQuality(
-                userLocation.lat,
-                userLocation.lng
+                latitude,
+                longitude
             );
 
 
@@ -746,11 +877,12 @@ function getUserLocation() {
             ) {
 
                 loadPollutionZones(
-                    userLocation.lat,
-                    userLocation.lng
+                    latitude,
+                    longitude
                 );
 
             }
+
 
             startLocationWatch();
 
@@ -758,8 +890,14 @@ function getUserLocation() {
 
         error => {
 
-            locateBtn.disabled =
-                false;
+            if (
+                locateBtn
+            ) {
+
+                locateBtn.disabled =
+                    false;
+
+            }
 
 
             handleLocationError(
@@ -774,10 +912,10 @@ function getUserLocation() {
                 true,
 
             timeout:
-                15000,
+                20000,
 
             maximumAge:
-                0
+                30000
 
         }
 
@@ -786,21 +924,29 @@ function getUserLocation() {
 }
 
 
+/* =========================================================
+   LIVE LOCATION WATCH
+   ========================================================= */
+
 function startLocationWatch() {
 
     if (
         !navigator.geolocation
     ) {
+
         return;
+
     }
 
 
     if (
         locationWatchId !== null
     ) {
+
         navigator.geolocation.clearWatch(
             locationWatchId
         );
+
     }
 
 
@@ -828,6 +974,21 @@ function startLocationWatch() {
 
                 };
 
+
+                if (
+                    !Number.isFinite(
+                        nextLocation.lat
+                    ) ||
+                    !Number.isFinite(
+                        nextLocation.lng
+                    )
+                ) {
+
+                    return;
+
+                }
+
+
                 const movedMeters =
                     userLocation
                         ? calculateDistance(
@@ -838,20 +999,25 @@ function startLocationWatch() {
                         ) * 1000
                         : Infinity;
 
+
                 userLocation =
                     nextLocation;
+
 
                 saveLocation(
                     userLocation
                 );
 
+
                 clearSearchedMarker();
+
 
                 updateUserMarker(
                     userLocation.lat,
                     userLocation.lng,
                     userLocation.accuracy
                 );
+
 
                 setLocationStatus(
                     `Live location ±${Math.round(
@@ -860,16 +1026,24 @@ function startLocationWatch() {
                     "success"
                 );
 
+
+                /*
+                 * Only refresh expensive APIs after
+                 * the user has moved at least 100 m.
+                 */
+
                 if (
                     movedMeters >= 100
                 ) {
 
                     loadNearbyResources();
 
+
                     loadAirQuality(
                         userLocation.lat,
                         userLocation.lng
                     );
+
 
                     if (
                         pollutionTrackerEnabled
@@ -889,8 +1063,9 @@ function startLocationWatch() {
             error => {
 
                 console.warn(
-                    "Live location update failed:",
-                    error?.message || error
+                    "[ChronicAI] Live location update failed:",
+                    error?.message ||
+                    error
                 );
 
             },
@@ -901,10 +1076,10 @@ function startLocationWatch() {
                     true,
 
                 timeout:
-                    20000,
+                    30000,
 
                 maximumAge:
-                    0
+                    30000
 
             }
 
@@ -915,14 +1090,16 @@ function startLocationWatch() {
 
 /* =========================================================
    LOCATION UI
-========================================================= */
+   ========================================================= */
 
 function setLocationStatus(
     message,
     type
 ) {
 
-    if (!locationStatus) {
+    if (
+        !locationStatus
+    ) {
 
         return;
 
@@ -987,8 +1164,9 @@ function handleLocationError(
 
 
     if (
-        error.code ===
-        error.PERMISSION_DENIED
+        error?.code ===
+        error?.PERMISSION_DENIED ||
+        error?.code === 1
     ) {
 
         message =
@@ -996,8 +1174,9 @@ function handleLocationError(
 
     }
     else if (
-        error.code ===
-        error.POSITION_UNAVAILABLE
+        error?.code ===
+        error?.POSITION_UNAVAILABLE ||
+        error?.code === 2
     ) {
 
         message =
@@ -1005,8 +1184,9 @@ function handleLocationError(
 
     }
     else if (
-        error.code ===
-        error.TIMEOUT
+        error?.code ===
+        error?.TIMEOUT ||
+        error?.code === 3
     ) {
 
         message =
@@ -1024,13 +1204,22 @@ function handleLocationError(
 
 /* =========================================================
    USER MARKER
-========================================================= */
+   ========================================================= */
 
 function updateUserMarker(
     lat,
     lng,
     accuracy
 ) {
+
+    if (
+        !map
+    ) {
+
+        return;
+
+    }
+
 
     if (
         userMarker
@@ -1076,10 +1265,16 @@ function updateUserMarker(
                     `,
 
                 iconSize:
-                    [18,18],
+                    [
+                        18,
+                        18
+                    ],
 
                 iconAnchor:
-                    [9,9]
+                    [
+                        9,
+                        9
+                    ]
 
             }
         );
@@ -1092,6 +1287,7 @@ function updateUserMarker(
                 lng
             ],
             {
+
                 icon:
                     icon,
 
@@ -1128,7 +1324,7 @@ function updateUserMarker(
 
                 radius:
                     Math.max(
-                        accuracy,
+                        Number(accuracy) || 0,
                         20
                     ),
 
@@ -1139,7 +1335,7 @@ function updateUserMarker(
                     "#4da3ff",
 
                 fillOpacity:
-                    .05,
+                    0.05,
 
                 weight:
                     1
@@ -1155,7 +1351,7 @@ function updateUserMarker(
 
 /* =========================================================
    CENTER USER
-========================================================= */
+   ========================================================= */
 
 function centerOnUser() {
 
@@ -1173,32 +1369,36 @@ function centerOnUser() {
     clearSearchedMarker();
 
 
-    map.setView(
-        [
-            userLocation.lat,
-            userLocation.lng
-        ],
-        15,
-        {
-            animate:
-                true
-        }
-    );
+    if (
+        map
+    ) {
+
+        map.setView(
+            [
+                userLocation.lat,
+                userLocation.lng
+            ],
+            15,
+            {
+                animate:
+                    true
+            }
+        );
+
+    }
 
 }
 
 
 /* =========================================================
-   RESOURCES
-========================================================= */
-
-/* =========================================================
-   CHRONICAI — RELIABLE NEARBY RESOURCE SEARCH
+   NEARBY RESOURCES
    ========================================================= */
 
-async function loadNearbyResources(options = {}) {
+async function loadNearbyResources() {
 
-    if (!userLocation) {
+    if (
+        !userLocation
+    ) {
 
         showResourceEmptyState(
             "Location Required",
@@ -1206,71 +1406,81 @@ async function loadNearbyResources(options = {}) {
         );
 
         return;
+
     }
 
-    const latitude = Number(userLocation.lat);
-    const longitude = Number(userLocation.lng);
 
     if (
-        !Number.isFinite(latitude) ||
-        !Number.isFinite(longitude)
+        resourceLoading
     ) {
 
-        showResourceEmptyState(
-            "Invalid Location",
-            "Your location could not be read correctly."
+        console.log(
+            "[ChronicAI] Resource search already running."
         );
 
         return;
+
     }
 
 
-    /*
-       Read the radius directly from the selector.
+    const radius =
+        Number(
+            distanceFilter?.value ||
+            currentRadius ||
+            5
+        );
 
-       This is important because the user can change:
-       5 km → 10 km → 25 km → 50 km
-    */
 
-    if (distanceFilter) {
+    currentRadius =
+        Number.isFinite(radius) &&
+        radius > 0
+            ? radius
+            : 5;
 
-        const selectedRadius =
-            Number(distanceFilter.value);
 
-        if (
-            Number.isFinite(selectedRadius) &&
-            selectedRadius > 0
-        ) {
-            currentRadius =
-                selectedRadius;
-        }
+    resourceLoading =
+        true;
+
+
+    lastResourceSearch =
+        Date.now();
+
+
+    if (
+        mapStatus
+    ) {
+
+        mapStatus.textContent =
+            `Searching within ${currentRadius} km...`;
+
     }
 
 
-    const radiusKm =
-        Number(currentRadius) || 5;
+    if (
+        resourceList
+    ) {
 
-    const radiusMeters =
-        radiusKm * 1000;
+        resourceList.innerHTML =
+            `
+                <div class="empty-state">
 
+                    <div class="empty-icon">
+                        <i class="fa-solid fa-spinner fa-spin"></i>
+                    </div>
 
-    /*
-       Every request receives its own ID.
+                    <h4>
+                        Finding Nearby Resources
+                    </h4>
 
-       If the user starts another search before the previous
-       one finishes, the old response is ignored.
-    */
+                    <p>
+                        Searching within
+                        ${currentRadius} km...
+                    </p>
 
-    const requestId =
-        ++resourceRequestId;
+                </div>
+            `;
 
-
-    resourceLoading = true;
-
-
-    setResourceLoadingState(
-        `Searching within ${radiusKm} km...`
-    );
+    }
 
 
     try {
@@ -1278,95 +1488,42 @@ async function loadNearbyResources(options = {}) {
         console.log(
             "[ChronicAI] Resource search:",
             {
-                latitude,
-                longitude,
-                radiusKm
+                lat:
+                    userLocation.lat,
+
+                lng:
+                    userLocation.lng,
+
+                radius:
+                    currentRadius
             }
         );
 
 
-        const resources =
-            await fetchOverpassData(
-                latitude,
-                longitude,
-                radiusMeters
+        const data =
+            await fetchResourceApi(
+                userLocation.lat,
+                userLocation.lng,
+                currentRadius
             );
 
 
-        /*
-           Do not allow an old request to overwrite a newer
-           request.
-        */
-
-        if (
-            requestId !== resourceRequestId
-        ) {
-
-            console.log(
-                "[ChronicAI] Ignoring stale resource response."
-            );
-
-            return;
-        }
-
-
-        let normalized =
+        const normalized =
             normalizeResources(
-                resources,
-                latitude,
-                longitude
+                data
             );
 
 
-        /*
-           Remove duplicates.
-        */
-
-        normalized =
+        resources =
             removeDuplicateResources(
                 normalized
             );
 
 
-        /*
-           Keep only resources inside the requested radius.
-        */
-
-        normalized =
-            normalized
-                .filter(
-                    resource =>
-                        Number(resource.distance) <=
-                        radiusKm
-                )
-                .sort(
-                    (a, b) =>
-                        Number(a.distance) -
-                        Number(b.distance)
-                );
-
-
-        resourcesData =
-            normalized;
-
-
-        /*
-           Save a useful cache.
-        */
-
         saveResources(
-            normalized,
-            {
-                latitude,
-                longitude,
-                radiusKm
-            }
+            resources
         );
 
-
-        /*
-           Update map and list.
-        */
 
         renderMarkers();
 
@@ -1374,43 +1531,47 @@ async function loadNearbyResources(options = {}) {
 
 
         if (
-            normalized.length > 0
+            resources.length
         ) {
 
-            setResourceStatus(
-                `Live resources • ${normalized.length} found`
-            );
+            if (
+                mapStatus
+            ) {
 
-            if (mapStatus) {
                 mapStatus.textContent =
-                    `${normalized.length} resources`;
-            }
+                    `Live resources • ${resources.length} found`;
 
-            console.log(
-                `[ChronicAI] Found ${normalized.length} resources.`
-            );
+            }
 
         }
         else {
 
-            setResourceStatus(
-                `No resources found within ${radiusKm} km`
-            );
+            if (
+                mapStatus
+            ) {
+
+                mapStatus.textContent =
+                    "No resources found";
+
+            }
 
             showResourceEmptyState(
                 "No Resources Found",
-                `No mapped civic resources were found within ${radiusKm} km. Try 10 km, 25 km, or 50 km.`
+                `No mapped civic resources were found within ${currentRadius} km. Try a larger radius.`
             );
-
-            if (mapStatus) {
-                mapStatus.textContent =
-                    "No resources";
-            }
 
         }
 
+
+        console.log(
+            "[ChronicAI] Resources displayed:",
+            resources.length
+        );
+
     }
-    catch (error) {
+    catch (
+        error
+    ) {
 
         console.error(
             "[ChronicAI] Resource search failed:",
@@ -1419,465 +1580,254 @@ async function loadNearbyResources(options = {}) {
 
 
         /*
-           IMPORTANT:
-           Try cached resources before showing an error.
-        */
+         * Try cached resources.
+         */
 
         const cached =
-            loadCachedResources(
-                latitude,
-                longitude,
-                radiusKm
-            );
+            loadCachedResources();
 
 
-        if (
-            cached.resources &&
-            cached.resources.length > 0
-        ) {
-
-            resourcesData =
-                cached.resources;
-
-            renderMarkers();
-            renderResources();
-
-
-            setResourceStatus(
-                `Cached resources • ${cached.resources.length} found`
-            );
-
-
-            if (mapStatus) {
-                mapStatus.textContent =
-                    "Cached resources";
-            }
-
-
-            return;
-        }
-
-
-        resourcesData =
-            [];
+        resources =
+            Array.isArray(cached)
+                ? cached
+                : [];
 
 
         renderMarkers();
+
         renderResources();
 
 
-        setResourceStatus(
-            "Resource service unavailable"
-        );
+        if (
+            resources.length
+        ) {
+
+            if (
+                mapStatus
+            ) {
+
+                mapStatus.textContent =
+                    `Cached resources • ${resources.length} found`;
+
+            }
+
+        }
+        else {
+
+            if (
+                mapStatus
+            ) {
+
+                mapStatus.textContent =
+                    "Resource service unavailable";
+
+            }
 
 
-        showResourceEmptyState(
-            "Unable to Load Resources",
-            "The live resource service could not be reached. Check your internet connection and try Refresh."
-        );
+            showResourceEmptyState(
+                "Unable to Load Resources",
+                "The live resource service could not be reached. Please try Refresh again."
+            );
 
-
-        if (mapStatus) {
-            mapStatus.textContent =
-                "Offline";
         }
 
     }
     finally {
 
-        /*
-           NEVER leave resourceLoading stuck at true.
-        */
-
         resourceLoading =
             false;
 
     }
+
 }
 
 
 /* =========================================================
-   OVERPASS API
+   RESOURCE API
    ========================================================= */
 
-async function fetchOverpassData(
-    latitude,
-    longitude,
-    radiusMeters
+async function fetchResourceApi(
+    lat,
+    lng,
+    radiusKm
 ) {
 
-    /*
-       Prevent absurd queries.
-    */
+    const params =
+        new URLSearchParams({
 
-    const safeRadius =
-        Math.min(
-            Math.max(
-                Number(radiusMeters) || 5000,
-                500
-            ),
-            50000
+            lat:
+                String(lat),
+
+            lng:
+                String(lng),
+
+            radius:
+                String(radiusKm)
+
+        });
+
+
+    const url =
+        RESOURCE_CONFIG.resourceApi +
+        "?" +
+        params.toString();
+
+
+    console.log(
+        "[ChronicAI] Requesting:",
+        url
+    );
+
+
+    const controller =
+        new AbortController();
+
+
+    const timeout =
+        setTimeout(
+            () => {
+
+                controller.abort();
+
+            },
+            35000
         );
 
 
-    /*
-       IMPORTANT:
-       Search named places only.
+    try {
 
-       This prevents enormous responses from Overpass.
-    */
+        const response =
+            await fetch(
+                url,
+                {
 
-    const query = `
-[out:json][timeout:20];
+                    method:
+                        "GET",
 
-(
-    nwr["name"]["amenity"="hospital"]
-        (around:${safeRadius},${latitude},${longitude});
-
-    nwr["name"]["healthcare"="hospital"]
-        (around:${safeRadius},${latitude},${longitude});
-
-    nwr["name"]["amenity"="clinic"]
-        (around:${safeRadius},${latitude},${longitude});
-
-    nwr["name"]["healthcare"="clinic"]
-        (around:${safeRadius},${latitude},${longitude});
-
-    nwr["name"]["amenity"="doctors"]
-        (around:${safeRadius},${latitude},${longitude});
-
-    nwr["name"]["amenity"="police"]
-        (around:${safeRadius},${latitude},${longitude});
-
-    nwr["name"]["amenity"="fire_station"]
-        (around:${safeRadius},${latitude},${longitude});
-
-    nwr["name"]["office"="government"]
-        (around:${safeRadius},${latitude},${longitude});
-
-    nwr["name"]["amenity"="townhall"]
-        (around:${safeRadius},${latitude},${longitude});
-
-    nwr["name"]["amenity"="social_centre"]
-        (around:${safeRadius},${latitude},${longitude});
-
-    nwr["name"]["amenity"="community_centre"]
-        (around:${safeRadius},${latitude},${longitude});
-
-    nwr["name"]["amenity"="shelter"]
-        (around:${safeRadius},${latitude},${longitude});
-
-    nwr["name"]["amenity"="food_bank"]
-        (around:${safeRadius},${latitude},${longitude});
-);
-
-out center tags;
-`;
-
-
-    /*
-       Multiple Overpass servers.
-
-       If one is busy, another can answer.
-    */
-
-    const endpoints = [
-
-        "https://overpass-api.de/api/interpreter",
-
-        "https://overpass.kumi.systems/api/interpreter",
-
-        "https://overpass.private.coffee/api/interpreter"
-
-    ];
-
-
-    let lastError =
-        null;
-
-
-    for (
-        const endpoint of endpoints
-    ) {
-
-        /*
-           -------------------------------------------------
-           METHOD 1 — POST
-           -------------------------------------------------
-        */
-
-        try {
-
-            console.log(
-                "[ChronicAI] Trying Overpass POST:",
-                endpoint
-            );
-
-
-            const controller =
-                new AbortController();
-
-
-            const timeout =
-                setTimeout(
-                    () =>
-                        controller.abort(),
-                    25000
-                );
-
-
-            const response =
-                await fetch(
-                    endpoint,
-                    {
-                        method: "POST",
-
-                        mode: "cors",
-
-                        credentials: "omit",
-
-                        headers: {
-                            "Content-Type":
-                                "text/plain;charset=UTF-8"
+                    headers:
+                        {
+                            "Accept":
+                                "application/json"
                         },
 
-                        body:
-                            query,
+                    credentials:
+                        "same-origin",
 
-                        signal:
-                            controller.signal
-                    }
-                );
+                    cache:
+                        "no-store",
 
+                    signal:
+                        controller.signal
 
-            clearTimeout(
-                timeout
+                }
             );
 
 
-            if (
-                !response.ok
-            ) {
+        if (
+            !response.ok
+        ) {
 
-                throw new Error(
-                    `Overpass POST HTTP ${response.status}`
-                );
+            let details =
+                "";
+
+
+            try {
+
+                details =
+                    await response.text();
 
             }
+            catch {}
 
 
-            const data =
-                await response.json();
-
-
-            if (
-                !data ||
-                !Array.isArray(
-                    data.elements
+            throw new Error(
+                `Resource API HTTP ${response.status}` +
+                (
+                    details
+                        ? `: ${details.slice(0, 200)}`
+                        : ""
                 )
-            ) {
-
-                throw new Error(
-                    "Invalid Overpass response."
-                );
-
-            }
-
-
-            console.log(
-                "[ChronicAI] Overpass POST succeeded:",
-                data.elements.length
             );
-
-
-            return data.elements;
 
         }
-        catch (error) {
 
-            lastError =
-                error;
 
-            console.warn(
-                "[ChronicAI] Overpass POST failed:",
-                endpoint,
-                error
+        const data =
+            await response.json();
+
+
+        if (
+            !data
+        ) {
+
+            throw new Error(
+                "Empty resource API response."
             );
 
         }
 
 
         /*
-           -------------------------------------------------
-           METHOD 2 — GET
-           -------------------------------------------------
-        */
+         * Accept both:
+         *
+         * { elements: [...] }
+         *
+         * and
+         *
+         * { resources: [...] }
+         */
 
-        try {
-
-            console.log(
-                "[ChronicAI] Trying Overpass GET:",
-                endpoint
-            );
-
-
-            const controller =
-                new AbortController();
-
-
-            const timeout =
-                setTimeout(
-                    () =>
-                        controller.abort(),
-                    25000
-                );
-
-
-            const url =
-                endpoint +
-                "?data=" +
-                encodeURIComponent(
-                    query
-                );
-
-
-            const response =
-                await fetch(
-                    url,
-                    {
-                        method: "GET",
-
-                        mode: "cors",
-
-                        credentials: "omit",
-
-                        signal:
-                            controller.signal
-                    }
-                );
-
-
-            clearTimeout(
-                timeout
-            );
-
-
-            if (
-                !response.ok
-            ) {
-
-                throw new Error(
-                    `Overpass GET HTTP ${response.status}`
-                );
-
-            }
-
-
-            const data =
-                await response.json();
-
-
-            if (
-                !data ||
-                !Array.isArray(
-                    data.elements
-                )
-            ) {
-
-                throw new Error(
-                    "Invalid Overpass response."
-                );
-
-            }
-
-
-            console.log(
-                "[ChronicAI] Overpass GET succeeded:",
-                data.elements.length
-            );
-
-
-            return data.elements;
-
-        }
-        catch (error) {
-
-            lastError =
-                error;
-
-            console.warn(
-                "[ChronicAI] Overpass GET failed:",
-                endpoint,
-                error
-            );
-
-        }
-
-    }
-
-
-    /*
-       -----------------------------------------------------
-       LARGE SEARCH FALLBACK
-       -----------------------------------------------------
-
-       If 25/50 km fails, try 10 km.
-
-       A smaller query is much more likely to succeed on a
-       public Overpass server.
-    */
-
-    if (
-        safeRadius > 10000
-    ) {
-
-        console.warn(
-            "[ChronicAI] Large search failed. Retrying at 10 km."
-        );
-
-
-        try {
-
-            return await fetchOverpassData(
-                latitude,
-                longitude,
-                10000
-            );
-
-        }
-        catch (
-            fallbackError
+        if (
+            Array.isArray(
+                data.elements
+            )
         ) {
 
-            lastError =
-                fallbackError;
+            return data;
 
         }
 
+
+        if (
+            Array.isArray(
+                data.resources
+            )
+        ) {
+
+            return {
+                elements:
+                    data.resources
+            };
+
+        }
+
+
+        throw new Error(
+            "Resource API returned an invalid JSON structure."
+        );
+
+    }
+    finally {
+
+        clearTimeout(
+            timeout
+        );
+
     }
 
-
-    throw (
-        lastError ||
-        new Error(
-            "All Overpass servers failed."
-        )
-    );
 }
 
 
 /* =========================================================
-   RESOURCE NORMALIZATION
+   NORMALIZE RESOURCES
    ========================================================= */
 
 function normalizeResources(
-    elements,
-    userLat,
-    userLng
+    data
 ) {
 
     if (
-        !Array.isArray(elements)
+        !data
     ) {
 
         return [];
@@ -1885,379 +1835,306 @@ function normalizeResources(
     }
 
 
-    return elements
-        .map(
-            element => {
-
-                const tags =
-                    element.tags ||
-                    {};
-
-
-                let lat =
-                    Number(
-                        element.lat
-                    );
-
-                let lng =
-                    Number(
-                        element.lon
-                    );
+    const elements =
+        Array.isArray(
+            data.elements
+        )
+            ? data.elements
+            : Array.isArray(data)
+                ? data
+                : [];
 
 
-                /*
-                   Ways/relations usually use center.
-                */
+    if (
+        !elements.length
+    ) {
 
-                if (
-                    !Number.isFinite(lat) ||
-                    !Number.isFinite(lng)
-                ) {
+        return [];
 
-                    lat =
-                        Number(
-                            element.center?.lat
-                        );
-
-                    lng =
-                        Number(
-                            element.center?.lon
-                        );
-
-                }
+    }
 
 
-                if (
-                    !Number.isFinite(lat) ||
-                    !Number.isFinite(lng)
-                ) {
-
-                    return null;
-
-                }
+    const normalized =
+        [];
 
 
-                const type =
-                    getResourceType(
-                        tags
-                    );
+    elements.forEach(
+        element => {
+
+            const tags =
+                element.tags ||
+                {};
 
 
-                const name =
-                    tags.name ||
-                    tags["official_name"] ||
-                    tags["short_name"] ||
-                    getDefaultResourceName(
-                        type
-                    );
+            let type =
+                null;
 
 
-                const distance =
-                    calculateDistance(
-                        userLat,
-                        userLng,
-                        lat,
-                        lng
-                    );
+            /*
+             * Hospitals.
+             */
 
+            if (
+                tags.amenity ===
+                    "hospital" ||
 
-                return {
+                tags.healthcare ===
+                    "hospital" ||
 
-                    id:
-                        `${element.type}-${element.id}`,
+                tags.amenity ===
+                    "clinic" ||
 
-                    osmId:
-                        element.id,
+                tags.healthcare ===
+                    "clinic" ||
 
-                    osmType:
-                        element.type,
+                tags.amenity ===
+                    "doctors"
+            ) {
 
-                    name,
-
-                    type,
-
-                    lat,
-
-                    lng,
-
-                    distance,
-
-                    phone:
-                        tags.phone ||
-                        tags["contact:phone"] ||
-                        tags["contact:mobile"] ||
-                        "",
-
-                    website:
-                        tags.website ||
-                        tags["contact:website"] ||
-                        "",
-
-                    address:
-                        buildAddress(
-                            tags
-                        ),
-
-                    openingHours:
-                        tags.opening_hours ||
-                        "",
-
-                    emergency:
-                        tags.emergency === "yes",
-
-                    icon:
-                        getResourceIcon(
-                            type
-                        )
-
-                };
+                type =
+                    "hospital";
 
             }
-        )
-        .filter(
-            Boolean
-        );
-}
 
 
-/* =========================================================
-   RESOURCE TYPE
-   ========================================================= */
+            /*
+             * Police.
+             */
 
-function getResourceType(
-    tags
-) {
+            else if (
+                tags.amenity ===
+                "police"
+            ) {
 
-    if (
-        tags.amenity === "hospital" ||
-        tags.healthcare === "hospital"
-    ) {
+                type =
+                    "police";
 
-        return "hospital";
+            }
 
-    }
 
+            /*
+             * Fire.
+             */
 
-    if (
-        tags.amenity === "clinic" ||
-        tags.healthcare === "clinic" ||
-        tags.amenity === "doctors"
-    ) {
+            else if (
+                tags.amenity ===
+                "fire_station"
+            ) {
 
-        return "hospital";
+                type =
+                    "fire";
 
-    }
+            }
 
 
-    if (
-        tags.amenity === "police"
-    ) {
+            /*
+             * Government.
+             */
 
-        return "police";
+            else if (
+                tags.office ===
+                    "government" ||
 
-    }
+                tags.amenity ===
+                    "townhall"
+            ) {
 
+                type =
+                    "government";
 
-    if (
-        tags.amenity === "fire_station"
-    ) {
+            }
 
-        return "fire";
 
-    }
+            /*
+             * Relief/community.
+             */
 
+            else if (
+                tags.amenity ===
+                    "social_centre" ||
 
-    if (
-        tags.office === "government" ||
-        tags.amenity === "townhall"
-    ) {
+                tags.amenity ===
+                    "community_centre" ||
 
-        return "government";
+                tags.amenity ===
+                    "shelter" ||
 
-    }
+                tags.amenity ===
+                    "food_bank"
+            ) {
 
+                type =
+                    "relief";
 
-    if (
-        tags.amenity === "shelter" ||
-        tags.amenity === "food_bank" ||
-        tags.amenity === "social_centre" ||
-        tags.amenity === "community_centre"
-    ) {
+            }
 
-        return "relief";
 
-    }
+            if (
+                !type
+            ) {
 
+                return;
 
-    return "government";
-}
+            }
 
 
-/* =========================================================
-   DEFAULT NAME
-   ========================================================= */
+            let lat =
+                Number(
+                    element.lat
+                );
 
-function getDefaultResourceName(
-    type
-) {
 
-    switch (
-        type
-    ) {
+            let lng =
+                Number(
+                    element.lon
+                );
 
-        case "hospital":
-            return "Hospital / Medical Center";
 
-        case "police":
-            return "Police Station";
+            /*
+             * Ways and relations use center.
+             */
 
-        case "fire":
-            return "Fire Station";
+            if (
+                !Number.isFinite(lat) ||
+                !Number.isFinite(lng)
+            ) {
 
-        case "government":
-            return "Government Office";
+                lat =
+                    Number(
+                        element.center?.lat
+                    );
 
-        case "relief":
-            return "Relief / Community Center";
+                lng =
+                    Number(
+                        element.center?.lon
+                    );
 
-        default:
-            return "Civic Resource";
+            }
 
-    }
 
-}
+            if (
+                !Number.isFinite(lat) ||
+                !Number.isFinite(lng)
+            ) {
 
+                return;
 
-/* =========================================================
-   RESOURCE ICON
-   ========================================================= */
+            }
 
-function getResourceIcon(
-    type
-) {
 
-    switch (
-        type
-    ) {
+            const distance =
+                userLocation
+                    ? calculateDistance(
+                        userLocation.lat,
+                        userLocation.lng,
+                        lat,
+                        lng
+                    )
+                    : 0;
 
-        case "hospital":
-            return "fa-hospital";
 
-        case "police":
-            return "fa-shield-halved";
+            const name =
+                tags.name ||
+                tags.official_name ||
+                tags.short_name ||
+                TYPE_CONFIG[type].label;
 
-        case "fire":
-            return "fa-fire-extinguisher";
 
-        case "government":
-            return "fa-building-columns";
+            const addressParts = [
 
-        case "relief":
-            return "fa-hand-holding-heart";
+                tags["addr:housenumber"],
 
-        default:
-            return "fa-location-dot";
+                tags["addr:street"],
 
-    }
+                tags["addr:suburb"],
 
-}
+                tags["addr:city"],
 
+                tags["addr:postcode"]
 
-/* =========================================================
-   ADDRESS
-   ========================================================= */
+            ]
+            .filter(
+                Boolean
+            );
 
-function buildAddress(
-    tags
-) {
 
-    const parts = [];
+            normalized.push({
 
+                id:
+                    `${element.type || "resource"}-${element.id || `${lat}-${lng}`}`,
 
-    if (
-        tags["addr:housenumber"]
-    ) {
+                name:
+                    String(name),
 
-        parts.push(
-            tags["addr:housenumber"]
-        );
+                type:
+                    type,
 
-    }
+                lat:
+                    lat,
 
+                lng:
+                    lng,
 
-    if (
-        tags["addr:street"]
-    ) {
+                address:
+                    addressParts.join(
+                        ", "
+                    ) ||
+                    "Address information unavailable",
 
-        parts.push(
-            tags["addr:street"]
-        );
+                phone:
+                    tags.phone ||
+                    tags["contact:phone"] ||
+                    tags["contact:mobile"] ||
+                    "",
 
-    }
+                website:
+                    tags.website ||
+                    tags["contact:website"] ||
+                    "",
 
+                openingHours:
+                    tags.opening_hours ||
+                    "",
 
-    if (
-        tags["addr:suburb"]
-    ) {
+                distance:
+                    distance
 
-        parts.push(
-            tags["addr:suburb"]
-        );
+            });
 
-    }
+        }
+    );
 
 
-    if (
-        tags["addr:city"]
-    ) {
-
-        parts.push(
-            tags["addr:city"]
-        );
-
-    }
-
-
-    if (
-        tags["addr:postcode"]
-    ) {
-
-        parts.push(
-            tags["addr:postcode"]
-        );
-
-    }
-
-
-    return parts.join(
-        ", "
+    return normalized.sort(
+        (
+            a,
+            b
+        ) =>
+            a.distance -
+            b.distance
     );
 
 }
 
 
 /* =========================================================
-   DUPLICATE REMOVAL
+   REMOVE DUPLICATES
    ========================================================= */
 
 function removeDuplicateResources(
-    resources
+    items
 ) {
 
     const seen =
         new Set();
 
 
-    return resources.filter(
-        resource => {
-
-            /*
-               Prefer OSM ID.
-            */
+    return items.filter(
+        item => {
 
             const key =
-                resource.id ||
-                `${resource.name}|${resource.lat.toFixed(5)}|${resource.lng.toFixed(5)}`;
+                item.id ||
+                `${item.name}-${item.lat.toFixed(5)}-${item.lng.toFixed(5)}`;
 
 
             if (
@@ -2283,27 +2160,33 @@ function removeDuplicateResources(
 
 
 /* =========================================================
-   RESOURCE LOADING UI
+   RESOURCE EMPTY STATE
    ========================================================= */
 
-function setResourceLoadingState(
+function showResourceEmptyState(
+    title,
     message
 ) {
 
     if (
-        resourceList
+        !resourceList
     ) {
 
-        resourceList.innerHTML =
-            `
+        return;
+
+    }
+
+
+    resourceList.innerHTML =
+        `
             <div class="empty-state">
 
                 <div class="empty-icon">
-                    <i class="fa-solid fa-spinner fa-spin"></i>
+                    <i class="fa-solid fa-map-location-dot"></i>
                 </div>
 
                 <h4>
-                    Finding nearby resources
+                    ${escapeHtml(title)}
                 </h4>
 
                 <p>
@@ -2311,9 +2194,7 @@ function setResourceLoadingState(
                 </p>
 
             </div>
-            `;
-
-    }
+        `;
 
 
     if (
@@ -2321,17 +2202,7 @@ function setResourceLoadingState(
     ) {
 
         resourceCount.textContent =
-            "…";
-
-    }
-
-
-    if (
-        mapStatus
-    ) {
-
-        mapStatus.textContent =
-            "Searching";
+            "0";
 
     }
 
@@ -2339,366 +2210,19 @@ function setResourceLoadingState(
 
 
 /* =========================================================
-   RESOURCE STATUS
+   RESOURCE MARKERS
    ========================================================= */
 
-function setResourceStatus(
-    message
-) {
-
-    if (
-        locationStatus
-    ) {
-
-        /*
-           Do not overwrite a successful GPS message with
-           resource status.
-
-           Only update map status here.
-        */
-
-    }
-
-
-    if (
-        mapStatus
-    ) {
-
-        mapStatus.textContent =
-            message;
-
-    }
-
-}
-
-
-/* =========================================================
-   OVERPASS
-========================================================= */
-
-async function fetchOverpassData(
-    lat,
-    lng,
-    radiusKm
-) {
-
-    const radius =
-        radiusKm * 1000;
-
-
-    const query = `
-
-        [out:json][timeout:20];
-
-        (
-
-            nwr[
-                amenity=hospital
-            ](
-                around:${radius},
-                ${lat},
-                ${lng}
-            );
-
-            nwr[
-                amenity=police
-            ](
-                around:${radius},
-                ${lat},
-                ${lng}
-            );
-
-            nwr[
-                amenity=fire_station
-            ](
-                around:${radius},
-                ${lat},
-                ${lng}
-            );
-
-            nwr[
-                office=government
-            ](
-                around:${radius},
-                ${lat},
-                ${lng}
-            );
-
-            nwr[
-                amenity=social_centre
-            ](
-                around:${radius},
-                ${lat},
-                ${lng}
-            );
-
-            nwr[
-                amenity=community_centre
-            ](
-                around:${radius},
-                ${lat},
-                ${lng}
-            );
-
-        );
-
-        out center tags;
-
-    `;
-
-
-    let lastError =
-        null;
-
-
-    for (
-        const endpoint of
-        RESOURCE_CONFIG.overpassEndpoints
-    ) {
-
-        try {
-
-            const response =
-                await fetch(
-                    endpoint,
-                    {
-
-                        method:
-                            "POST",
-
-                        headers:
-                            {
-                                "Content-Type":
-                                    "application/x-www-form-urlencoded"
-                            },
-
-                        body:
-                            "data=" +
-                            encodeURIComponent(
-                                query
-                            )
-
-                    }
-                );
-
-
-            if (
-                !response.ok
-            ) {
-
-                throw new Error(
-                    `Overpass HTTP ${response.status}`
-                );
-
-            }
-
-
-            return await response.json();
-
-        }
-
-        catch (
-            error
-        ) {
-
-            lastError =
-                error;
-
-        }
-
-    }
-
-
-    throw (
-        lastError ||
-        new Error(
-            "Resource API unavailable."
-        )
-    );
-
-}
-
-
-/* =========================================================
-   NORMALIZE RESOURCES
-========================================================= */
-
-function normalizeResources(
-    data
-) {
-
-    if (
-        !data ||
-        !Array.isArray(
-            data.elements
-        )
-    ) {
-
-        return [];
-
-    }
-
-
-    const normalized =
-        [];
-
-
-    data.elements.forEach(
-        element => {
-
-            const tags =
-                element.tags ||
-                {};
-
-
-            let type =
-                null;
-
-
-            if (
-                tags.amenity ===
-                "hospital"
-            ) {
-
-                type =
-                    "hospital";
-
-            }
-            else if (
-                tags.amenity ===
-                "police"
-            ) {
-
-                type =
-                    "police";
-
-            }
-            else if (
-                tags.amenity ===
-                "fire_station"
-            ) {
-
-                type =
-                    "fire";
-
-            }
-            else if (
-                tags.office ===
-                "government"
-            ) {
-
-                type =
-                    "government";
-
-            }
-            else if (
-                tags.amenity ===
-                    "social_centre" ||
-                tags.amenity ===
-                    "community_centre"
-            ) {
-
-                type =
-                    "relief";
-
-            }
-
-
-            if (!type) {
-
-                return;
-
-            }
-
-
-            const lat =
-                element.lat ??
-                element.center?.lat;
-
-
-            const lng =
-                element.lon ??
-                element.center?.lon;
-
-
-            if (
-                typeof lat !== "number" ||
-                typeof lng !== "number"
-            ) {
-
-                return;
-
-            }
-
-
-            normalized.push({
-
-                id:
-                    `${element.type}-${element.id}`,
-
-                name:
-                    tags.name ||
-                    TYPE_CONFIG[type].label,
-
-                type,
-
-                lat,
-
-                lng,
-
-                address:
-                    [
-                        tags["addr:housenumber"],
-                        tags["addr:street"],
-                        tags["addr:suburb"],
-                        tags["addr:city"]
-                    ]
-                    .filter(
-                        Boolean
-                    )
-                    .join(
-                        ", "
-                    )
-                    ||
-                    "Address information unavailable",
-
-                phone:
-                    tags.phone ||
-                    tags["contact:phone"] ||
-                    "",
-
-                website:
-                    tags.website ||
-                    "",
-
-                distance:
-                    calculateDistance(
-                        userLocation.lat,
-                        userLocation.lng,
-                        lat,
-                        lng
-                    )
-
-            });
-
-        }
-    );
-
-
-    return normalized.sort(
-        (a,b) =>
-            a.distance -
-            b.distance
-    );
-
-}
-
-
-/* =========================================================
-   MARKERS
-========================================================= */
-
 function renderMarkers() {
+
+    if (
+        !map
+    ) {
+
+        return;
+
+    }
+
 
     resourceMarkers.forEach(
         marker => {
@@ -2710,7 +2234,6 @@ function renderMarkers() {
                 );
 
             }
-
             catch {}
 
         }
@@ -2725,8 +2248,11 @@ function renderMarkers() {
         resource => {
 
             if (
-                currentFilter !== "all" &&
-                resource.type !== currentFilter
+                currentFilter !==
+                    "all" &&
+
+                resource.type !==
+                    currentFilter
             ) {
 
                 return;
@@ -2744,12 +2270,68 @@ function renderMarkers() {
             }
 
 
+            const config =
+                TYPE_CONFIG[
+                    resource.type
+                ];
+
+
+            const icon =
+                L.divIcon(
+                    {
+
+                        className:
+                            "resource-marker",
+
+                        html:
+                            `
+                                <div style="
+                                    width:34px;
+                                    height:34px;
+                                    border-radius:50%;
+                                    background:#07111f;
+                                    border:2px solid white;
+                                    display:flex;
+                                    align-items:center;
+                                    justify-content:center;
+                                    box-shadow:0 4px 15px rgba(0,0,0,.35);
+                                ">
+                                    <i
+                                        class="fa-solid ${config.icon}"
+                                        style="
+                                            font-size:15px;
+                                            color:white;
+                                        "
+                                    ></i>
+                                </div>
+                            `,
+
+                        iconSize:
+                            [
+                                34,
+                                34
+                            ],
+
+                        iconAnchor:
+                            [
+                                17,
+                                17
+                            ]
+
+                    }
+                );
+
+
             const marker =
                 L.marker(
                     [
                         resource.lat,
                         resource.lng
-                    ]
+                    ],
+                    {
+                        icon:
+                            icon
+                    }
                 )
                 .addTo(
                     map
@@ -2758,35 +2340,52 @@ function renderMarkers() {
 
             marker.bindPopup(
                 `
-                    <strong>
+                    <div>
+
+                        <strong>
+                            ${escapeHtml(
+                                resource.name
+                            )}
+                        </strong>
+
+                        <br>
+
                         ${escapeHtml(
-                            resource.name
+                            config.label
                         )}
-                    </strong>
 
-                    <br>
+                        <br>
 
-                    ${escapeHtml(
-                        TYPE_CONFIG[
-                            resource.type
-                        ].label
-                    )}
+                        ${formatDistance(
+                            resource.distance
+                        )}
 
-                    <br>
+                        ${
+                            resource.address
+                                ? `
+                                    <br><br>
+                                    ${escapeHtml(
+                                        resource.address
+                                    )}
+                                  `
+                                : ""
+                        }
 
-                    ${formatDistance(
-                        resource.distance
-                    )}
+                        <br><br>
 
-                    <br><br>
+                        <a
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+                                resource.lat +
+                                "," +
+                                resource.lng
+                            )}"
+                        >
+                            Get Directions
+                        </a>
 
-                    <a
-                        target="_blank"
-                        rel="noopener"
-                        href="https://www.google.com/maps/dir/?api=1&destination=${resource.lat},${resource.lng}"
-                    >
-                        Get Directions
-                    </a>
+                    </div>
                 `
             );
 
@@ -2803,22 +2402,38 @@ function renderMarkers() {
 
 /* =========================================================
    RESOURCE LIST
-========================================================= */
+   ========================================================= */
 
 function renderResources() {
+
+    if (
+        !resourceList
+    ) {
+
+        return;
+
+    }
+
 
     const filtered =
         resources.filter(
             resource => {
 
                 const typeOk =
-                    currentFilter === "all" ||
-                    resource.type === currentFilter;
+                    currentFilter ===
+                        "all" ||
+
+                    resource.type ===
+                        currentFilter;
 
 
                 const distanceOk =
-                    resource.distance <=
-                    currentRadius;
+                    Number(
+                        resource.distance
+                    ) <=
+                    Number(
+                        currentRadius
+                    );
 
 
                 return (
@@ -2830,35 +2445,24 @@ function renderResources() {
         );
 
 
-    resourceCount.textContent =
-        filtered.length;
+    if (
+        resourceCount
+    ) {
+
+        resourceCount.textContent =
+            filtered.length;
+
+    }
 
 
     if (
         !filtered.length
     ) {
 
-        resourceList.innerHTML =
-            `
-                <div class="empty-state">
-
-                    <div class="empty-icon">
-
-                        <i class="fa-solid fa-map-location-dot"></i>
-
-                    </div>
-
-                    <h4>
-                        No Resources Found
-                    </h4>
-
-                    <p>
-                        Try another category or
-                        increase the search radius.
-                    </p>
-
-                </div>
-            `;
+        showResourceEmptyState(
+            "No Resources Found",
+            "Try another category or increase the search radius."
+        );
 
         return;
 
@@ -2875,6 +2479,10 @@ function renderResources() {
 }
 
 
+/* =========================================================
+   RESOURCE CARD
+   ========================================================= */
+
 function createResourceCard(
     resource
 ) {
@@ -2890,7 +2498,7 @@ function createResourceCard(
             ? `
                 <a
                     class="resource-action"
-                    href="tel:${escapeHtml(
+                    href="tel:${encodeURIComponent(
                         resource.phone
                     )}"
                 >
@@ -2901,31 +2509,63 @@ function createResourceCard(
             : "";
 
 
-    const website =
+    let website =
+        "";
+
+
+    if (
         resource.website
-            ? `
+    ) {
+
+        let websiteUrl =
+            String(
+                resource.website
+            ).trim();
+
+
+        if (
+            !/^https?:\/\//i.test(
+                websiteUrl
+            )
+        ) {
+
+            websiteUrl =
+                "https://" +
+                websiteUrl;
+
+        }
+
+
+        website =
+            `
                 <a
                     class="resource-action"
                     href="${escapeHtml(
-                        resource.website
+                        websiteUrl
                     )}"
                     target="_blank"
-                    rel="noopener"
+                    rel="noopener noreferrer"
                 >
                     <i class="fa-solid fa-globe"></i>
                     Web
                 </a>
-            `
-            : "";
+            `;
+
+    }
 
 
     return `
+        <article
+            class="resource-item"
+        >
 
-        <article class="resource-item">
+            <div
+                class="resource-item-top"
+            >
 
-            <div class="resource-item-top">
-
-                <div class="resource-type-icon">
+                <div
+                    class="resource-type-icon"
+                >
 
                     <i
                         class="fa-solid ${config.icon}"
@@ -2942,7 +2582,9 @@ function createResourceCard(
                         )}
                     </h4>
 
-                    <div class="resource-type">
+                    <div
+                        class="resource-type"
+                    >
                         ${escapeHtml(
                             config.label
                         )}
@@ -2951,7 +2593,9 @@ function createResourceCard(
                 </div>
 
 
-                <span class="resource-distance">
+                <span
+                    class="resource-distance"
+                >
                     ${formatDistance(
                         resource.distance
                     )}
@@ -2960,9 +2604,13 @@ function createResourceCard(
             </div>
 
 
-            <div class="resource-address">
+            <div
+                class="resource-address"
+            >
 
-                <i class="fa-solid fa-location-dot"></i>
+                <i
+                    class="fa-solid fa-location-dot"
+                ></i>
 
                 ${escapeHtml(
                     resource.address
@@ -2971,16 +2619,24 @@ function createResourceCard(
             </div>
 
 
-            <div class="resource-actions">
+            <div
+                class="resource-actions"
+            >
 
                 <a
                     class="resource-action primary"
-                    href="https://www.google.com/maps/dir/?api=1&destination=${resource.lat},${resource.lng}"
+                    href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+                        resource.lat +
+                        "," +
+                        resource.lng
+                    )}"
                     target="_blank"
-                    rel="noopener"
+                    rel="noopener noreferrer"
                 >
 
-                    <i class="fa-solid fa-route"></i>
+                    <i
+                        class="fa-solid fa-route"
+                    ></i>
 
                     Directions
 
@@ -2989,12 +2645,12 @@ function createResourceCard(
 
                 ${phone}
 
+
                 ${website}
 
             </div>
 
         </article>
-
     `;
 
 }
@@ -3002,7 +2658,7 @@ function createResourceCard(
 
 /* =========================================================
    DISTANCE
-========================================================= */
+   ========================================================= */
 
 function calculateDistance(
     lat1,
@@ -3017,13 +2673,15 @@ function calculateDistance(
 
     const dLat =
         toRadians(
-            lat2 - lat1
+            lat2 -
+            lat1
         );
 
 
     const dLng =
         toRadians(
-            lon2 - lon1
+            lon2 -
+            lon1
         );
 
 
@@ -3035,13 +2693,21 @@ function calculateDistance(
         +
 
         Math.cos(
-            toRadians(lat1)
+            toRadians(
+                lat1
+            )
         )
+
         *
+
         Math.cos(
-            toRadians(lat2)
+            toRadians(
+                lat2
+            )
         )
+
         *
+
         Math.sin(
             dLng / 2
         ) ** 2;
@@ -3052,7 +2718,9 @@ function calculateDistance(
         2 *
         Math.atan2(
             Math.sqrt(a),
-            Math.sqrt(1-a)
+            Math.sqrt(
+                1 - a
+            )
         )
     );
 
@@ -3077,6 +2745,17 @@ function formatDistance(
 ) {
 
     if (
+        !Number.isFinite(
+            distance
+        )
+    ) {
+
+        return "—";
+
+    }
+
+
+    if (
         distance < 1
     ) {
 
@@ -3091,7 +2770,9 @@ function formatDistance(
 
 
     return (
-        distance.toFixed(1) +
+        distance.toFixed(
+            1
+        ) +
         " km"
     );
 
@@ -3100,7 +2781,7 @@ function formatDistance(
 
 /* =========================================================
    LOCATION CACHE
-========================================================= */
+   ========================================================= */
 
 function saveLocation(
     location
@@ -3113,7 +2794,8 @@ function saveLocation(
             JSON.stringify(
                 {
                     ...location,
-                    savedAt: Date.now()
+                    savedAt:
+                        Date.now()
                 }
             )
         );
@@ -3126,11 +2808,72 @@ function saveLocation(
 
 function loadSavedLocation() {
 
+    /*
+     * Do not automatically trust an old location.
+     *
+     * The user explicitly chooses "Use My Location".
+     */
+
     try {
 
-        localStorage.removeItem(
-            "chronicai_resource_location"
-        );
+        const raw =
+            localStorage.getItem(
+                "chronicai_resource_location"
+            );
+
+
+        if (
+            !raw
+        ) {
+
+            return;
+
+        }
+
+
+        const saved =
+            JSON.parse(
+                raw
+            );
+
+
+        if (
+            !saved ||
+            !Number.isFinite(
+                Number(saved.lat)
+            ) ||
+            !Number.isFinite(
+                Number(saved.lng)
+            )
+        ) {
+
+            return;
+
+        }
+
+
+        /*
+         * Only use the cache if it is recent.
+         */
+
+        if (
+            Date.now() -
+            Number(
+                saved.savedAt || 0
+            ) >
+            RESOURCE_CONFIG.savedLocationMaxAgeMs
+        ) {
+
+            return;
+
+        }
+
+
+        /*
+         * We intentionally don't automatically activate
+         * location from cache. This keeps the permission
+         * model clear.
+         */
 
     }
     catch {}
@@ -3140,7 +2883,7 @@ function loadSavedLocation() {
 
 /* =========================================================
    RESOURCE CACHE
-========================================================= */
+   ========================================================= */
 
 function saveResources(
     data
@@ -3171,7 +2914,9 @@ function loadCachedResources() {
             );
 
 
-        if (!raw) {
+        if (
+            !raw
+        ) {
 
             return [];
 
@@ -3184,7 +2929,9 @@ function loadCachedResources() {
             );
 
 
-        return Array.isArray(data)
+        return Array.isArray(
+            data
+        )
             ? data
             : [];
 
@@ -3200,7 +2947,7 @@ function loadCachedResources() {
 
 /* =========================================================
    AIR QUALITY
-========================================================= */
+   ========================================================= */
 
 async function loadAirQuality(
     latitude,
@@ -3208,8 +2955,12 @@ async function loadAirQuality(
 ) {
 
     if (
-        !Number.isFinite(latitude) ||
-        !Number.isFinite(longitude)
+        !Number.isFinite(
+            Number(latitude)
+        ) ||
+        !Number.isFinite(
+            Number(longitude)
+        )
     ) {
 
         return;
@@ -3223,9 +2974,11 @@ async function loadAirQuality(
     const params =
         new URLSearchParams({
 
-            latitude,
+            latitude:
+                String(latitude),
 
-            longitude,
+            longitude:
+                String(longitude),
 
             current:
                 [
@@ -3270,7 +3023,8 @@ async function loadAirQuality(
 
 
         const current =
-            data.current || {};
+            data.current ||
+            {};
 
 
         const values = {
@@ -3279,37 +3033,37 @@ async function loadAirQuality(
                 Number(
                     current.us_aqi ??
                     current.european_aqi ??
-                    0
+                    NaN
                 ),
 
             pm25:
                 Number(
                     current.pm2_5 ??
-                    0
+                    NaN
                 ),
 
             pm10:
                 Number(
                     current.pm10 ??
-                    0
+                    NaN
                 ),
 
             no2:
                 Number(
                     current.nitrogen_dioxide ??
-                    0
+                    NaN
                 ),
 
             o3:
                 Number(
                     current.ozone ??
-                    0
+                    NaN
                 ),
 
             co:
                 Number(
                     current.carbon_monoxide ??
-                    0
+                    NaN
                 )
 
         };
@@ -3320,10 +3074,12 @@ async function loadAirQuality(
         );
 
     }
-    catch (error) {
+    catch (
+        error
+    ) {
 
         console.error(
-            "Air quality error:",
+            "[ChronicAI] Air quality error:",
             error
         );
 
@@ -3337,11 +3093,13 @@ async function loadAirQuality(
 
 /* =========================================================
    AIR UI
-========================================================= */
+   ========================================================= */
 
 function setAirLoading() {
 
-    if (!airQualityStatus) {
+    if (
+        !airQualityStatus
+    ) {
 
         return;
 
@@ -3354,7 +3112,10 @@ function setAirLoading() {
 
     airQualityStatus.innerHTML =
         `
-            <span class="air-status-dot"></span>
+            <span
+                class="air-status-dot"
+            ></span>
+
             Loading
         `;
 
@@ -3363,7 +3124,9 @@ function setAirLoading() {
 
 function updateAirWaitingState() {
 
-    if (!airQualityStatus) {
+    if (
+        !airQualityStatus
+    ) {
 
         return;
 
@@ -3376,7 +3139,10 @@ function updateAirWaitingState() {
 
     airQualityStatus.innerHTML =
         `
-            <span class="air-status-dot"></span>
+            <span
+                class="air-status-dot"
+            ></span>
+
             Waiting
         `;
 
@@ -3385,21 +3151,39 @@ function updateAirWaitingState() {
 
 function setAirError() {
 
-    if (airQualityStatus) {
+    if (
+        airQualityStatus
+    ) {
 
         airQualityStatus.className =
             "air-quality-status poor";
 
+
         airQualityStatus.innerHTML =
             `
-                <span class="air-status-dot"></span>
+                <span
+                    class="air-status-dot"
+                ></span>
+
                 Unavailable
             `;
 
     }
 
 
-    if (aqiCondition) {
+    if (
+        aqiValue
+    ) {
+
+        aqiValue.textContent =
+            "—";
+
+    }
+
+
+    if (
+        aqiCondition
+    ) {
 
         aqiCondition.textContent =
             "Data unavailable";
@@ -3407,7 +3191,9 @@ function setAirError() {
     }
 
 
-    if (aqiDescription) {
+    if (
+        aqiDescription
+    ) {
 
         aqiDescription.textContent =
             "Air-quality data could not be loaded right now.";
@@ -3415,7 +3201,9 @@ function setAirError() {
     }
 
 
-    if (airQualityUpdated) {
+    if (
+        airQualityUpdated
+    ) {
 
         airQualityUpdated.textContent =
             "Air-quality update failed.";
@@ -3429,7 +3217,9 @@ function setAirMessage(
     message
 ) {
 
-    if (airQualityUpdated) {
+    if (
+        airQualityUpdated
+    ) {
 
         airQualityUpdated.textContent =
             message;
@@ -3441,7 +3231,7 @@ function setAirMessage(
 
 /* =========================================================
    AIR RENDER
-========================================================= */
+   ========================================================= */
 
 function renderAirQuality(
     values
@@ -3453,21 +3243,29 @@ function renderAirQuality(
         );
 
 
-    if (airQualityStatus) {
+    if (
+        airQualityStatus
+    ) {
 
         airQualityStatus.className =
             `air-quality-status ${category.className}`;
 
+
         airQualityStatus.innerHTML =
             `
-                <span class="air-status-dot"></span>
+                <span
+                    class="air-status-dot"
+                ></span>
+
                 ${category.label}
             `;
 
     }
 
 
-    if (aqiCircle) {
+    if (
+        aqiCircle
+    ) {
 
         aqiCircle.className =
             `aqi-circle ${category.className}`;
@@ -3475,15 +3273,25 @@ function renderAirQuality(
     }
 
 
-    if (aqiValue) {
+    if (
+        aqiValue
+    ) {
 
         aqiValue.textContent =
-            Math.round(values.aqi);
+            Number.isFinite(
+                values.aqi
+            )
+                ? Math.round(
+                    values.aqi
+                )
+                : "—";
 
     }
 
 
-    if (aqiCondition) {
+    if (
+        aqiCondition
+    ) {
 
         aqiCondition.textContent =
             category.label;
@@ -3491,7 +3299,9 @@ function renderAirQuality(
     }
 
 
-    if (aqiDescription) {
+    if (
+        aqiDescription
+    ) {
 
         aqiDescription.textContent =
             category.description;
@@ -3499,7 +3309,9 @@ function renderAirQuality(
     }
 
 
-    if (oxygenSafetyIcon) {
+    if (
+        oxygenSafetyIcon
+    ) {
 
         oxygenSafetyIcon.className =
             `oxygen-safety-icon ${category.className}`;
@@ -3507,7 +3319,9 @@ function renderAirQuality(
     }
 
 
-    if (oxygenSafetyLevel) {
+    if (
+        oxygenSafetyLevel
+    ) {
 
         oxygenSafetyLevel.textContent =
             category.safety;
@@ -3515,7 +3329,9 @@ function renderAirQuality(
     }
 
 
-    if (oxygenSafetyDescription) {
+    if (
+        oxygenSafetyDescription
+    ) {
 
         oxygenSafetyDescription.textContent =
             category.safetyText;
@@ -3523,47 +3339,69 @@ function renderAirQuality(
     }
 
 
-    if (pm25Value) {
+    if (
+        pm25Value
+    ) {
 
         pm25Value.textContent =
-            formatAirValue(values.pm25);
+            formatAirValue(
+                values.pm25
+            );
 
     }
 
 
-    if (pm10Value) {
+    if (
+        pm10Value
+    ) {
 
         pm10Value.textContent =
-            formatAirValue(values.pm10);
+            formatAirValue(
+                values.pm10
+            );
 
     }
 
 
-    if (no2Value) {
+    if (
+        no2Value
+    ) {
 
         no2Value.textContent =
-            formatAirValue(values.no2);
+            formatAirValue(
+                values.no2
+            );
 
     }
 
 
-    if (o3Value) {
+    if (
+        o3Value
+    ) {
 
         o3Value.textContent =
-            formatAirValue(values.o3);
+            formatAirValue(
+                values.o3
+            );
 
     }
 
 
-    if (coValue) {
+    if (
+        coValue
+    ) {
 
         coValue.textContent =
-            formatAirValue(values.co);
+            formatAirValue(
+                values.co
+            );
 
     }
 
 
-    if (airQualityUpdated) {
+    if (
+        airQualityUpdated
+    ) {
 
         airQualityUpdated.textContent =
             "Updated " +
@@ -3576,13 +3414,43 @@ function renderAirQuality(
 
 /* =========================================================
    AQI CATEGORY
-========================================================= */
+   ========================================================= */
 
 function getAQICategory(
     aqi
 ) {
 
-    if (aqi <= 50) {
+    if (
+        !Number.isFinite(
+            Number(aqi)
+        )
+    ) {
+
+        return {
+
+            className:
+                "poor",
+
+            label:
+                "Unavailable",
+
+            safety:
+                "Unavailable",
+
+            description:
+                "Air-quality data is unavailable.",
+
+            safetyText:
+                "This indicator is unavailable."
+
+        };
+
+    }
+
+
+    if (
+        aqi <= 50
+    ) {
 
         return {
 
@@ -3606,7 +3474,9 @@ function getAQICategory(
     }
 
 
-    if (aqi <= 100) {
+    if (
+        aqi <= 100
+    ) {
 
         return {
 
@@ -3630,7 +3500,9 @@ function getAQICategory(
     }
 
 
-    if (aqi <= 150) {
+    if (
+        aqi <= 150
+    ) {
 
         return {
 
@@ -3654,7 +3526,9 @@ function getAQICategory(
     }
 
 
-    if (aqi <= 200) {
+    if (
+        aqi <= 200
+    ) {
 
         return {
 
@@ -3705,7 +3579,9 @@ function formatAirValue(
 ) {
 
     if (
-        !Number.isFinite(value)
+        !Number.isFinite(
+            Number(value)
+        )
     ) {
 
         return "—";
@@ -3713,16 +3589,18 @@ function formatAirValue(
     }
 
 
-    return value < 10
-        ? value.toFixed(1)
-        : Math.round(value);
+    return Number(value) < 10
+        ? Number(value).toFixed(1)
+        : Math.round(
+            Number(value)
+        );
 
 }
 
 
 /* =========================================================
    POLLUTION TRACKER
-========================================================= */
+   ========================================================= */
 
 async function togglePollutionTracker() {
 
@@ -3750,12 +3628,22 @@ async function togglePollutionTracker() {
     );
 
 
-    if (!pollutionTrackerEnabled) {
+    if (
+        !pollutionTrackerEnabled
+    ) {
 
         clearPollutionZones();
 
-        mapStatus.textContent =
-            "Ready";
+
+        if (
+            mapStatus
+        ) {
+
+            mapStatus.textContent =
+                "Ready";
+
+        }
+
 
         return;
 
@@ -3767,21 +3655,36 @@ async function togglePollutionTracker() {
         userLocation;
 
 
-    if (!target) {
+    if (
+        !target
+    ) {
 
-        mapStatus.textContent =
-            "Choose a location first";
+        if (
+            mapStatus
+        ) {
+
+            mapStatus.textContent =
+                "Choose a location first";
+
+        }
+
 
         return;
 
     }
 
 
-    mapStatus.textContent =
-        `Loading ${pollutionRangeKm} km pollution zones...`;
-
-
     try {
+
+        if (
+            mapStatus
+        ) {
+
+            mapStatus.textContent =
+                `Loading ${pollutionRangeKm} km pollution zones...`;
+
+        }
+
 
         await loadPollutionZones(
             target.lat,
@@ -3789,20 +3692,34 @@ async function togglePollutionTracker() {
         );
 
 
-        mapStatus.textContent =
-            `Pollution ${pollutionRangeKm} km`;
+        if (
+            mapStatus
+        ) {
+
+            mapStatus.textContent =
+                `Pollution ${pollutionRangeKm} km`;
+
+        }
 
     }
-    catch (error) {
+    catch (
+        error
+    ) {
 
         console.error(
-            "Pollution tracker error:",
+            "[ChronicAI] Pollution tracker error:",
             error
         );
 
 
-        mapStatus.textContent =
-            "Pollution unavailable";
+        if (
+            mapStatus
+        ) {
+
+            mapStatus.textContent =
+                "Pollution unavailable";
+
+        }
 
     }
 
@@ -3811,7 +3728,7 @@ async function togglePollutionTracker() {
 
 /* =========================================================
    LOAD POLLUTION ZONES
-========================================================= */
+   ========================================================= */
 
 async function loadPollutionZones(
     centerLat,
@@ -3821,12 +3738,6 @@ async function loadPollutionZones(
     clearPollutionZones();
 
 
-    /*
-       This is intentionally a visual model layer.
-       1 km = local visual zone
-       5 km = wider visual zone
-    */
-
     const spread =
         pollutionRangeKm === 1
             ? 0.08
@@ -3835,17 +3746,50 @@ async function loadPollutionZones(
 
     const points = [
 
-        [centerLat + spread, centerLng - spread],
-        [centerLat + spread, centerLng],
-        [centerLat + spread, centerLng + spread],
+        [
+            centerLat + spread,
+            centerLng - spread
+        ],
 
-        [centerLat, centerLng - spread],
-        [centerLat, centerLng],
-        [centerLat, centerLng + spread],
+        [
+            centerLat + spread,
+            centerLng
+        ],
 
-        [centerLat - spread, centerLng - spread],
-        [centerLat - spread, centerLng],
-        [centerLat - spread, centerLng + spread]
+        [
+            centerLat + spread,
+            centerLng + spread
+        ],
+
+        [
+            centerLat,
+            centerLng - spread
+        ],
+
+        [
+            centerLat,
+            centerLng
+        ],
+
+        [
+            centerLat,
+            centerLng + spread
+        ],
+
+        [
+            centerLat - spread,
+            centerLng - spread
+        ],
+
+        [
+            centerLat - spread,
+            centerLng
+        ],
+
+        [
+            centerLat - spread,
+            centerLng + spread
+        ]
 
     ];
 
@@ -3901,7 +3845,9 @@ async function loadPollutionZones(
         );
 
 
-    if (!response.ok) {
+    if (
+        !response.ok
+    ) {
 
         throw new Error(
             `Pollution API HTTP ${response.status}`
@@ -3921,10 +3867,23 @@ async function loadPollutionZones(
 
 
     locations.forEach(
-        (item, index) => {
+        (
+            item,
+            index
+        ) => {
 
             const current =
-                item.current || {};
+                item.current ||
+                {};
+
+
+            const fallback =
+                points[
+                    index
+                ] ||
+                points[
+                    points.length - 1
+                ];
 
 
             const zone = {
@@ -3932,57 +3891,68 @@ async function loadPollutionZones(
                 lat:
                     Number(
                         item.latitude ??
-                        points[index][0]
+                        fallback[0]
                     ),
 
                 lng:
                     Number(
                         item.longitude ??
-                        points[index][1]
+                        fallback[1]
                     ),
 
                 aqi:
                     Number(
                         current.us_aqi ??
-                        0
+                        NaN
                     ),
 
                 pm25:
                     Number(
                         current.pm2_5 ??
-                        0
+                        NaN
                     ),
 
                 pm10:
                     Number(
                         current.pm10 ??
-                        0
+                        NaN
                     ),
 
                 no2:
                     Number(
                         current.nitrogen_dioxide ??
-                        0
+                        NaN
                     ),
 
                 o3:
                     Number(
                         current.ozone ??
-                        0
+                        NaN
                     ),
 
                 co:
                     Number(
                         current.carbon_monoxide ??
-                        0
+                        NaN
                     )
 
             };
 
 
-            drawPollutionZone(
-                zone
-            );
+            if (
+                Number.isFinite(
+                    zone.lat
+                ) &&
+                Number.isFinite(
+                    zone.lng
+                )
+            ) {
+
+                drawPollutionZone(
+                    zone
+                );
+
+            }
 
         }
     );
@@ -3991,12 +3961,21 @@ async function loadPollutionZones(
 
 
 /* =========================================================
-   DRAW POLLUTION CIRCLE
-========================================================= */
+   DRAW POLLUTION ZONE
+   ========================================================= */
 
 function drawPollutionZone(
     zone
 ) {
+
+    if (
+        !map
+    ) {
+
+        return;
+
+    }
+
 
     const category =
         getPollutionMapCategory(
@@ -4013,7 +3992,8 @@ function drawPollutionZone(
             {
 
                 radius:
-                    pollutionRangeKm * 1000,
+                    pollutionRangeKm *
+                    1000,
 
                 color:
                     category.color,
@@ -4022,10 +4002,10 @@ function drawPollutionZone(
                     category.color,
 
                 fillOpacity:
-                    .15,
+                    0.15,
 
                 opacity:
-                    .78,
+                    0.78,
 
                 weight:
                     1.5
@@ -4036,37 +4016,39 @@ function drawPollutionZone(
 
     circle.bindPopup(
         `
-
-            <div class="pollution-zone-popup">
+            <div
+                class="pollution-zone-popup"
+            >
 
                 <h4>
                     Pollution Zone
                 </h4>
 
-
                 <div>
-
                     AQI:
                     <strong>
-                        ${Math.round(
-                            zone.aqi
-                        )}
+                        ${
+                            Number.isFinite(
+                                zone.aqi
+                            )
+                                ? Math.round(
+                                    zone.aqi
+                                )
+                                : "—"
+                        }
                     </strong>
-
                 </div>
-
 
                 <div
                     class="pollution-condition"
                     style="color:${category.color}"
                 >
-
                     ${category.label}
-
                 </div>
 
-
-                <div class="pollution-popup-details">
+                <div
+                    class="pollution-popup-details"
+                >
 
                     Radius:
                     ${pollutionRangeKm} km
@@ -4118,7 +4100,6 @@ function drawPollutionZone(
                 </div>
 
             </div>
-
         `
     );
 
@@ -4136,14 +4117,35 @@ function drawPollutionZone(
 
 
 /* =========================================================
-   MAP CATEGORY
-========================================================= */
+   POLLUTION CATEGORY
+   ========================================================= */
 
 function getPollutionMapCategory(
     aqi
 ) {
 
-    if (aqi <= 50) {
+    if (
+        !Number.isFinite(
+            Number(aqi)
+        )
+    ) {
+
+        return {
+
+            label:
+                "Unavailable",
+
+            color:
+                "#64748b"
+
+        };
+
+    }
+
+
+    if (
+        aqi <= 50
+    ) {
 
         return {
 
@@ -4158,7 +4160,9 @@ function getPollutionMapCategory(
     }
 
 
-    if (aqi <= 100) {
+    if (
+        aqi <= 100
+    ) {
 
         return {
 
@@ -4188,7 +4192,7 @@ function getPollutionMapCategory(
 
 /* =========================================================
    CLEAR POLLUTION
-========================================================= */
+   ========================================================= */
 
 function clearPollutionZones() {
 
@@ -4197,7 +4201,7 @@ function clearPollutionZones() {
 
             try {
 
-                map.removeLayer(
+                map?.removeLayer(
                     layer
                 );
 
@@ -4215,18 +4219,21 @@ function clearPollutionZones() {
 
 
 /* =========================================================
-   EXPLORE POLLUTION BY LOCATION
-========================================================= */
+   SEARCH POLLUTION LOCATION
+   ========================================================= */
 
 async function searchPollutionLocation() {
 
     const query =
         String(
-            pollutionPlaceInput?.value || ""
+            pollutionPlaceInput?.value ||
+            ""
         ).trim();
 
 
-    if (!query) {
+    if (
+        !query
+    ) {
 
         setPollutionLocationStatus(
             "Enter a city or area first.",
@@ -4238,8 +4245,14 @@ async function searchPollutionLocation() {
     }
 
 
-    pollutionPlaceSearchBtn.disabled =
-        true;
+    if (
+        pollutionPlaceSearchBtn
+    ) {
+
+        pollutionPlaceSearchBtn.disabled =
+            true;
+
+    }
 
 
     setPollutionLocationStatus(
@@ -4248,26 +4261,39 @@ async function searchPollutionLocation() {
     );
 
 
-    pollutionLocationResult.innerHTML =
-        `
-            <div class="pollution-location-empty">
+    if (
+        pollutionLocationResult
+    ) {
 
-                <div class="pollution-location-empty-icon">
+        pollutionLocationResult.innerHTML =
+            `
+                <div
+                    class="pollution-location-empty"
+                >
 
-                    <i class="fa-solid fa-spinner fa-spin"></i>
+                    <div
+                        class="pollution-location-empty-icon"
+                    >
+
+                        <i
+                            class="fa-solid fa-spinner fa-spin"
+                        ></i>
+
+                    </div>
+
+                    <h3>
+                        Searching...
+                    </h3>
+
+                    <p>
+                        Finding the location and
+                        loading pollution data.
+                    </p>
 
                 </div>
+            `;
 
-                <h3>
-                    Searching...
-                </h3>
-
-                <p>
-                    Finding the location and loading pollution data.
-                </p>
-
-            </div>
-        `;
+    }
 
 
     try {
@@ -4278,7 +4304,9 @@ async function searchPollutionLocation() {
             );
 
 
-        if (!place) {
+        if (
+            !place
+        ) {
 
             throw new Error(
                 "Location not found."
@@ -4297,6 +4325,18 @@ async function searchPollutionLocation() {
             Number(
                 place.lon
             );
+
+
+        if (
+            !Number.isFinite(lat) ||
+            !Number.isFinite(lng)
+        ) {
+
+            throw new Error(
+                "Invalid location returned."
+            );
+
+        }
 
 
         const air =
@@ -4336,33 +4376,49 @@ async function searchPollutionLocation() {
         );
 
     }
-    catch (error) {
+    catch (
+        error
+    ) {
 
         console.error(
+            "[ChronicAI] Pollution search error:",
             error
         );
 
 
-        pollutionLocationResult.innerHTML =
-            `
-                <div class="pollution-location-empty">
+        if (
+            pollutionLocationResult
+        ) {
 
-                    <div class="pollution-location-empty-icon">
+            pollutionLocationResult.innerHTML =
+                `
+                    <div
+                        class="pollution-location-empty"
+                    >
 
-                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <div
+                            class="pollution-location-empty-icon"
+                        >
+
+                            <i
+                                class="fa-solid fa-triangle-exclamation"
+                            ></i>
+
+                        </div>
+
+                        <h3>
+                            Could not load pollution
+                        </h3>
+
+                        <p>
+                            Try another city,
+                            town or area name.
+                        </p>
 
                     </div>
+                `;
 
-                    <h3>
-                        Could not load pollution
-                    </h3>
-
-                    <p>
-                        Try another city, town or area name.
-                    </p>
-
-                </div>
-            `;
+        }
 
 
         setPollutionLocationStatus(
@@ -4374,8 +4430,14 @@ async function searchPollutionLocation() {
     }
     finally {
 
-        pollutionPlaceSearchBtn.disabled =
-            false;
+        if (
+            pollutionPlaceSearchBtn
+        ) {
+
+            pollutionPlaceSearchBtn.disabled =
+                false;
+
+        }
 
     }
 
@@ -4384,7 +4446,7 @@ async function searchPollutionLocation() {
 
 /* =========================================================
    GEOCODE
-========================================================= */
+   ========================================================= */
 
 async function geocodePlace(
     query
@@ -4407,7 +4469,8 @@ async function geocodePlace(
 
     const response =
         await fetch(
-            "https://nominatim.openstreetmap.org/search?" +
+            RESOURCE_CONFIG.geocodeApi +
+            "?" +
             params.toString(),
             {
 
@@ -4421,7 +4484,9 @@ async function geocodePlace(
         );
 
 
-    if (!response.ok) {
+    if (
+        !response.ok
+    ) {
 
         throw new Error(
             `Location search HTTP ${response.status}`
@@ -4451,7 +4516,7 @@ async function geocodePlace(
 
 /* =========================================================
    AIR FOR SEARCHED LOCATION
-========================================================= */
+   ========================================================= */
 
 async function fetchAirForPlace(
     latitude,
@@ -4461,9 +4526,11 @@ async function fetchAirForPlace(
     const params =
         new URLSearchParams({
 
-            latitude,
+            latitude:
+                String(latitude),
 
-            longitude,
+            longitude:
+                String(longitude),
 
             current:
                 [
@@ -4490,7 +4557,9 @@ async function fetchAirForPlace(
         );
 
 
-    if (!response.ok) {
+    if (
+        !response.ok
+    ) {
 
         throw new Error(
             `Air quality HTTP ${response.status}`
@@ -4504,7 +4573,8 @@ async function fetchAirForPlace(
 
 
     const current =
-        data.current || {};
+        data.current ||
+        {};
 
 
     return {
@@ -4513,37 +4583,37 @@ async function fetchAirForPlace(
             Number(
                 current.us_aqi ??
                 current.european_aqi ??
-                0
+                NaN
             ),
 
         pm25:
             Number(
                 current.pm2_5 ??
-                0
+                NaN
             ),
 
         pm10:
             Number(
                 current.pm10 ??
-                0
+                NaN
             ),
 
         no2:
             Number(
                 current.nitrogen_dioxide ??
-                0
+                NaN
             ),
 
         o3:
             Number(
                 current.ozone ??
-                0
+                NaN
             ),
 
         co:
             Number(
                 current.carbon_monoxide ??
-                0
+                NaN
             )
 
     };
@@ -4552,12 +4622,21 @@ async function fetchAirForPlace(
 
 
 /* =========================================================
-   RESULT
-========================================================= */
+   POLLUTION SEARCH RESULT
+   ========================================================= */
 
 function renderPollutionLocationResult(
     location
 ) {
+
+    if (
+        !pollutionLocationResult
+    ) {
+
+        return;
+
+    }
+
 
     const air =
         location.air;
@@ -4571,44 +4650,35 @@ function renderPollutionLocationResult(
 
     pollutionLocationResult.innerHTML =
         `
+            <div
+                class="pollution-place-result"
+            >
 
-            <div class="pollution-place-result">
-
-
-                <!-- SUMMARY -->
-
-                <div class="pollution-place-summary">
+                <div
+                    class="pollution-place-summary"
+                >
 
                     <h3
                         class="pollution-place-name"
                     >
-
                         ${escapeHtml(
                             location.name
                         )}
-
                     </h3>
-
 
                     <div
                         class="pollution-place-address"
                     >
-
                         ${escapeHtml(
                             location.displayName
                         )}
-
                     </div>
-
 
                     <div
                         class="pollution-place-condition ${category.className}"
                     >
-
                         ${category.label}
-
                     </div>
-
 
                     <div
                         class="pollution-place-aqi"
@@ -4617,13 +4687,18 @@ function renderPollutionLocationResult(
                         AQI
 
                         <strong>
-                            ${Math.round(
-                                air.aqi
-                            )}
+                            ${
+                                Number.isFinite(
+                                    air.aqi
+                                )
+                                    ? Math.round(
+                                        air.aqi
+                                    )
+                                    : "—"
+                            }
                         </strong>
 
                     </div>
-
 
                     <button
                         type="button"
@@ -4631,7 +4706,9 @@ function renderPollutionLocationResult(
                         class="pollution-map-place-btn"
                     >
 
-                        <i class="fa-solid fa-map-location-dot"></i>
+                        <i
+                            class="fa-solid fa-map-location-dot"
+                        ></i>
 
                         Show on Map
 
@@ -4640,119 +4717,51 @@ function renderPollutionLocationResult(
                 </div>
 
 
-
-                <!-- VALUES -->
-
-                <div class="pollution-place-values">
+                <div
+                    class="pollution-place-values"
+                >
 
                     <div
                         class="pollution-place-values-grid"
                     >
 
+                        ${createPollutionValue(
+                            "PM2.5",
+                            air.pm25
+                        )}
 
-                        <div class="pollution-place-value">
+                        ${createPollutionValue(
+                            "PM10",
+                            air.pm10
+                        )}
 
-                            <span>
-                                PM2.5
-                            </span>
+                        ${createPollutionValue(
+                            "NO₂",
+                            air.no2
+                        )}
 
-                            <strong>
-                                ${formatAirValue(
-                                    air.pm25
-                                )}
-                            </strong>
+                        ${createPollutionValue(
+                            "O₃",
+                            air.o3
+                        )}
 
-                            <small>
-                                µg/m³
-                            </small>
+                        ${createPollutionValue(
+                            "CO",
+                            air.co
+                        )}
 
-                        </div>
-
-
-                        <div class="pollution-place-value">
-
-                            <span>
-                                PM10
-                            </span>
-
-                            <strong>
-                                ${formatAirValue(
-                                    air.pm10
-                                )}
-                            </strong>
-
-                            <small>
-                                µg/m³
-                            </small>
-
-                        </div>
-
-
-                        <div class="pollution-place-value">
-
-                            <span>
-                                NO₂
-                            </span>
-
-                            <strong>
-                                ${formatAirValue(
-                                    air.no2
-                                )}
-                            </strong>
-
-                            <small>
-                                µg/m³
-                            </small>
-
-                        </div>
-
-
-                        <div class="pollution-place-value">
-
-                            <span>
-                                O₃
-                            </span>
-
-                            <strong>
-                                ${formatAirValue(
-                                    air.o3
-                                )}
-                            </strong>
-
-                            <small>
-                                µg/m³
-                            </small>
-
-                        </div>
-
-
-                        <div class="pollution-place-value">
-
-                            <span>
-                                CO
-                            </span>
-
-                            <strong>
-                                ${formatAirValue(
-                                    air.co
-                                )}
-                            </strong>
-
-                            <small>
-                                µg/m³
-                            </small>
-
-                        </div>
-
-
-                        <div class="pollution-place-value">
+                        <div
+                            class="pollution-place-value"
+                        >
 
                             <span>
                                 Safety
                             </span>
 
                             <strong>
-                                ${category.safety}
+                                ${escapeHtml(
+                                    category.safety
+                                )}
                             </strong>
 
                             <small>
@@ -4766,7 +4775,6 @@ function renderPollutionLocationResult(
                 </div>
 
             </div>
-
         `;
 
 
@@ -4782,14 +4790,47 @@ function renderPollutionLocationResult(
 }
 
 
+function createPollutionValue(
+    label,
+    value
+) {
+
+    return `
+        <div
+            class="pollution-place-value"
+        >
+
+            <span>
+                ${escapeHtml(
+                    label
+                )}
+            </span>
+
+            <strong>
+                ${formatAirValue(
+                    value
+                )}
+            </strong>
+
+            <small>
+                µg/m³
+            </small>
+
+        </div>
+    `;
+
+}
+
+
 /* =========================================================
-   SHOW SEARCHED LOCATION ON MAP
-========================================================= */
+   SHOW SEARCHED LOCATION
+   ========================================================= */
 
 async function showSearchedPollutionOnMap() {
 
     if (
-        !searchedPollutionLocation
+        !searchedPollutionLocation ||
+        !map
     ) {
 
         return;
@@ -4813,10 +4854,6 @@ async function showSearchedPollutionOnMap() {
         }
     );
 
-
-    /*
-       Remove old searched location marker.
-    */
 
     clearSearchedMarker();
 
@@ -4843,10 +4880,16 @@ async function showSearchedPollutionOnMap() {
                     `,
 
                 iconSize:
-                    [20,20],
+                    [
+                        20,
+                        20
+                    ],
 
                 iconAnchor:
-                    [10,10]
+                    [
+                        10,
+                        10
+                    ]
 
             }
         );
@@ -4860,7 +4903,8 @@ async function showSearchedPollutionOnMap() {
             ],
             {
 
-                icon,
+                icon:
+                    icon,
 
                 zIndexOffset:
                     4000
@@ -4881,9 +4925,15 @@ async function showSearchedPollutionOnMap() {
                 <br><br>
 
                 AQI:
-                ${Math.round(
-                    location.air.aqi
-                )}
+                ${
+                    Number.isFinite(
+                        location.air.aqi
+                    )
+                        ? Math.round(
+                            location.air.aqi
+                        )
+                        : "—"
+                }
 
                 <br>
 
@@ -4896,10 +4946,6 @@ async function showSearchedPollutionOnMap() {
         )
         .openPopup();
 
-
-    /*
-       Automatically enable pollution tracker.
-    */
 
     pollutionTrackerEnabled =
         true;
@@ -4921,15 +4967,17 @@ async function showSearchedPollutionOnMap() {
     );
 
 
-    /*
-       Draw pollution circles around searched place.
-    */
-
-    mapStatus.textContent =
-        `Loading ${pollutionRangeKm} km pollution...`;
-
-
     try {
+
+        if (
+            mapStatus
+        ) {
+
+            mapStatus.textContent =
+                `Loading ${pollutionRangeKm} km pollution...`;
+
+        }
+
 
         await loadPollutionZones(
             location.lat,
@@ -4937,19 +4985,34 @@ async function showSearchedPollutionOnMap() {
         );
 
 
-        mapStatus.textContent =
-            `Pollution map — ${location.name}`;
+        if (
+            mapStatus
+        ) {
+
+            mapStatus.textContent =
+                `Pollution map — ${location.name}`;
+
+        }
 
     }
-    catch (error) {
+    catch (
+        error
+    ) {
 
         console.error(
+            "[ChronicAI] Pollution map error:",
             error
         );
 
 
-        mapStatus.textContent =
-            "Pollution map unavailable";
+        if (
+            mapStatus
+        ) {
+
+            mapStatus.textContent =
+                "Pollution map unavailable";
+
+        }
 
     }
 
@@ -4958,7 +5021,7 @@ async function showSearchedPollutionOnMap() {
 
 /* =========================================================
    CLEAR SEARCHED MARKER
-========================================================= */
+   ========================================================= */
 
 function clearSearchedMarker() {
 
@@ -4968,12 +5031,13 @@ function clearSearchedMarker() {
 
         try {
 
-            map.removeLayer(
+            map?.removeLayer(
                 searchedLocationMarker
             );
 
         }
         catch {}
+
 
         searchedLocationMarker =
             null;
@@ -4984,8 +5048,8 @@ function clearSearchedMarker() {
 
 
 /* =========================================================
-   SEARCH STATUS
-========================================================= */
+   POLLUTION SEARCH STATUS
+   ========================================================= */
 
 function setPollutionLocationStatus(
     message,
@@ -5036,8 +5100,8 @@ function setPollutionLocationStatus(
 
 
 /* =========================================================
-   AUTO REFRESH
-========================================================= */
+   AUTO AIR QUALITY REFRESH
+   ========================================================= */
 
 setInterval(
     () => {
@@ -5047,7 +5111,9 @@ setInterval(
             userLocation;
 
 
-        if (!target) {
+        if (
+            !target
+        ) {
 
             return;
 
@@ -5078,7 +5144,7 @@ setInterval(
 
 /* =========================================================
    ESCAPE HTML
-========================================================= */
+   ========================================================= */
 
 function escapeHtml(
     value
@@ -5092,7 +5158,8 @@ function escapeHtml(
 
     div.textContent =
         String(
-            value ?? ""
+            value ??
+            ""
         );
 
 
